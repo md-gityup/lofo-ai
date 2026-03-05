@@ -1,0 +1,2515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOFO.AI — Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --navy: #1A1A2E;
+    --cream: #F5F2EC;
+    --bg: #EAE6DE;
+    --muted: #9A9488;
+    --border: #E0DBD1;
+    --tag-bg: #EAE8F2;
+    --rust: #C17A4A;
+    --rust-light: #F5EDE3;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  /* PHONE SHELL */
+  .device {
+    width: 393px;
+    height: 852px;
+    background: #fff;
+    border-radius: 54px;
+    overflow: hidden;
+    position: relative;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.08),
+      0 24px 60px rgba(25,25,45,0.18),
+      0 8px 24px rgba(25,25,45,0.10);
+  }
+
+  /* Dynamic Island */
+  .dynamic-island {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 36px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 999;
+    pointer-events: none;
+    transition: width 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+                height 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+                border-radius 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  /* Island content — hidden by default, shown on expand */
+  .island-content {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    opacity: 0;
+    transition: opacity 0.2s ease 0.15s;
+    padding: 0 12px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .dynamic-island.expanded .island-content {
+    opacity: 1;
+  }
+  .dynamic-island.expanded {
+    width: 240px;
+    height: 44px;
+    border-radius: 24px;
+  }
+  .island-dot {
+    width: 7px;
+    height: 7px;
+    background: #4ADE80;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px rgba(74,222,128,0.8);
+    animation: islandPip 2s ease-in-out infinite;
+  }
+  @keyframes islandPip {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .island-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: -0.1px;
+  }
+  .island-text em {
+    font-style: normal;
+    color: rgba(255,255,255,0.45);
+    font-size: 12px;
+    margin-left: 2px;
+  }
+
+  /* ── SCREEN TRANSITIONS ── */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    will-change: transform, opacity;
+    background: #fff;
+    /* No default transition — JS applies inline transitions per-direction */
+  }
+  .screen.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateX(0) !important;
+  }
+
+  /* Push forward: incoming from right */
+  .screen.enter-right {
+    transform: translateX(100%);
+    transition: transform 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                opacity 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  /* Push forward: outgoing to left (parallax) */
+  .screen.exit-left {
+    transform: translateX(-28%);
+    opacity: 0.4;
+    pointer-events: none;
+    transition: transform 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                opacity 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  /* Pop back: incoming from left */
+  .screen.enter-left {
+    transform: translateX(-28%);
+    opacity: 0.4;
+    transition: transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                opacity 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  /* Pop back: outgoing to right */
+  .screen.exit-right {
+    transform: translateX(100%);
+    pointer-events: none;
+    transition: transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                opacity 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  /* Modal: slide up from bottom */
+  .screen.enter-up {
+    transform: translateY(100%);
+    transition: transform 0.46s cubic-bezier(0.32, 0.72, 0, 1),
+                opacity 0.46s ease;
+  }
+  /* Modal dismiss: slide down */
+  .screen.exit-down {
+    transform: translateY(100%);
+    opacity: 0.6;
+    pointer-events: none;
+    transition: transform 0.36s cubic-bezier(0.32, 0.72, 0, 1),
+                opacity 0.36s ease;
+  }
+
+  /* ── AI PROCESSING OVERLAY ── */
+  .ai-overlay {
+    position: absolute;
+    inset: 0;
+    background: #0A0A18;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .ai-overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .ai-spinner {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.08);
+    border-top-color: rgba(255,255,255,0.7);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ai-overlay-text {
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.01em;
+  }
+  .ai-overlay-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,0.2);
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    animation: textCycle 1.8s ease-in-out infinite;
+  }
+  @keyframes textCycle {
+    0%,100% { opacity: 0.3; }
+    50% { opacity: 0.7; }
+  }
+
+  /* ── STAGGER ENTRY ANIMATIONS ── */
+  /* Elements with .s-item get staggered on screen entry */
+  .s-item {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: none;
+  }
+  .s-item.s-ready {
+    animation: staggerUp 0.52s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+  }
+  @keyframes staggerUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  /* Pop variant for icons/emojis */
+  .s-pop {
+    opacity: 0;
+    transform: scale(0.6);
+    transition: none;
+  }
+  .s-pop.s-ready {
+    animation: staggerPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  @keyframes staggerPop {
+    to { opacity: 1; transform: scale(1); }
+  }
+  /* Check dots stagger */
+  .s-check {
+    opacity: 0;
+    transform: scale(0.5) translateX(-6px);
+    transition: none;
+  }
+  .s-check.s-ready {
+    animation: staggerCheck 0.4s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+  }
+  @keyframes staggerCheck {
+    to { opacity: 1; transform: scale(1) translateX(0); }
+  }
+
+  /* ── BUTTON SPRING ── */
+  .btn-dark, .btn-outline, .btn-full, .btn-white, .shutter-btn, .tip-btn, .option-card {
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity 0.15s ease,
+                background 0.15s ease,
+                border-color 0.15s ease !important;
+  }
+  .btn-dark:active, .btn-full:active { transform: scale(0.96) !important; opacity: 0.9; }
+  .btn-outline:active { transform: scale(0.97) !important; background: var(--cream); }
+  .btn-white:active { transform: scale(0.97) !important; opacity: 0.88; }
+  .shutter-btn:active { transform: scale(0.88) !important; }
+  .tip-btn:active { transform: scale(0.93) !important; }
+
+  /* ── SHUTTER FLASH ── */
+  .shutter-flash {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+  }
+  .shutter-flash.flash {
+    animation: cameraFlash 0.35s ease-out forwards;
+  }
+  @keyframes cameraFlash {
+    0% { opacity: 0.9; }
+    100% { opacity: 0; }
+  }
+
+  /* STATUS BAR */
+  .status {
+    height: 52px;
+    padding: 18px 28px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .status-time { font-size: 16px; font-weight: 500; color: var(--navy); letter-spacing: -0.3px; }
+  .status-icons { display: flex; gap: 5px; align-items: center; }
+  .status-icons span { font-size: 14px; color: var(--navy); opacity: 0.7; }
+
+  /* CONTENT AREA */
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 28px 40px;
+    overflow: hidden;
+  }
+
+  /* WORDMARK */
+  .wordmark {
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    color: var(--navy);
+    text-transform: uppercase;
+  }
+
+  /* BACK BUTTON */
+  .back-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .back-btn:active { opacity: 0.6; }
+
+  /* BUTTONS */
+  .btn-dark {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 18px;
+    padding: 20px 22px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: opacity 0.15s, transform 0.1s;
+    width: 100%;
+    text-align: left;
+  }
+  .btn-dark:active { opacity: 0.84; transform: scale(0.98); }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--navy);
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: 20px 22px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.15s;
+    width: 100%;
+    text-align: left;
+  }
+  .btn-outline:active { background: var(--cream); transform: scale(0.98); }
+
+  .btn-full {
+    width: 100%;
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 16px;
+    padding: 19px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    margin-top: auto;
+  }
+  .btn-full:active { opacity: 0.84; transform: scale(0.99); }
+
+  .btn-white {
+    width: 100%;
+    background: #fff;
+    color: var(--navy);
+    border: none;
+    border-radius: 16px;
+    padding: 19px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-white:active { opacity: 0.88; }
+
+  .btn-label { display: flex; flex-direction: column; gap: 3px; }
+  .btn-main { font-size: 15px; font-weight: 400; }
+  .btn-hint { font-size: 11px; opacity: 0.4; font-weight: 300; }
+  .btn-arrow { font-size: 17px; opacity: 0.3; }
+
+  /* ─────────────────────────────────────────
+     SCREEN 1: HOME
+  ───────────────────────────────────────── */
+  #screen-home {
+    background: var(--cream);
+  }
+  #screen-home .status {
+    background: var(--cream);
+  }
+  #screen-home .wordmark {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: var(--rust);
+  }
+  #screen-home .head {
+    margin-top: 32px;
+    margin-bottom: auto;
+  }
+  #screen-home h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 52px;
+    line-height: 0.98;
+    color: var(--navy);
+    margin-bottom: 0;
+    letter-spacing: -1px;
+  }
+  #screen-home h1 em {
+    font-style: italic;
+    color: var(--rust);
+  }
+  #screen-home .rule {
+    width: 40px;
+    height: 1.5px;
+    background: var(--rust);
+    opacity: 0.35;
+    margin: 20px 0 18px;
+  }
+  #screen-home .sub {
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  #screen-home .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    margin-top: auto;
+  }
+  #screen-home .btn-dark {
+    background: var(--navy);
+    border-radius: 20px;
+    padding: 22px 22px;
+  }
+  #screen-home .btn-outline {
+    border-radius: 20px;
+    padding: 22px 22px;
+    border-color: var(--border);
+    background: #fff;
+  }
+  #screen-home .btn-hint {
+    color: rgba(255,255,255,0.6);
+    opacity: 1;
+  }
+  #screen-home .btn-outline .btn-hint {
+    color: var(--muted);
+    opacity: 0.7;
+  }
+  #screen-home .footer {
+    margin-top: 22px;
+    text-align: center;
+    font-size: 11px;
+    color: #B8B4AC;
+    font-weight: 300;
+    letter-spacing: 0.02em;
+  }
+  .footer-dot {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    background: #4ADE80;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    box-shadow: 0 0 5px rgba(74,222,128,0.5);
+  }
+
+  /* ─────────────────────────────────────────
+     SCREEN 2: FINDER CAMERA
+  ───────────────────────────────────────── */
+  #screen-finder-camera {
+    background: #0D0D1A;
+  }
+  #screen-finder-camera .status {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 20;
+    background: transparent;
+    padding-top: 18px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  #screen-finder-camera .status-time { color: rgba(255,255,255,0.7); }
+
+  /* Simulated camera feed - gradient that feels like a real scene */
+  .camera-view {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background:
+      radial-gradient(ellipse at 60% 35%, rgba(80,70,55,0.9) 0%, transparent 55%),
+      radial-gradient(ellipse at 20% 70%, rgba(40,50,60,0.8) 0%, transparent 50%),
+      linear-gradient(165deg, #1C1810 0%, #0A0C14 50%, #141008 100%);
+  }
+
+  /* Subtle film grain overlay */
+  .camera-view::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)' opacity='0.06'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Corner brackets — PLANTA scale, fills most of the viewfinder */
+  .camera-corners {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -62%);
+    width: 300px;
+    height: 300px;
+    z-index: 5;
+  }
+  .camera-corners::before, .camera-corners::after,
+  .camera-corners span::before, .camera-corners span::after {
+    content: '';
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    border-color: rgba(255,255,255,0.7);
+    border-style: solid;
+  }
+  .camera-corners::before  { top: 0; left: 0;   border-width: 2.5px 0 0 2.5px; border-radius: 5px 0 0 0; }
+  .camera-corners::after   { top: 0; right: 0;  border-width: 2.5px 2.5px 0 0; border-radius: 0 5px 0 0; }
+  .camera-corners span::before { bottom: 0; left: 0;  border-width: 0 0 2.5px 2.5px; border-radius: 0 0 0 5px; }
+  .camera-corners span::after  { bottom: 0; right: 0; border-width: 0 2.5px 2.5px 0; border-radius: 0 0 5px 0; }
+
+  /* Big PLANTA-style overlaid serif text */
+  .camera-overlay-text {
+    position: absolute;
+    top: calc(50% - 36px);
+    left: 0; right: 0;
+    transform: translateY(-50%);
+    text-align: center;
+    z-index: 5;
+    padding: 0 32px;
+  }
+  .camera-overlay-text h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 35px;
+    line-height: 1.05;
+    color: rgba(255,255,255,0.88);
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.5);
+    margin-bottom: 6px;
+  }
+  .camera-overlay-text h2 em {
+    font-style: italic;
+    color: rgba(255,255,255,0.55);
+  }
+  .camera-overlay-sub {
+    font-size: 13px;
+    color: rgba(255,255,255,0.38);
+    font-weight: 300;
+    letter-spacing: 0.04em;
+  }
+
+  /* Scan line on the subject */
+  .scan-container { display: none; }
+
+  /* ── BOTTOM CONTROL PANEL (PLANTA style) ── */
+  .camera-controls {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    z-index: 20;
+    background: rgba(8, 8, 16, 0.72);
+    backdrop-filter: blur(28px) saturate(1.4);
+    -webkit-backdrop-filter: blur(28px) saturate(1.4);
+    border-top: 1px solid rgba(255,255,255,0.07);
+    padding: 24px 36px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  /* Geo row in control panel */
+  .camera-geo-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: rgba(255,255,255,0.45);
+    font-size: 12px;
+    font-weight: 300;
+    letter-spacing: 0.03em;
+  }
+  .geo-dot {
+    width: 6px; height: 6px;
+    background: #4ADE80;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px rgba(74,222,128,0.7);
+  }
+
+  /* Shutter row */
+  .shutter-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    position: relative;
+  }
+
+  /* Back button — translucent pill, top-left in panel */
+  .cam-back-btn {
+    position: absolute;
+    left: 0;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 9px 16px;
+    color: rgba(255,255,255,0.6);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 300;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    letter-spacing: 0.01em;
+  }
+  .cam-back-btn:active { background: rgba(255,255,255,0.16); transform: scale(0.96); }
+
+  /* Shutter button */
+  .shutter-btn {
+    width: 78px;
+    height: 78px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.96);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,0.2),
+      0 0 0 8px rgba(255,255,255,0.06),
+      0 8px 32px rgba(0,0,0,0.5);
+  }
+  .shutter-btn:active { transform: scale(0.88) !important; }
+  .shutter-inner {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px solid rgba(0,0,0,0.1);
+    background: #fff;
+  }
+
+  /* ─────────────────────────────────────────
+     SCREEN 3: FINDER DONE
+  ───────────────────────────────────────── */
+  #screen-finder-done {
+    background: var(--cream);
+  }
+  .done-icon {
+    width: 52px;
+    height: 52px;
+    background: #E6F5ED;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 24px;
+    margin-top: 36px;
+    color: #3A9E6A;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .done-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 42px;
+    color: var(--navy);
+    line-height: 1.0;
+    letter-spacing: -0.5px;
+    margin-bottom: 0;
+  }
+  .done-title em {
+    font-style: italic;
+    color: var(--rust);
+  }
+  .done-rule {
+    width: 32px;
+    height: 1.5px;
+    background: var(--rust);
+    opacity: 0.35;
+    margin: 16px 0 14px;
+  }
+  .done-sub {
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.65;
+    margin-bottom: 28px;
+  }
+  .item-card {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .item-thumb {
+    width: 52px;
+    height: 52px;
+    background: var(--cream);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    flex-shrink: 0;
+  }
+  .item-name { font-size: 14px; font-weight: 500; color: var(--navy); margin-bottom: 3px; }
+  .item-meta { font-size: 12px; color: var(--muted); font-weight: 300; }
+  .tags {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .tag {
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--navy);
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-weight: 400;
+  }
+
+  /* ─────────────────────────────────────────
+     SCREEN 4: LOST PROMPT
+  ───────────────────────────────────────── */
+  #screen-lost-prompt {
+    background: var(--cream);
+  }
+  .prompt-eyebrow {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 300;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 36px;
+    margin-bottom: 16px;
+  }
+  .prompt-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 42px;
+    color: var(--navy);
+    line-height: 1.0;
+    letter-spacing: -0.5px;
+    margin-bottom: 0;
+  }
+  .prompt-title em {
+    font-style: italic;
+    color: var(--rust);
+  }
+  .prompt-rule {
+    width: 32px;
+    height: 1.5px;
+    background: var(--rust);
+    opacity: 0.35;
+    margin: 16px 0 20px;
+  }
+  .prompt-input {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    color: var(--navy);
+    width: 100%;
+    resize: none;
+    height: 130px;
+    line-height: 1.65;
+    font-weight: 300;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .prompt-input:focus { border-color: var(--navy); }
+  .prompt-input::placeholder { color: #C5C2BA; }
+  .prompt-chips {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: auto;
+  }
+  .chip {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 7px 13px;
+    font-size: 12px;
+    color: var(--navy);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 400;
+  }
+
+  /* ─────────────────────────────────────────
+     SCREEN 5: WAITING
+  ───────────────────────────────────────── */
+  #screen-waiting {
+    background: var(--cream);
+  }
+  #screen-waiting .content { align-items: center; }
+  .pulse-wrap {
+    width: 130px;
+    height: 130px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 44px auto 36px;
+  }
+  .pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 1.5px solid var(--navy);
+    opacity: 0.08;
+    animation: pulseRing 2.6s ease-out infinite;
+  }
+  .pulse-ring:nth-child(2) { animation-delay: 0.87s; }
+  .pulse-ring:nth-child(3) { animation-delay: 1.73s; }
+  @keyframes pulseRing {
+    0% { transform: scale(0.4); opacity: 0.14; }
+    100% { transform: scale(2.1); opacity: 0; }
+  }
+  .pulse-center {
+    width: 68px;
+    height: 68px;
+    background: var(--navy);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    position: relative;
+    z-index: 1;
+    animation: pulseCenter 2.6s ease-in-out infinite;
+  }
+  @keyframes pulseCenter {
+    0%,100% { box-shadow: 0 0 0 0 rgba(25,25,45,0.18); }
+    50% { box-shadow: 0 0 0 12px rgba(25,25,45,0); }
+  }
+  .waiting-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 38px;
+    color: var(--navy);
+    text-align: center;
+    line-height: 1.05;
+    letter-spacing: -0.5px;
+    margin-bottom: 0;
+  }
+  .waiting-title em {
+    font-style: italic;
+    color: var(--rust);
+  }
+  .waiting-rule {
+    width: 32px;
+    height: 1.5px;
+    background: var(--rust);
+    opacity: 0.35;
+    margin: 14px auto 14px;
+  }
+  .waiting-sub {
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 300;
+    text-align: center;
+    line-height: 1.65;
+    margin-bottom: 28px;
+    max-width: 260px;
+  }
+  .status-pills { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .status-pill {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 13px 16px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+  .status-pill strong { color: var(--navy); font-weight: 500; }
+
+  /* ─────────────────────────────────────────
+     SCREEN 6: MATCH FOUND
+  ───────────────────────────────────────── */
+  .match-banner {
+    background: var(--navy);
+    padding: 56px 28px 24px;
+    flex-shrink: 0;
+  }
+  .match-banner .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 10px;
+  }
+  .match-banner h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 42px;
+    color: #fff;
+    line-height: 1.0;
+    letter-spacing: -0.5px;
+  }
+  .match-banner h2 em {
+    font-style: italic;
+    color: rgba(255,255,255,0.55);
+  }
+  .confidence-bar {
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .bar-track {
+    flex: 1;
+    height: 2px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    width: 0%;
+    background: rgba(255,255,255,0.7);
+    border-radius: 2px;
+    transition: width 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.3s;
+  }
+  .bar-label { font-size: 12px; color: rgba(255,255,255,0.35); white-space: nowrap; }
+
+  #screen-match .content { padding-top: 0; overflow-y: auto; }
+  .match-card {
+    background: var(--cream);
+    border-radius: 18px;
+    padding: 16px;
+    margin-top: 20px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .match-reasons {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .reason {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+  .check-dot {
+    width: 20px;
+    height: 20px;
+    background: var(--navy);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+  .match-actions {
+    margin-top: auto;
+    padding-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ghost-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    padding: 6px;
+    text-align: center;
+  }
+  .ghost-btn:active { opacity: 0.6; }
+
+  /* ─────────────────────────────────────────
+     SCREEN 7: HANDOFF
+  ───────────────────────────────────────── */
+  #screen-handoff {
+    background: var(--cream);
+  }
+  .handoff-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 38px;
+    color: var(--navy);
+    line-height: 1.0;
+    letter-spacing: -0.5px;
+    margin-top: 32px;
+    margin-bottom: 0;
+  }
+  .handoff-title em {
+    font-style: italic;
+    color: var(--rust);
+  }
+  .handoff-rule {
+    width: 32px;
+    height: 1.5px;
+    background: var(--rust);
+    opacity: 0.35;
+    margin: 14px 0 6px;
+  }
+  .handoff-sub {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 300;
+    margin-bottom: 24px;
+  }
+  .option-card {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.15s;
+  }
+  .option-card:active, .option-card.selected {
+    border-color: var(--navy);
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--navy);
+  }
+  .option-icon {
+    width: 46px;
+    height: 46px;
+    background: var(--cream);
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .option-text { flex: 1; }
+  .option-title { font-size: 14px; font-weight: 500; color: var(--navy); margin-bottom: 3px; }
+  .option-desc { font-size: 12px; color: var(--muted); font-weight: 300; }
+  .option-price { font-size: 13px; color: var(--navy); font-weight: 500; }
+
+  /* ─────────────────────────────────────────
+     SCREEN 8: REUNION
+  ───────────────────────────────────────── */
+  #screen-reunion {
+    background: var(--navy);
+  }
+  #screen-reunion .status-time { color: rgba(255,255,255,0.25); }
+  .reunion-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 28px 44px;
+    text-align: center;
+  }
+  .reunion-icon {
+    margin-bottom: 28px;
+    animation: pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes pop {
+    0% { transform: scale(0.3); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .reunion-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 42px;
+    color: #fff;
+    line-height: 1.0;
+    letter-spacing: -0.5px;
+    margin-bottom: 0;
+  }
+  .reunion-title em {
+    font-style: italic;
+    color: rgba(255,255,255,0.5);
+  }
+  .reunion-rule {
+    width: 32px;
+    height: 1.5px;
+    background: rgba(255,255,255,0.2);
+    margin: 16px auto 14px;
+  }
+  .reunion-sub {
+    font-size: 14px;
+    color: rgba(255,255,255,0.38);
+    font-weight: 300;
+    line-height: 1.65;
+    margin-bottom: 36px;
+    max-width: 260px;
+  }
+  .tip-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px;
+    padding: 22px;
+    width: 100%;
+    margin-bottom: 14px;
+  }
+  .tip-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.25);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 14px;
+  }
+  .tip-amounts {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .tip-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.07);
+    border: 1.5px solid transparent;
+    border-radius: 13px;
+    padding: 13px 8px;
+    color: rgba(255,255,255,0.7);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tip-btn.selected, .tip-btn:active {
+    background: rgba(255,255,255,0.13);
+    border-color: rgba(255,255,255,0.22);
+    color: #fff;
+  }
+  .tip-charity {
+    font-size: 12px;
+    color: rgba(255,255,255,0.25);
+    cursor: pointer;
+  }
+  .tip-charity u { color: rgba(255,255,255,0.45); }
+  .skip-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.2);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    padding: 14px 0 0;
+    font-weight: 300;
+  }
+
+  /* ─────────────────────────────────────────
+     SCREEN 9: THANK YOU SENT
+  ───────────────────────────────────────── */
+  #screen-thanks {
+    background: var(--navy);
+  }
+  .thanks-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+    text-align: center;
+    gap: 0;
+  }
+  .thanks-circle {
+    width: 88px;
+    height: 88px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    animation: pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    margin-bottom: 28px;
+  }
+  .thanks-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 42px;
+    color: #fff;
+    line-height: 1.0;
+    letter-spacing: -0.5px;
+    margin-bottom: 0;
+  }
+  .thanks-title em {
+    font-style: italic;
+    color: rgba(255,255,255,0.5);
+  }
+  .thanks-rule {
+    width: 32px;
+    height: 1.5px;
+    background: rgba(255,255,255,0.2);
+    margin: 16px auto 14px;
+  }
+  .thanks-sub {
+    font-size: 14px;
+    color: rgba(255,255,255,0.38);
+    font-weight: 300;
+    line-height: 1.65;
+    max-width: 250px;
+    margin-bottom: 36px;
+  }
+  .thanks-footer {
+    font-size: 12px;
+    color: rgba(255,255,255,0.15);
+    font-weight: 300;
+    margin-top: 20px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ─────────────────────────────────────────
+     SCREEN 3b: PHONE NUMBER
+  ───────────────────────────────────────── */
+  #screen-phone {
+    background: var(--cream);
+  }
+  .phone-icon {
+    width: 56px;
+    height: 56px;
+    background: var(--rust-light);
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    margin-bottom: 24px;
+    margin-top: 36px;
+  }
+  .phone-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 34px;
+    color: var(--navy);
+    line-height: 1.1;
+    margin-bottom: 10px;
+  }
+  .phone-sub {
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.65;
+    margin-bottom: 36px;
+  }
+  .phone-input-wrap {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: 0 18px;
+    gap: 10px;
+    transition: border-color 0.15s;
+    margin-bottom: 12px;
+  }
+  .phone-input-wrap:focus-within {
+    border-color: var(--navy);
+  }
+  .phone-flag {
+    font-size: 22px;
+    flex-shrink: 0;
+    padding: 18px 0;
+    border-right: 1px solid var(--border);
+    padding-right: 12px;
+  }
+  .phone-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--navy);
+    padding: 18px 0;
+    letter-spacing: 0.04em;
+  }
+  .phone-input::placeholder {
+    color: #C8C4BC;
+    font-weight: 300;
+  }
+  .phone-privacy {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.6;
+    text-align: center;
+    padding: 0 16px;
+    margin-bottom: auto;
+  }
+  .phone-privacy span {
+    color: var(--rust);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ─────────────────────────────────────────
+     SCREEN 3c: SMS VERIFY
+  ───────────────────────────────────────── */
+  #screen-verify {
+    background: var(--cream);
+  }
+  .verify-icon {
+    width: 56px;
+    height: 56px;
+    background: var(--rust-light);
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    margin-bottom: 24px;
+    margin-top: 36px;
+  }
+  .verify-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 34px;
+    color: var(--navy);
+    line-height: 1.1;
+    margin-bottom: 10px;
+  }
+  .verify-sub {
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.65;
+    margin-bottom: 36px;
+  }
+  .verify-sub strong {
+    color: var(--navy);
+    font-weight: 500;
+  }
+  .otp-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 28px;
+  }
+  .otp-box {
+    width: 52px;
+    height: 62px;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    color: var(--navy);
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .otp-box.filled {
+    border-color: var(--navy);
+    animation: otpPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes otpPop {
+    0% { transform: scale(0.92); }
+    100% { transform: scale(1); }
+  }
+  .otp-box.active {
+    border-color: var(--rust);
+    box-shadow: 0 0 0 3px var(--rust-light);
+  }
+  .resend-row {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 300;
+    margin-bottom: auto;
+  }
+  .resend-row span {
+    color: var(--rust);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ─────────────────────────────────────────
+     SCREEN 3d: ALL SET
+  ───────────────────────────────────────── */
+  #screen-allset {
+    background: var(--cream);
+  }
+  .allset-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 28px 48px;
+  }
+  .allset-checkmark {
+    width: 52px;
+    height: 52px;
+    background: #E8F5EE;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-top: 48px;
+    margin-bottom: 28px;
+  }
+  .allset-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 44px;
+    line-height: 1.0;
+    color: var(--navy);
+    letter-spacing: -0.5px;
+    margin-bottom: 0;
+  }
+  .allset-title em {
+    font-style: italic;
+    color: var(--rust);
+  }
+  .allset-rule {
+    width: 32px;
+    height: 1.5px;
+    background: var(--rust);
+    opacity: 0.35;
+    margin: 18px 0 16px;
+  }
+  .allset-sub {
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.7;
+    margin-bottom: 32px;
+  }
+  .allset-card {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .allset-card-icon {
+    width: 44px;
+    height: 44px;
+    background: var(--rust-light);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .allset-card-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--navy);
+    margin-bottom: 3px;
+  }
+  .allset-card-desc {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.5;
+  }
+
+  /* ─────────────────────────────────────────
+     SPLASH SCREEN
+  ───────────────────────────────────────── */
+  #screen-splash {
+    background: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  .splash-logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 64px;
+    color: var(--navy);
+    letter-spacing: -2px;
+    line-height: 1;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: splashIn 0.6s cubic-bezier(0.34, 1.2, 0.64, 1) 0.2s forwards;
+  }
+  @keyframes splashIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─────────────────────────────────────────
+     DESKTOP HINT
+    margin-top: 20px;
+    font-size: 11px;
+    color: #BBBAB5;
+    font-weight: 300;
+    text-align: center;
+    max-width: 393px;
+  }
+
+  /* ─────────────────────────────────────────
+     PHASE 6 ADDITIONS
+  ───────────────────────────────────────── */
+
+  /* Ownership verify screen */
+  #screen-ownership-verify {
+    background: var(--cream);
+  }
+
+  /* Attempt dots for verify failures */
+  .att-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .att-dot.used { background: #C0392B; }
+
+  /* Secret detail label + input */
+  .secret-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: block;
+    margin-top: 20px;
+  }
+  .secret-input {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: 16px 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    color: var(--navy);
+    width: 100%;
+    font-weight: 300;
+    outline: none;
+    transition: border-color 0.15s;
+    margin-bottom: 8px;
+  }
+  .secret-input:focus { border-color: var(--navy); }
+  .secret-input::placeholder { color: #C5C2BA; }
+  .secret-hint {
+    background: var(--rust-light);
+    border-radius: 12px;
+    padding: 11px 14px;
+    font-size: 12px;
+    color: var(--rust);
+    font-weight: 400;
+    line-height: 1.55;
+    margin-bottom: 4px;
+  }
+
+  /* Global loading overlay */
+  #global-overlay {
+    position: absolute; inset: 0;
+    background: rgba(10,10,24,0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 150;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  #global-overlay.visible { opacity: 1; pointer-events: all; }
+  #global-overlay-text {
+    font-family: 'DM Serif Display', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: rgba(255,255,255,0.6);
+  }
+
+  /* Error toast */
+  #error-toast {
+    position: absolute;
+    bottom: 32px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    z-index: 200;
+    background: #2A0D0D; color: #FFB3B3;
+    border: 1px solid rgba(255,100,100,0.2);
+    border-radius: 20px; padding: 11px 18px;
+    font-size: 13px; max-width: 320px;
+    text-align: center;
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  #error-toast.visible { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;align-items:center">
+<div class="device">
+
+  <!-- Dynamic Island -->
+  <div class="dynamic-island" id="dynamic-island">
+    <div class="island-content" id="island-content"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 1: HOME
+  ═══════════════════════════════════════ -->
+  <div class="screen active" id="screen-home">
+    <div class="status">
+      <span class="status-time">9:41</span>
+      <div class="status-icons"><span>●●●</span></div>
+    </div>
+    <div class="content">
+      <span class="wordmark">LOFO</span>
+      <div class="head">
+        <h1>Lost<br>something?<br><em>Found<br>something?</em></h1>
+        <div class="rule"></div>
+        <p class="sub">Ten seconds.<br>That's all it takes.</p>
+      </div>
+      <div class="actions">
+        <button class="btn-dark" onclick="go('finder-camera')">
+          <div class="btn-label">
+            <span class="btn-main">I found something</span>
+            <span class="btn-hint">Snap a photo, done</span>
+          </div>
+          <span class="btn-arrow">→</span>
+        </button>
+        <button class="btn-outline" onclick="go('lost-prompt')">
+          <div class="btn-label">
+            <span class="btn-main">I lost something</span>
+            <span class="btn-hint">Describe it, we'll look</span>
+          </div>
+          <span class="btn-arrow">→</span>
+        </button>
+      </div>
+      <div class="footer">
+        <span class="footer-dot"></span>247 items returned this week
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 2: FINDER CAMERA
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-finder-camera">
+    <!-- Status bar -->
+    <div class="status">
+      <span class="status-time">9:41</span>
+      <div class="status-icons"><span style="color:rgba(255,255,255,0.5)">●●●</span></div>
+    </div>
+
+    <!-- Full-bleed camera view -->
+    <div class="camera-view">
+
+      <!-- Overlay serif text à la PLANTA -->
+      <div class="camera-overlay-text">
+        <h2>Point at what<br><em>you found.</em></h2>
+        <div class="camera-overlay-sub">AI will read it automatically</div>
+      </div>
+
+      <!-- Corner brackets -->
+      <div class="camera-corners"><span></span></div>
+
+      <!-- Scan line inside bracket area -->
+      <div class="scan-container">
+        <div class="scan-line"></div>
+      </div>
+
+    </div>
+
+    <!-- Frosted glass bottom control panel -->
+    <div class="camera-controls">
+      <div class="camera-geo-row">
+        <div class="geo-dot"></div>
+        Lincoln Park · Chicago
+      </div>
+      <div class="shutter-row">
+        <button class="cam-back-btn" onclick="go('home')">← Back</button>
+        <button class="shutter-btn" onclick="triggerShutter()">
+          <div class="shutter-inner"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Flash + AI overlay -->
+    <div class="shutter-flash" id="shutter-flash"></div>
+    <div class="ai-overlay" id="ai-overlay">
+      <div class="ai-spinner"></div>
+      <div class="ai-overlay-text">Reading your photo…</div>
+      <div class="ai-overlay-sub">Extracting item profile</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 3: FINDER DONE (Posted)
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-finder-done">
+    <div class="status">
+      <span class="status-time">9:41</span>
+    </div>
+    <div class="content">
+      <div class="done-icon s-pop" data-delay="0">✓</div>
+      <div class="done-title s-item" data-delay="80">Nice one.<br><em>We've got it.</em></div>
+      <div class="done-rule s-item" data-delay="130"></div>
+      <div class="done-sub s-item" data-delay="160">We're scanning for a match now. You'll hear from us the moment someone claims this as theirs.</div>
+      <div class="item-card s-item" data-delay="220">
+        <div class="item-thumb">👜</div>
+        <div>
+          <div class="item-name">Brown leather handbag</div>
+          <div class="item-meta">Lincoln Park · just now</div>
+        </div>
+      </div>
+      <div class="tags s-item" data-delay="280">
+        <span class="tag">Brown</span>
+        <span class="tag">Leather</span>
+        <span class="tag">Handbag</span>
+        <span class="tag">Gold clasp</span>
+        <span class="tag">Medium</span>
+      </div>
+      <button class="btn-full s-item" data-delay="340" onclick="go('phone')">Continue →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 3b: PHONE NUMBER
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-phone">
+    <div class="status">
+      <button class="back-btn" onclick="go('finder-done')">← Back</button>
+      <span class="status-time">9:41</span>
+    </div>
+    <div class="content">
+      <div class="phone-icon s-pop" data-delay="0">📲</div>
+      <div class="phone-title s-item" data-delay="80">Where should<br>we reach you?</div>
+      <div class="phone-sub s-item" data-delay="140">If someone claims this item, we'll text you to coordinate the handoff. No account needed.</div>
+      <div class="phone-input-wrap s-item" data-delay="200">
+        <div class="phone-flag">🇺🇸</div>
+        <input class="phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
+      </div>
+      <div class="phone-privacy s-item" data-delay="260">Your number is hashed immediately and never stored in plain text. <span>Privacy policy</span></div>
+      <button class="btn-full s-item" data-delay="320" style="margin-top: 32px" onclick="go('verify')">Send code →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 3c: SMS VERIFY
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-verify">
+    <div class="status">
+      <button class="back-btn" onclick="go('phone')">← Back</button>
+      <span class="status-time">9:41</span>
+    </div>
+    <div class="content">
+      <div class="verify-icon s-pop" data-delay="0">💬</div>
+      <div class="verify-title s-item" data-delay="80">Check your<br>messages.</div>
+      <div class="verify-sub s-item" data-delay="140">We sent a 4-digit code to <strong>(555) 000-0000</strong>. Enter it below.</div>
+      <div class="otp-row s-item" data-delay="200">
+        <div class="otp-box filled">3</div>
+        <div class="otp-box filled">7</div>
+        <div class="otp-box filled">4</div>
+        <div class="otp-box active">·</div>
+      </div>
+      <div class="resend-row s-item" data-delay="260">Didn't get it? <span>Resend code</span></div>
+
+      <!-- Demo branch — two outcomes -->
+      <div class="s-item" data-delay="320" style="margin-top:auto; display:flex; flex-direction:column; gap:10px;">
+        <div style="text-align:center; font-size:11px; color:var(--muted); font-weight:300; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:4px;">Demo: choose outcome</div>
+        <button class="btn-full" style="margin-top:0; background:var(--navy);" onclick="go('allset')">No match yet — notify me →</button>
+        <button class="btn-full" style="margin-top:0; background:var(--rust);" onclick="go('match','finder')">Instant match found! →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 3d: ALL SET
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-allset">
+    <div class="status">
+      <span class="status-time">9:41</span>
+      <div class="status-icons"><span>●●●</span></div>
+    </div>
+    <div class="allset-body">
+      <div class="allset-checkmark s-pop" data-delay="0">✓</div>
+      <div class="allset-title s-item" data-delay="80">You're all set.<br><em>Good find.</em></div>
+      <div class="allset-rule s-item" data-delay="140"></div>
+      <div class="allset-sub s-item" data-delay="180">We're scanning for a match. The moment someone claims this item is theirs, we'll text you to coordinate the return.</div>
+      <div class="allset-card s-item" data-delay="260">
+        <div class="allset-card-icon">📲</div>
+        <div>
+          <div class="allset-card-title">You'll hear from us</div>
+          <div class="allset-card-desc">A text to (555) 000-0000 as soon as there's a verified match.</div>
+        </div>
+      </div>
+      <button class="btn-full s-item" data-delay="340" style="margin-top:auto;" onclick="go('home')">Done</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 4: LOST PROMPT
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-lost-prompt">
+    <div class="status">
+      <button class="back-btn" onclick="go('home')">← Back</button>
+      <span class="status-time">9:41</span>
+    </div>
+    <div class="content">
+      <div class="prompt-eyebrow s-item" data-delay="0">Lost something</div>
+      <div class="prompt-title s-item" data-delay="60">What<br><em>happened?</em></div>
+      <div class="prompt-rule s-item" data-delay="110"></div>
+      <textarea id="lost-description" class="prompt-input s-item" data-delay="160" placeholder="Describe what you lost, where and when…"></textarea>
+      <div class="prompt-chips s-item" data-delay="220">
+        <div class="chip">📍 Add location</div>
+        <div class="chip">🕑 Add time</div>
+      </div>
+      <label class="secret-label s-item" data-delay="250">🔐 Secret detail only you'd know *</label>
+      <input id="lost-secret" class="secret-input s-item" data-delay="260" type="text" placeholder="e.g. crescent scratch on back, sticker inside, inscription">
+      <div class="secret-hint s-item" data-delay="270">This proves you own it. Pick one detail only you'd know — an inscription, what's inside, a unique mark.</div>
+      <button class="btn-full s-item" data-delay="300" style="margin-top:24px" onclick="submitLost()">Start looking →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 5: WAITING
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-waiting">
+    <div class="status">
+      <span class="status-time">9:41</span>
+      <span class="wordmark" style="font-size:13px">LOFO</span>
+    </div>
+    <div class="content">
+      <div class="pulse-wrap s-pop" data-delay="0">
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+        <div class="pulse-ring"></div>
+        <div class="pulse-center">🔍</div>
+      </div>
+      <div class="waiting-title s-item" data-delay="100">Looking for<br><em>your bag.</em></div>
+      <div class="waiting-rule s-item" data-delay="150"></div>
+      <div class="waiting-sub s-item" data-delay="190">Scanning nearby finds. You'll feel your phone the moment we have something.</div>
+      <div class="status-pills">
+        <div class="status-pill s-item" data-delay="250"><span>📍</span><span>Within <strong>0.5 mi</strong> of Lincoln Park</span></div>
+        <div class="status-pill s-item" data-delay="310"><span>🕑</span><span>Time window: <strong>Today, 1–4 PM</strong></span></div>
+        <div class="status-pill s-item" data-delay="370"><span>✦</span><span>Checking <strong>14 nearby finds</strong></span></div>
+      </div>
+      <button class="btn-full s-item" data-delay="430" onclick="go('match','loser')">Simulate match found →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 6: MATCH FOUND
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-match">
+    <div class="match-banner s-item" data-delay="0">
+      <div class="eyebrow" id="match-eyebrow">Match found</div>
+      <h2 id="match-headline">We found<br><em>your bag.</em></h2>
+      <div class="confidence-bar">
+        <div class="bar-track"><div class="bar-fill" id="conf-bar"></div></div>
+        <span class="bar-label">91% confidence</span>
+      </div>
+    </div>
+    <div class="content">
+      <div class="match-card s-item" data-delay="180">
+        <div class="item-thumb">👜</div>
+        <div>
+          <div class="item-name">Brown leather handbag</div>
+          <div class="item-meta" id="match-item-meta">Found at Lincoln Park · 0.3 mi away · 14 min ago</div>
+        </div>
+      </div>
+      <div class="match-reasons" id="match-reasons"></div>
+      <div class="match-actions">
+        <button class="btn-full s-item" id="match-cta" data-delay="540" style="margin-top:0" onclick="go('handoff')">This is mine — get it back →</button>
+        <button class="ghost-btn s-item" id="match-ghost" data-delay="600" onclick="go('home')">Not my item</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 6b: OWNERSHIP VERIFY
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-ownership-verify">
+    <div class="status">
+      <button class="back-btn" onclick="go('match')">← Back</button>
+      <span class="status-time">9:41</span>
+    </div>
+    <div class="content">
+      <div class="phone-icon s-pop" data-delay="0">🔐</div>
+      <div class="phone-title s-item" data-delay="80">Prove it's<br>yours.</div>
+      <div class="phone-sub s-item" data-delay="140">Enter the secret detail you registered when you described your lost item. Only the real owner would know this.</div>
+      <input
+        id="ownership-secret-input"
+        class="secret-input s-item"
+        data-delay="200"
+        type="text"
+        placeholder="Enter the detail only you know"
+      >
+      <div class="s-item" data-delay="240" style="display:flex;gap:8px;margin:4px 0 8px;">
+        <div class="att-dot" id="att-0"></div>
+        <div class="att-dot" id="att-1"></div>
+        <div class="att-dot" id="att-2"></div>
+      </div>
+      <div id="ownership-error" style="font-size:13px;color:#C0392B;display:none;margin-bottom:4px;font-weight:400;line-height:1.5;"></div>
+      <button
+        class="btn-full s-item"
+        data-delay="280"
+        id="ownership-verify-btn"
+        style="margin-top:32px"
+        onclick="submitOwnershipVerify()"
+      >Verify ownership →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 7: HANDOFF
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-handoff">
+    <div class="status">
+      <button class="back-btn" onclick="go(matchContext === 'loser' ? 'ownership-verify' : 'match')">← Back</button>
+      <span class="status-time">9:41</span>
+    </div>
+    <div class="content">
+      <div class="handoff-title s-item" data-delay="0">How do you<br><em>want it back?</em></div>
+      <div class="handoff-rule s-item" data-delay="60"></div>
+      <div class="handoff-sub s-item" data-delay="80">0.3 miles away · Lincoln Park</div>
+
+      <div class="option-card selected s-item" data-delay="140" id="opt-uber" onclick="selectOption('uber')">
+        <div class="option-icon">🚗</div>
+        <div class="option-text">
+          <div class="option-title">Uber delivery</div>
+          <div class="option-desc">Arrives in ~12 min</div>
+        </div>
+        <div class="option-price">$6</div>
+      </div>
+      <div class="option-card s-item" data-delay="200" id="opt-meet" onclick="selectOption('meet')">
+        <div class="option-icon">🤝</div>
+        <div class="option-text">
+          <div class="option-title">Meet nearby</div>
+          <div class="option-desc">Lincoln Park Café · 10 min walk</div>
+        </div>
+        <div class="option-price">Free</div>
+      </div>
+      <div class="option-card s-item" data-delay="260" id="opt-ship" onclick="selectOption('ship')">
+        <div class="option-icon">📦</div>
+        <div class="option-text">
+          <div class="option-title">Ship it</div>
+          <div class="option-desc">Prepaid label · 2–3 days</div>
+        </div>
+        <div class="option-price">$4</div>
+      </div>
+
+      <button class="btn-full s-item" data-delay="320" onclick="go('reunion')">Confirm →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 8: REUNION
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-reunion">
+    <div class="status">
+      <span class="status-time">9:41</span>
+    </div>
+    <div class="reunion-body">
+      <div class="reunion-icon s-pop" data-delay="60">
+        <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="36" cy="36" r="36" fill="rgba(255,255,255,0.07)"/>
+          <circle cx="36" cy="36" r="28" fill="rgba(255,255,255,0.06)"/>
+          <polyline points="23,37 32,46 50,28" stroke="rgba(255,255,255,0.75)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <div class="reunion-title s-item" data-delay="140" id="reunion-title">Your item<br><em>is on its way.</em></div>
+      <div class="reunion-rule s-item" data-delay="190"></div>
+      <div class="reunion-sub s-item" data-delay="220">A stranger did something kind today.<br>Want to say thank you?</div>
+      <div class="tip-card s-item" data-delay="290">
+        <div class="tip-label">Send a tip</div>
+        <div class="tip-amounts">
+          <button class="tip-btn" id="tip-5" onclick="selectTip('5')">$5</button>
+          <button class="tip-btn selected" id="tip-10" onclick="selectTip('10')">$10</button>
+          <button class="tip-btn" id="tip-20" onclick="selectTip('20')">$20</button>
+        </div>
+        <div class="tip-charity">or <u>donate to charity instead</u></div>
+      </div>
+      <button class="btn-white s-item" data-delay="360" id="tip-send-btn" onclick="go('thanks')">Send $10 thank you →</button>
+      <button class="skip-btn s-item" data-delay="420" onclick="go('home')">Skip for now</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SCREEN 9: THANKS SENT
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-thanks">
+    <div class="status">
+      <span class="status-time" style="color:rgba(255,255,255,0.25)">9:41</span>
+    </div>
+    <div class="thanks-body">
+      <div class="thanks-circle s-pop" data-delay="80">💛</div>
+      <div class="thanks-title s-item" data-delay="160">Thank you<br><em>sent.</em></div>
+      <div class="thanks-rule s-item" data-delay="210"></div>
+      <div class="thanks-sub s-item" data-delay="240">The finder has been notified. You made someone&#39;s day a little brighter.</div>
+      <button class="btn-white s-item" data-delay="320" onclick="go('home')">Back to home</button>
+      <div class="thanks-footer s-item" data-delay="400">Lost it. Found it. Here.</div>
+    </div>
+  </div>
+
+  <!-- Hidden file input — triggers native camera on mobile -->
+  <input type="file" id="photo-file-input" accept="image/*" capture="environment" style="display:none">
+
+  <!-- Global loading overlay (used for all API calls outside camera screen) -->
+  <div id="global-overlay">
+    <div class="ai-spinner"></div>
+    <div id="global-overlay-text">Working on it…</div>
+  </div>
+
+  <!-- Error toast -->
+  <div id="error-toast"></div>
+
+</div><!-- /device -->
+<div class="desktop-hint">Tap through the full LOFO.AI user journey ↑</div>
+</div>
+
+<script>
+  // ── API base URL — empty string = same host, works for both file:// and served ──
+  const API = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+
+  // ── App state ──
+  const state = {
+    finderItemId:   null,
+    loserItemId:    null,
+    matchedItem:    null,
+    handoffToken:   null,
+    failedAttempts: 0,
+  };
+
+  // ── Screen flow order (determines push/pop direction) ──
+  const flowOrder = [
+    'home','finder-camera','finder-done','phone','verify','allset',
+    'lost-prompt','waiting','match','ownership-verify','handoff','reunion','thanks'
+  ];
+  const screenMap = {
+    'home':             'screen-home',
+    'finder-camera':    'screen-finder-camera',
+    'finder-done':      'screen-finder-done',
+    'phone':            'screen-phone',
+    'verify':           'screen-verify',
+    'allset':           'screen-allset',
+    'lost-prompt':      'screen-lost-prompt',
+    'waiting':          'screen-waiting',
+    'match':            'screen-match',
+    'ownership-verify': 'screen-ownership-verify',
+    'handoff':          'screen-handoff',
+    'reunion':          'screen-reunion',
+    'thanks':           'screen-thanks',
+  };
+  const modalScreens = new Set(['match','reunion','thanks']);
+
+  let current = 'home';
+  let isAnimating = false;
+  let matchContext = 'loser';
+
+  function go(name, context) {
+    if (context) matchContext = context;
+    if (!screenMap[name] || current === name || isAnimating) return;
+    isAnimating = true;
+
+    const from    = document.getElementById(screenMap[current]);
+    const to      = document.getElementById(screenMap[name]);
+    const fromIdx = flowOrder.indexOf(current);
+    const toIdx   = flowOrder.indexOf(name);
+    const forward  = toIdx >= fromIdx;
+    const toModal  = modalScreens.has(name);
+    const fromModal = modalScreens.has(current);
+
+    resetStagger(to);
+
+    if (toModal) {
+      to.style.transform = 'translateY(100%)';
+      to.style.opacity   = '1';
+    } else if (forward) {
+      to.style.transform = 'translateX(100%)';
+      to.style.opacity   = '1';
+    } else {
+      to.style.transform = 'translateX(-28%)';
+      to.style.opacity   = '0.4';
+    }
+
+    to.style.transition = 'none';
+    to.classList.add('active');
+    to.getBoundingClientRect();
+
+    if (fromModal)      from.classList.add('exit-down');
+    else if (forward)   from.classList.add('exit-left');
+    else                from.classList.add('exit-right');
+    from.classList.remove('active');
+
+    if (toModal)
+      to.style.transition = 'transform 0.46s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.46s ease';
+    else if (forward)
+      to.style.transition = 'transform 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.42s ease';
+    else
+      to.style.transition = 'transform 0.38s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.38s ease';
+
+    requestAnimationFrame(() => {
+      to.style.transform = 'translateX(0) translateY(0)';
+      to.style.opacity   = '1';
+    });
+
+    const duration = toModal ? 480 : (forward ? 440 : 400);
+    setTimeout(() => {
+      from.classList.remove('exit-left','exit-right','exit-down');
+      from.style.transform = from.style.opacity = from.style.transition = '';
+      to.style.transition  = '';
+      current = name;
+      isAnimating = false;
+      triggerStagger(to);
+      onScreenEnter(name);
+    }, duration);
+  }
+
+  // ── Stagger system ──
+  function resetStagger(screen) {
+    screen.querySelectorAll('.s-item, .s-pop, .s-check').forEach(el => el.classList.remove('s-ready'));
+  }
+  function triggerStagger(screen) {
+    screen.querySelectorAll('.s-item, .s-pop, .s-check').forEach(el => {
+      setTimeout(() => el.classList.add('s-ready'), parseInt(el.dataset.delay || 0));
+    });
+  }
+
+  // ── Dynamic Island ──
+  function setIsland(mode, pct) {
+    const island  = document.getElementById('dynamic-island');
+    const content = document.getElementById('island-content');
+    if (mode === 'location') {
+      content.innerHTML = '<div class="island-dot"></div><span class="island-text">Location on<em>· live</em></span>';
+      island.classList.add('expanded');
+    } else if (mode === 'match') {
+      const label = pct ? `· ${pct}%` : '· found';
+      content.innerHTML = `<div class="island-dot"></div><span class="island-text">Match found<em>${label}</em></span>`;
+      island.classList.add('expanded');
+    } else {
+      island.classList.remove('expanded');
+      setTimeout(() => { content.innerHTML = ''; }, 400);
+    }
+  }
+
+  // ── Loading & error UI ──
+  function showLoading(msg) {
+    document.getElementById('global-overlay-text').textContent = msg || 'Working on it…';
+    document.getElementById('global-overlay').classList.add('visible');
+  }
+  function hideLoading() {
+    document.getElementById('global-overlay').classList.remove('visible');
+  }
+  let _errTimer;
+  function showError(msg) {
+    const t = document.getElementById('error-toast');
+    t.textContent = msg;
+    t.classList.add('visible');
+    clearTimeout(_errTimer);
+    _errTimer = setTimeout(() => t.classList.remove('visible'), 4200);
+  }
+
+  // ── Screen-specific entry logic ──
+  function onScreenEnter(name) {
+    if (name === 'home') {
+      triggerStagger(document.getElementById('screen-home'));
+      setIsland('off');
+    }
+    if (name === 'finder-camera') {
+      setTimeout(() => setIsland('location'), 400);
+    }
+    if (name !== 'finder-camera' && name !== 'match') {
+      setIsland('off');
+    }
+    if (name === 'match') {
+      const pct = state.matchedItem ? Math.round(state.matchedItem.similarity_score * 100) : 91;
+      setTimeout(() => {
+        const bar = document.getElementById('conf-bar');
+        if (bar) bar.style.width = pct + '%';
+        const lbl = document.querySelector('#screen-match .bar-label');
+        if (lbl) lbl.textContent = pct + '% confidence';
+        setIsland('match', pct);
+      }, 300);
+
+      const headline = document.getElementById('match-headline');
+      const eyebrow  = document.getElementById('match-eyebrow');
+      const meta     = document.getElementById('match-item-meta');
+      const cta      = document.getElementById('match-cta');
+      const ghost    = document.getElementById('match-ghost');
+
+      // Populate card and reasons with real data if available
+      if (state.matchedItem) {
+        const m = state.matchedItem;
+        const label   = cleanType(m.item_type || 'item');
+        const details = [m.material, m.size].filter(Boolean).join(', ');
+        document.querySelector('#screen-match .item-thumb').textContent = itemEmoji(m.item_type);
+        document.querySelector('#screen-match .item-name').textContent  = label + ((m.color||[]).length ? ' — ' + m.color.join(', ') : '');
+        meta.textContent = details || 'Found recently';
+
+        // Build reason checklist from real fields
+        const reasons = [];
+        if (m.item_type) reasons.push(`Item type matches — ${label}`);
+        if ((m.color||[]).length) reasons.push(`Color matches — ${m.color.join(', ')}`);
+        if (m.material) reasons.push(`Material matches — ${cap(m.material)}`);
+        if (m.size) reasons.push(`Size matches — ${m.size}`);
+        if (reasons.length === 0) reasons.push('High similarity score');
+
+        const reasonsEl = document.getElementById('match-reasons');
+        if (reasonsEl) {
+          reasonsEl.innerHTML = reasons.map((r, i) =>
+            `<div class="reason s-check" data-delay="${280 + i * 60}"><div class="check-dot">✓</div>${r}</div>`
+          ).join('');
+          triggerStagger(reasonsEl);
+        }
+      }
+
+      if (matchContext === 'finder') {
+        eyebrow.textContent = 'Owner found';
+        headline.innerHTML  = 'Someone\'s<br><em>missing this.</em>';
+        cta.textContent     = 'Coordinate the return →';
+        cta.onclick         = () => go('handoff');
+        ghost.textContent   = 'Not a match';
+      } else {
+        const itemLabel = state.matchedItem ? cleanType(state.matchedItem.item_type) : 'item';
+        eyebrow.textContent = 'Match found';
+        headline.innerHTML  = `We found<br><em>your ${itemLabel}.</em>`;
+        cta.textContent     = 'This is mine — get it back →';
+        cta.onclick         = () => go('ownership-verify');
+        ghost.textContent   = 'Not my item';
+      }
+    }
+    if (name !== 'match') {
+      const bar = document.getElementById('conf-bar');
+      if (bar) bar.style.width = '0%';
+    }
+    if (name === 'reunion') {
+      const titleEl = document.getElementById('reunion-title');
+      if (titleEl && state.matchedItem) {
+        const label = cleanType(state.matchedItem.item_type);
+        titleEl.innerHTML = `Your ${label}<br><em>is on its way.</em>`;
+      }
+    }
+    if (name === 'ownership-verify') {
+      const inp = document.getElementById('ownership-secret-input');
+      if (inp) inp.value = '';
+      const err = document.getElementById('ownership-error');
+      if (err) err.style.display = 'none';
+      const btn = document.getElementById('ownership-verify-btn');
+      if (btn) btn.disabled = false;
+      state.failedAttempts = 0;
+      updateAttemptDots(0);
+    }
+  }
+
+  // ── Camera / Finder flow ──
+  function triggerShutter() {
+    if (isAnimating) return;
+    document.getElementById('photo-file-input').click();
+  }
+
+  document.getElementById('photo-file-input').addEventListener('change', async function(e) {
+    const file = e.target.files[0];
+    this.value = ''; // reset so same file can be re-selected
+    if (!file) return;
+
+    // Flash effect
+    const flash = document.getElementById('shutter-flash');
+    flash.classList.add('flash');
+    setTimeout(() => flash.classList.remove('flash'), 400);
+
+    // Show the camera screen's AI overlay while we call the API
+    const overlay = document.getElementById('ai-overlay');
+    overlay.classList.add('visible');
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('type', 'finder');
+      const res = await fetch(`${API}/items/from-photo`, { method: 'POST', body: fd });
+      overlay.classList.remove('visible');
+      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
+      const item = await res.json();
+      state.finderItemId = item.id;
+      renderFinderDone(item);
+      go('finder-done');
+    } catch (err) {
+      overlay.classList.remove('visible');
+      showError(err.message || 'Something went wrong. Try again.');
+    }
+  });
+
+  function renderFinderDone(item) {
+    const thumb  = document.querySelector('#screen-finder-done .item-thumb');
+    const nameEl = document.querySelector('#screen-finder-done .item-name');
+    const metaEl = document.querySelector('#screen-finder-done .item-meta');
+    const tagsEl = document.querySelector('#screen-finder-done .tags');
+
+    if (thumb)  thumb.textContent  = itemEmoji(item.item_type);
+    if (nameEl) nameEl.textContent = cleanType(item.item_type || 'Unknown item');
+    if (metaEl) metaEl.textContent = [item.material, item.size].filter(Boolean).join(', ') || 'Just found';
+    if (tagsEl) {
+      const allTags = [
+        ...(item.color || []),
+        item.material, item.size,
+        ...(item.features || []).slice(0, 3),
+      ].filter(Boolean);
+      tagsEl.innerHTML = allTags.map(t => `<span class="tag">${cap(t)}</span>`).join('');
+    }
+  }
+
+  // ── Lost item flow ──
+  async function submitLost() {
+    const desc   = (document.getElementById('lost-description')?.value || '').trim();
+    const secret = (document.getElementById('lost-secret')?.value || '').trim();
+    if (!desc)   { showError('Please describe what you lost.'); return; }
+    if (!secret) { showError('Please enter a secret detail to prove ownership later.'); return; }
+
+    showLoading('Describing your item…');
+    try {
+      // 6b — POST /items/from-text
+      const r1 = await fetch(`${API}/items/from-text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'loser', description: desc, secret_detail: secret }),
+      });
+      if (!r1.ok) throw new Error((await r1.json().catch(()=>({}))).detail || `Error ${r1.status}`);
+      const item = await r1.json();
+      state.loserItemId = item.id;
+
+      // 6c — POST /match
+      showLoading('Searching for matches…');
+      const r2 = await fetch(`${API}/match`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: item.id }),
+      });
+      if (!r2.ok) throw new Error((await r2.json().catch(()=>({}))).detail || `Error ${r2.status}`);
+      const matches = await r2.json();
+      hideLoading();
+
+      if (matches.length > 0) {
+        state.matchedItem = matches[0];
+        go('match', 'loser');
+      } else {
+        const waitTitle = document.querySelector('#screen-waiting .waiting-title');
+        if (waitTitle) waitTitle.innerHTML = `Looking for<br><em>your ${cleanType(item.item_type)}.</em>`;
+        go('waiting');
+      }
+    } catch (err) {
+      hideLoading();
+      showError(err.message || 'Something went wrong. Try again.');
+    }
+  }
+
+  // ── Ownership verification ──
+  async function submitOwnershipVerify() {
+    const secret = (document.getElementById('ownership-secret-input')?.value || '').trim();
+    if (!secret) { showError('Please enter your secret detail.'); return; }
+
+    showLoading('Verifying ownership…');
+    try {
+      const res = await fetch(`${API}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: state.loserItemId, secret_detail: secret }),
+      });
+      if (res.status === 423) {
+        hideLoading();
+        showError('Too many failed attempts. This item is locked.');
+        const btn = document.getElementById('ownership-verify-btn');
+        if (btn) btn.disabled = true;
+        return;
+      }
+      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
+      const result = await res.json();
+      hideLoading();
+
+      if (result.verified) {
+        state.handoffToken = result.handoff_token;
+        go('handoff');
+      } else {
+        const remaining = result.attempts_remaining ?? 0;
+        state.failedAttempts = 3 - remaining;
+        updateAttemptDots(state.failedAttempts);
+        const errEl = document.getElementById('ownership-error');
+        if (errEl) {
+          errEl.textContent = remaining > 0
+            ? `Incorrect. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+            : 'No attempts remaining. This item is locked.';
+          errEl.style.display = 'block';
+        }
+        if (remaining === 0) {
+          const btn = document.getElementById('ownership-verify-btn');
+          if (btn) btn.disabled = true;
+        }
+      }
+    } catch (err) {
+      hideLoading();
+      showError(err.message || 'Something went wrong. Try again.');
+    }
+  }
+
+  function updateAttemptDots(failed) {
+    for (let i = 0; i < 3; i++) {
+      const d = document.getElementById('att-' + i);
+      if (d) d.classList.toggle('used', i < failed);
+    }
+  }
+
+  // ── Helpers ──
+  function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+  // Normalise item_type: take the first part before any slash, trim, lowercase, then cap
+  // e.g. "Clogs/mules" → "Clogs", "running shoes/trainers" → "Running shoes"
+  function cleanType(t) {
+    if (!t) return 'item';
+    return cap(t.split('/')[0].trim().toLowerCase());
+  }
+
+  function itemEmoji(t) {
+    if (!t) return '📦';
+    t = t.toLowerCase();
+    if (t.includes('bag') || t.includes('handbag') || t.includes('purse')) return '👜';
+    if (t.includes('wallet'))                                                return '👛';
+    if (t.includes('phone') || t.includes('mobile'))                        return '📱';
+    if (t.includes('key'))                                                   return '🔑';
+    if (t.includes('watch'))                                                 return '⌚';
+    if (t.includes('laptop') || t.includes('computer'))                     return '💻';
+    if (t.includes('glasses') || t.includes('sunglass'))                    return '👓';
+    if (t.includes('headphone') || t.includes('earbud') || t.includes('airpod')) return '🎧';
+    if (t.includes('jacket') || t.includes('coat'))                         return '🧥';
+    if (t.includes('umbrella'))                                              return '☂️';
+    if (t.includes('book'))                                                  return '📚';
+    return '📦';
+  }
+
+  // ── Init stagger on home ──
+  window.addEventListener('load', () => triggerStagger(document.getElementById('screen-home')));
+
+  // ── Phone number formatter ──
+  function formatPhone(input) {
+    let v = input.value.replace(/\D/g, '').substring(0, 10);
+    if (v.length >= 7)      v = `(${v.slice(0,3)}) ${v.slice(3,6)}-${v.slice(6)}`;
+    else if (v.length >= 4) v = `(${v.slice(0,3)}) ${v.slice(3)}`;
+    else if (v.length > 0)  v = `(${v}`;
+    input.value = v;
+  }
+
+  // ── Handoff option selection ──
+  function selectOption(id) {
+    ['uber','meet','ship'].forEach(o => document.getElementById('opt-'+o).classList.remove('selected'));
+    document.getElementById('opt-'+id).classList.add('selected');
+  }
+
+  // ── Tip selection ──
+  let selectedTip = '10';
+  function selectTip(amt) {
+    ['5','10','20'].forEach(a => document.getElementById('tip-'+a).classList.remove('selected'));
+    document.getElementById('tip-'+amt).classList.add('selected');
+    selectedTip = amt;
+    document.getElementById('tip-send-btn').textContent = `Send $${amt} thank you →`;
+  }
+</script>
+</body>
+</html>
