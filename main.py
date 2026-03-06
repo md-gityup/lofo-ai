@@ -38,6 +38,96 @@ if _TWILIO_ACCOUNT_SID and _TWILIO_AUTH_TOKEN:
     from twilio.rest import Client as TwilioClient
     _twilio_client = TwilioClient(_TWILIO_ACCOUNT_SID, _TWILIO_AUTH_TOKEN)
 
+_APP_URL = "https://md-gityup.github.io/lofo-ai/LOFO_MVP.html"
+
+_NOTIFY_LOSER_SQL = """
+    SELECT l.phone, l.item_type
+    FROM items l
+    CROSS JOIN items f
+    WHERE f.id = %s
+      AND l.type = 'loser'
+      AND l.status = 'active'
+      AND l.phone IS NOT NULL
+      AND l.embedding IS NOT NULL
+      AND f.embedding IS NOT NULL
+      AND 1 - (l.embedding <=> f.embedding) >= 0.7
+      AND (
+          f.latitude IS NULL OR l.latitude IS NULL
+          OR 3958.8 * 2 * ASIN(SQRT(
+              POWER(SIN(RADIANS(f.latitude - l.latitude) / 2), 2) +
+              COS(RADIANS(l.latitude)) * COS(RADIANS(f.latitude)) *
+              POWER(SIN(RADIANS(f.longitude - l.longitude) / 2), 2)
+          )) <= 10
+      )
+    LIMIT 5
+"""
+
+_NOTIFY_FINDER_SQL = """
+    SELECT f.phone, f.item_type
+    FROM items f
+    CROSS JOIN items l
+    WHERE l.id = %s
+      AND f.type = 'finder'
+      AND f.status = 'active'
+      AND f.phone IS NOT NULL
+      AND f.embedding IS NOT NULL
+      AND l.embedding IS NOT NULL
+      AND 1 - (f.embedding <=> l.embedding) >= 0.7
+      AND (
+          f.latitude IS NULL OR l.latitude IS NULL
+          OR 3958.8 * 2 * ASIN(SQRT(
+              POWER(SIN(RADIANS(f.latitude - l.latitude) / 2), 2) +
+              COS(RADIANS(l.latitude)) * COS(RADIANS(f.latitude)) *
+              POWER(SIN(RADIANS(f.longitude - l.longitude) / 2), 2)
+          )) <= 10
+      )
+    LIMIT 5
+"""
+
+
+def _sms(to: str, body: str) -> None:
+    """Send a plain notification SMS. Non-blocking — failures are swallowed."""
+    if not (_twilio_client and _TWILIO_PHONE_NUMBER):
+        print(f"[LOFO SMS] {to}: {body}")
+        return
+    try:
+        _twilio_client.messages.create(body=body, from_=_TWILIO_PHONE_NUMBER, to=to)
+    except Exception as exc:
+        print(f"[LOFO SMS error] {to}: {exc}")
+
+
+def _notify_waiting_losers(finder_item_id: uuid.UUID, finder_item_type: str) -> None:
+    """After a finder item is saved, SMS any waiting losers whose item matches."""
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_NOTIFY_LOSER_SQL, (str(finder_item_id),))
+                rows = cur.fetchall()
+        for row in rows:
+            label = row["item_type"] or finder_item_type
+            _sms(row["phone"],
+                 f"LOFO: Your {label} may have been found nearby! "
+                 f"Open the app to claim it: {_APP_URL}")
+    except Exception as exc:
+        print(f"[LOFO notify-losers error] {exc}")
+
+
+def _notify_matched_finder(loser_item_id: uuid.UUID, loser_item_type: str) -> None:
+    """After a loser item is saved and a match exists, SMS the finder."""
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_NOTIFY_FINDER_SQL, (str(loser_item_id),))
+                rows = cur.fetchall()
+        for row in rows:
+            label = row["item_type"] or loser_item_type
+            _sms(row["phone"],
+                 f"LOFO: Someone is looking for a {label} you found! "
+                 f"They'll go through the app to verify ownership. "
+                 f"Check it out: {_APP_URL}")
+    except Exception as exc:
+        print(f"[LOFO notify-finder error] {exc}")
+
 _VISION_SYSTEM_PROMPT = (
     'You are an item classifier for a lost and found app. Analyze the image and extract structured information. '
     'Respond ONLY with valid JSON matching this exact schema, no other text: '
@@ -152,6 +242,11 @@ class HandoffValidateRequest(BaseModel):
 class FinderInfoUpdate(BaseModel):
     finder_email: Optional[str] = None
     secret_detail: Optional[str] = None
+    phone: Optional[str] = None
+
+
+class LoserInfoUpdate(BaseModel):
+    phone: str
 
 
 class TipCreateRequest(BaseModel):
@@ -321,6 +416,10 @@ def create_item(item: ItemCreate):
         "features": item.features,
     }
     _store_embedding(result["id"], profile)
+    if item.type == "finder":
+        _notify_waiting_losers(result["id"], item.item_type)
+    else:
+        _notify_matched_finder(result["id"], item.item_type)
     return result
 
 
@@ -367,6 +466,10 @@ def create_item_from_text(body: TextItemCreate):
 
     item = dict(row)
     _store_embedding(item["id"], extracted)
+    if body.type == "finder":
+        _notify_waiting_losers(item["id"], extracted["item_type"])
+    else:
+        _notify_matched_finder(item["id"], extracted["item_type"])
     return item
 
 
@@ -451,6 +554,7 @@ async def create_item_from_photo(
 
     item = dict(row)
     _store_embedding(item["id"], extracted)
+    _notify_waiting_losers(item["id"], extracted["item_type"])  # type is always 'finder' here
     return item
 
 
@@ -565,6 +669,21 @@ def update_finder_info(item_id: uuid.UUID, body: FinderInfoUpdate):
         conn.commit()
     if row is None:
         raise HTTPException(status_code=404, detail="Finder item not found")
+    return {"ok": True}
+
+
+@app.patch("/items/{item_id}/loser-info", status_code=200)
+def update_loser_info(item_id: uuid.UUID, body: LoserInfoUpdate):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE items SET phone = %s WHERE id = %s AND type = 'loser' RETURNING id",
+                (body.phone, str(item_id)),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Loser item not found")
     return {"ok": True}
 
 

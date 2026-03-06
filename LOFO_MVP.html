@@ -1981,8 +1981,19 @@
         <div class="status-pill s-item" data-delay="310" id="waiting-pill-time"><span>🕑</span><span id="waiting-time-text">Submitted just now</span></div>
         <div class="status-pill s-item" data-delay="370"><span>✦</span><span>AI-powered visual matching</span></div>
       </div>
-      <div id="waiting-timeout" style="display:none; text-align:center; font-size:13px; color:var(--muted); font-weight:300; line-height:1.65; margin-top:auto; padding:0 8px 8px;">
-        Still scanning — no match yet. We'll text you the moment one appears. Safe to close this.
+      <!-- Shown after 10s if no match; stays while polling continues in background -->
+      <div id="waiting-notify-section" style="display:none; width:100%; margin-top:auto; padding-bottom:8px;">
+        <div style="text-align:center; font-size:13px; color:var(--muted); font-weight:300; line-height:1.65; margin-bottom:20px;">
+          Nothing nearby yet — but we're still watching.<br>Drop your number and we'll text you the moment something turns up.
+        </div>
+        <div class="phone-input-wrap" style="margin-bottom:12px;">
+          <div class="phone-flag">🇺🇸</div>
+          <input class="phone-input" id="loser-phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
+        </div>
+        <button class="btn-full" id="loser-notify-btn" style="margin-top:0;" onclick="saveLoserPhone()">Notify me →</button>
+        <div id="loser-notify-confirmed" style="display:none; text-align:center; font-size:13px; color:var(--muted); font-weight:300; margin-top:12px; line-height:1.65;">
+          ✓ You're on the list. Safe to close — we'll text you.
+        </div>
       </div>
     </div>
   </div>
@@ -2589,16 +2600,22 @@
   // ── Phase 10: Real-time match polling ──
   let _pollInterval = null;
   let _pollCount    = 0;
-  const _POLL_INTERVAL_MS = 5000;
-  const _POLL_MAX         = 24;   // 2 minutes then give up
+  const _POLL_INTERVAL_MS    = 5000;
+  const _POLL_NOTIFY_AFTER   = 2;    // show phone capture after ~10s
+  const _POLL_MAX            = 24;   // stop polling after ~2 min
 
   function startPolling() {
     stopPolling();
     if (!state.loserItemId) return;
     _pollCount = 0;
-    // Hide stale timeout message from a previous session
-    const timeoutEl = document.getElementById('waiting-timeout');
-    if (timeoutEl) timeoutEl.style.display = 'none';
+    const notifySection = document.getElementById('waiting-notify-section');
+    if (notifySection) notifySection.style.display = 'none';
+    const confirmed = document.getElementById('loser-notify-confirmed');
+    if (confirmed) confirmed.style.display = 'none';
+    const btn = document.getElementById('loser-notify-btn');
+    if (btn) { btn.style.display = ''; btn.disabled = false; btn.textContent = 'Notify me →'; }
+    const input = document.getElementById('loser-phone-input');
+    if (input) input.value = '';
     _pollInterval = setInterval(pollForMatch, _POLL_INTERVAL_MS);
   }
 
@@ -2610,10 +2627,15 @@
     if (!state.loserItemId) { stopPolling(); return; }
 
     _pollCount++;
+
+    // After ~10s with no match, surface the phone-capture section
+    if (_pollCount === _POLL_NOTIFY_AFTER) {
+      const notifySection = document.getElementById('waiting-notify-section');
+      if (notifySection) notifySection.style.display = 'block';
+    }
+
     if (_pollCount > _POLL_MAX) {
       stopPolling();
-      const timeoutEl = document.getElementById('waiting-timeout');
-      if (timeoutEl) timeoutEl.style.display = 'block';
       return;
     }
 
@@ -2782,6 +2804,14 @@
       hideLoading();
 
       if (data.verified) {
+        // Save finder's verified phone to their item so they can receive match notifications
+        if (state.finderItemId && state.phone) {
+          fetch(`${API}/items/${state.finderItemId}/finder-info`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: state.phone }),
+          }).catch(() => {});
+        }
         go('allset');
       } else {
         const errEl = document.getElementById('otp-error');
@@ -2880,6 +2910,30 @@
       }
     }
     go('phone');
+  }
+
+  // ── Save loser's phone so they can be notified when a finder posts a match ──
+  async function saveLoserPhone() {
+    const phone = (document.getElementById('loser-phone-input')?.value || '').trim();
+    if (!phone) { showError('Please enter your phone number.'); return; }
+    if (!state.loserItemId) return;
+
+    const btn = document.getElementById('loser-notify-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+    try {
+      await fetch(`${API}/items/${state.loserItemId}/loser-info`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      if (btn) btn.style.display = 'none';
+      const confirmed = document.getElementById('loser-notify-confirmed');
+      if (confirmed) confirmed.style.display = 'block';
+    } catch (_) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Notify me →'; }
+      showError('Could not save your number. Try again.');
+    }
   }
 
   // Called when loser taps "Send $X thank you →"
