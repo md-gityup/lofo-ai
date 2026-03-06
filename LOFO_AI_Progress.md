@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 5, 2026 (Phase 7 complete — Stripe tip flow live)*
+*Last updated: March 5, 2026 (Phase 7 fully complete — Stripe tip flow + webhook configured)*
 
 ---
 
@@ -203,7 +203,6 @@ UI prototype: `LOFO_MVP.html`
 | "Simulate match found →" button on Waiting screen | `screen-waiting` | Useful for demo. Remove when realtime matching is built (Phase 10). |
 | Location and time pills on Waiting screen | `screen-waiting` | Hardcoded demo copy. Fix in Phase 8 (GPS). |
 | Finder Connect Express onboarding | — | Tips currently held in LOFO's Stripe balance. Full finder payout in Phase 11. |
-| `STRIPE_WEBHOOK_SECRET` is blank | `.env` | Webhook runs without signature verification locally. Set this when adding the real webhook endpoint in Stripe dashboard. |
 
 ---
 
@@ -259,6 +258,47 @@ Check Stripe Dashboard → Payments to confirm charge appears.
 
 ---
 
+## Phase 7 — Testing Checklist (do this before Phase 8)
+
+Work through these in order to confirm Phase 7 is fully wired end-to-end.
+
+### Demo mode test (no API state needed)
+- [ ] Go to `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`
+- [ ] Tap through to the Reunion screen directly
+- [ ] Tap "Send $10 thank you →" — card input should appear inline (no redirect)
+- [ ] Enter test card `4242 4242 4242 4242` · `12/26` · `123`
+- [ ] Tap "Pay $10 →" — should land on Thanks screen showing "You sent $10 to the finder"
+- [ ] Tap "← Change amount" before paying — should restore tip buttons correctly
+
+### Real flow test (full API)
+- [ ] Submit a finder item via text (use Railway `/docs` Swagger or curl)
+- [ ] Submit a matching loser item with a secret
+- [ ] Go through the app: describe lost item → match found → verify ownership → handoff → reunion
+- [ ] Tap a tip amount, enter test card, confirm payment
+- [ ] Check **Stripe Dashboard → Payments** — $X charge should appear ✅
+- [ ] Check **Supabase → tips table** — row should show `status = 'completed'` (webhook fired) ✅
+
+### Finder email test
+- [ ] Submit a finder photo or text item
+- [ ] On Finder Done screen, enter an email address in "Get paid when your find is reunited"
+- [ ] Tap Continue
+- [ ] Check **Supabase → items table** — `finder_email` column should be populated ✅
+
+### Webhook test
+- [ ] Make a real tip payment (real flow above)
+- [ ] Go to Stripe Dashboard → Developers → Webhooks → your endpoint → check "Recent deliveries"
+- [ ] Should show a successful `payment_intent.succeeded` delivery ✅
+
+### Known issues to watch for
+| Issue | What to do |
+|---|---|
+| "Stripe error: No API key" | STRIPE_SECRET_KEY not set in Railway — check Variables tab |
+| Tips table doesn't update to 'completed' | STRIPE_WEBHOOK_SECRET not set in Railway, or webhook URL wrong |
+| Card panel doesn't appear | Check browser console for JS errors — likely Stripe.js failed to load |
+| "Finder item not found" on tip | Make sure you went through the full loser flow, not demo tap-through |
+
+---
+
 ## What's Next: Phase 8 — GPS & Proximity Matching
 
 **Goal:** Capture real lat/lng from the browser at item submission. Store location on each item. Filter match results by proximity so a wallet found in Chicago never matches a wallet lost in Miami.
@@ -297,7 +337,7 @@ When starting the Phase 8 Cursor session, paste this:
 > **What's complete and working:**
 > Phases 1–7 fully built and deployed. Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. The full loop works: finder snaps photo → Claude Vision extracts profile → Voyage AI embedding → loser describes lost item → cosine similarity match (tested 89.7%) → Argon2id ownership verification (3-attempt lockout) → single-use JWT handoff → Stripe inline card payment (Card Element, no redirect) → Thanks screen shows amount paid.
 >
-> **Backend:** FastAPI (`main.py`), Supabase/pgvector (`database.py`), Stripe (`stripe`), security (`security.py`). 11 endpoints. Deployed on Railway. `.env` has: DATABASE_URL, ANTHROPIC_API_KEY, VOYAGE_API_KEY, JWT_SECRET, STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET (blank for now).
+> **Backend:** FastAPI (`main.py`), Supabase/pgvector (`database.py`), Stripe (`stripe`), security (`security.py`). 11 endpoints. Deployed on Railway. `.env` has: DATABASE_URL, ANTHROPIC_API_KEY, VOYAGE_API_KEY, JWT_SECRET, STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET. Stripe webhook configured for `payment_intent.succeeded` → marks tips as 'completed'.
 >
 > **Frontend:** `LOFO_MVP.html` — 13 screens, all live API calls, Stripe.js inline card payment. Key JS: `state` object, `go()` navigation, `submitLost()`, `submitOwnershipVerify()`, `sendTip()`, `confirmTip()`, `finderDoneContinue()`, `cleanType()`.
 >
