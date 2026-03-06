@@ -2069,8 +2069,12 @@
 </div>
 
 <script>
-  // ── API base URL — empty string = same host, works for both file:// and served ──
-  const API = window.location.protocol === 'file:' ? 'https://lofo-ai-production.up.railway.app' : '';
+  // ── API base URL ──
+  // When served directly from Railway, use relative paths (same origin, no CORS).
+  // When served from GitHub Pages, file://, or localhost, point to Railway explicitly.
+  const API = window.location.hostname === 'lofo-ai-production.up.railway.app'
+    ? ''
+    : 'https://lofo-ai-production.up.railway.app';
 
   // ── App state ──
   const state = {
