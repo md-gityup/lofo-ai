@@ -664,6 +664,8 @@ def update_finder_info(item_id: uuid.UUID, body: FinderInfoUpdate):
         updates["finder_email"] = body.finder_email
     if body.secret_detail is not None:
         updates["secret_detail"] = body.secret_detail
+    if body.phone is not None:
+        updates["phone"] = body.phone
     if not updates:
         return {"ok": True}
     set_clause = ", ".join(f"{k} = %s" for k in updates)
