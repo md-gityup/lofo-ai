@@ -2165,7 +2165,7 @@
       <div class="match-reasons" id="match-reasons"></div>
       <div class="match-actions">
         <button class="btn-full s-item" id="match-cta" data-delay="540" style="margin-top:0" onclick="go('handoff')">This is mine — get it back →</button>
-        <button class="ghost-btn s-item" id="match-ghost" data-delay="600" onclick="go('home')">Not my item</button>
+        <button class="ghost-btn s-item" id="match-ghost" data-delay="600" onclick="rejectMatch()">Not my item</button>
       </div>
     </div>
   </div>
@@ -3093,6 +3093,16 @@
     else if (v.length >= 4) v = `(${v.slice(0,3)}) ${v.slice(3)}`;
     else if (v.length > 0)  v = `(${v}`;
     input.value = v;
+  }
+
+  // ── Reject a match — loser returns to waiting, finder returns home ──
+  function rejectMatch() {
+    state.matchedItem = null;
+    if (matchContext === 'loser') {
+      go('waiting');
+    } else {
+      go('home');
+    }
   }
 
   // ── Handoff option selection ──
