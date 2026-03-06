@@ -1622,6 +1622,8 @@
 
   /* ─────────────────────────────────────────
      DESKTOP HINT
+  ───────────────────────────────────────── */
+  .desktop-hint {
     margin-top: 20px;
     font-size: 11px;
     color: #BBBAB5;
@@ -1723,6 +1725,14 @@
     pointer-events: none;
   }
   #error-toast.visible { transform: translateX(-50%) translateY(0); }
+
+  /* ── Scrollable content areas (screens with more content than fits) ── */
+  #screen-finder-done .content,
+  #screen-lost-prompt .content,
+  #screen-ownership-verify .content {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 </style>
 </head>
 <body>
@@ -1803,9 +1813,9 @@
 
     <!-- Frosted glass bottom control panel -->
     <div class="camera-controls">
-      <div class="camera-geo-row">
-        <div class="geo-dot"></div>
-        Lincoln Park · Chicago
+      <div class="camera-geo-row" id="camera-geo-row">
+        <div class="geo-dot" id="camera-geo-dot"></div>
+        <span id="camera-geo-text">Acquiring location…</span>
       </div>
       <div class="shutter-row">
         <button class="cam-back-btn" onclick="go('home')">← Back</button>
@@ -1876,7 +1886,7 @@
         <input class="phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
       </div>
       <div class="phone-privacy s-item" data-delay="260">Your number is hashed immediately and never stored in plain text. <span>Privacy policy</span></div>
-      <button class="btn-full s-item" data-delay="320" style="margin-top: 32px" onclick="go('verify')">Send code →</button>
+      <button class="btn-full s-item" data-delay="320" style="margin-top: 32px" onclick="sendCode()">Send code →</button>
     </div>
   </div>
 
@@ -2311,6 +2321,16 @@
     _errTimer = setTimeout(() => t.classList.remove('visible'), 4200);
   }
 
+  // ── Live clock ──
+  function updateClock() {
+    const now = new Date();
+    const h = now.getHours() % 12 || 12;
+    const m = String(now.getMinutes()).padStart(2, '0');
+    document.querySelectorAll('.status-time').forEach(el => { el.textContent = `${h}:${m}`; });
+  }
+  updateClock();
+  setInterval(updateClock, 30000);
+
   // ── Screen-specific entry logic ──
   function onScreenEnter(name) {
     if (name === 'home') {
@@ -2319,6 +2339,20 @@
     }
     if (name === 'finder-camera') {
       setTimeout(() => setIsland('location'), 400);
+      // Pre-fetch GPS while user composes the shot — resolves permission prompt early
+      const geoText = document.getElementById('camera-geo-text');
+      const geoDot  = document.getElementById('camera-geo-dot');
+      if (geoText) geoText.textContent = 'Acquiring location…';
+      getLocation().then(loc => {
+        if (loc) {
+          state.latitude  = loc.latitude;
+          state.longitude = loc.longitude;
+          if (geoText) geoText.textContent = 'Location acquired';
+        } else {
+          if (geoText) geoText.textContent = 'Location unavailable';
+          if (geoDot)  { geoDot.style.background = 'rgba(255,255,255,0.25)'; geoDot.style.boxShadow = 'none'; }
+        }
+      });
     }
     if (name !== 'finder-camera' && name !== 'match') {
       setIsland('off');
@@ -2390,6 +2424,18 @@
       if (titleEl && state.matchedItem) {
         const label = cleanType(state.matchedItem.item_type);
         titleEl.innerHTML = `Your ${label}<br><em>is on its way.</em>`;
+      }
+    }
+    if (name === 'handoff') {
+      const handoffSub = document.querySelector('#screen-handoff .handoff-sub');
+      if (handoffSub) {
+        if (state.matchedItem?.distance_miles != null) {
+          handoffSub.textContent = `${state.matchedItem.distance_miles} mi away`;
+        } else if (state.matchedItem) {
+          handoffSub.textContent = 'Coordinate the return';
+        } else {
+          handoffSub.textContent = 'Arrange a handoff';
+        }
       }
     }
     if (name === 'ownership-verify') {
@@ -2632,6 +2678,20 @@
 
   // ── Init stagger on home ──
   window.addEventListener('load', () => triggerStagger(document.getElementById('screen-home')));
+
+  // ── Phone screen: capture number, propagate, then navigate ──
+  function sendCode() {
+    const phone = (document.querySelector('#screen-phone .phone-input')?.value || '').trim();
+    if (phone) {
+      // Update verify screen subtitle
+      const verifySub = document.querySelector('#screen-verify .verify-sub strong');
+      if (verifySub) verifySub.textContent = phone;
+      // Update allset confirmation card
+      const allsetDesc = document.querySelector('#screen-allset .allset-card-desc');
+      if (allsetDesc) allsetDesc.textContent = `A text to ${phone} as soon as there's a verified match.`;
+    }
+    go('verify');
+  }
 
   // ── Phone number formatter ──
   function formatPhone(input) {
