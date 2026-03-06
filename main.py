@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Form, HTTPException, File, UploadFile
+from fastapi import FastAPI, Form, HTTPException, File, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, field_validator
@@ -14,6 +14,7 @@ import io
 import anthropic
 import voyageai
 import pillow_heif
+import stripe
 from PIL import Image
 
 from database import get_connection, ANTHROPIC_API_KEY, VOYAGE_API_KEY
@@ -23,6 +24,10 @@ from security import create_handoff_token, decode_handoff_token, hash_secret, ve
 
 claude_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
+
+_STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+_STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+stripe.api_key = _STRIPE_SECRET_KEY
 
 _VISION_SYSTEM_PROMPT = (
     'You are an item classifier for a lost and found app. Analyze the image and extract structured information. '
@@ -125,6 +130,16 @@ class VerifyRequest(BaseModel):
 
 class HandoffValidateRequest(BaseModel):
     token: str
+
+
+class FinderEmailUpdate(BaseModel):
+    finder_email: str
+
+
+class TipCreateRequest(BaseModel):
+    finder_item_id: uuid.UUID
+    loser_item_id: uuid.UUID
+    amount_cents: int
 
 
 # --------------------------------------------------------------------------- #
@@ -477,6 +492,95 @@ def verify_item(body: VerifyRequest):
 
     attempts_remaining = max(0, _MAX_VERIFY_ATTEMPTS - updated["attempt_count"])
     return {"verified": False, "attempts_remaining": attempts_remaining}
+
+
+@app.patch("/items/{item_id}/finder-email", status_code=200)
+def update_finder_email(item_id: uuid.UUID, body: FinderEmailUpdate):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE items SET finder_email = %s WHERE id = %s AND type = 'finder' RETURNING id",
+                (body.finder_email, str(item_id)),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Finder item not found")
+    return {"ok": True}
+
+
+@app.post("/tip/create-payment-intent", status_code=201)
+def create_tip_payment_intent(body: TipCreateRequest):
+    if body.amount_cents < 50:
+        raise HTTPException(status_code=422, detail="Minimum tip amount is $0.50")
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM items WHERE id = %s AND type = 'finder'",
+                (str(body.finder_item_id),),
+            )
+            if cur.fetchone() is None:
+                raise HTTPException(status_code=404, detail="Finder item not found")
+            cur.execute(
+                "SELECT id FROM items WHERE id = %s AND type = 'loser'",
+                (str(body.loser_item_id),),
+            )
+            if cur.fetchone() is None:
+                raise HTTPException(status_code=404, detail="Loser item not found")
+
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=body.amount_cents,
+            currency="usd",
+            payment_method_types=["card"],
+            metadata={
+                "finder_item_id": str(body.finder_item_id),
+                "loser_item_id": str(body.loser_item_id),
+            },
+        )
+    except stripe.StripeError as exc:
+        raise HTTPException(status_code=502, detail=f"Stripe error: {exc.user_message}") from exc
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO tips (finder_item_id, loser_item_id, amount_cents, stripe_payment_intent_id)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (str(body.finder_item_id), str(body.loser_item_id), body.amount_cents, intent.id),
+            )
+        conn.commit()
+
+    return {"client_secret": intent.client_secret, "payment_intent_id": intent.id}
+
+
+@app.post("/stripe/webhook", status_code=200)
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    if _STRIPE_WEBHOOK_SECRET:
+        try:
+            event = stripe.Webhook.construct_event(payload, sig_header, _STRIPE_WEBHOOK_SECRET)
+        except stripe.SignatureVerificationError as exc:
+            raise HTTPException(status_code=400, detail="Invalid webhook signature") from exc
+    else:
+        import json as _json
+        event = _json.loads(payload)
+
+    if event["type"] == "payment_intent.succeeded":
+        pi_id = event["data"]["object"]["id"]
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE tips SET status = 'completed' WHERE stripe_payment_intent_id = %s",
+                    (pi_id,),
+                )
+            conn.commit()
+
+    return {"received": True}
 
 
 @app.post("/handoff/validate")

@@ -14,3 +14,18 @@ CREATE TABLE IF NOT EXISTS items (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     embedding     vector(1024)
 );
+
+-- Phase 7: tip flow
+-- Run these ALTER statements if the table already exists:
+--   ALTER TABLE items ADD COLUMN IF NOT EXISTS finder_email VARCHAR;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS finder_email VARCHAR;
+
+CREATE TABLE IF NOT EXISTS tips (
+    id                        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    finder_item_id            UUID        NOT NULL REFERENCES items(id),
+    loser_item_id             UUID        NOT NULL REFERENCES items(id),
+    amount_cents              INTEGER     NOT NULL,
+    stripe_payment_intent_id  VARCHAR     UNIQUE,
+    status                    VARCHAR     NOT NULL DEFAULT 'pending',
+    created_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

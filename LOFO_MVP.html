@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LOFO.AI — Prototype</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/v3/"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -1207,6 +1208,86 @@
   /* ─────────────────────────────────────────
      SCREEN 9: THANK YOU SENT
   ───────────────────────────────────────── */
+  /* ── Phase 7: finder email field ── */
+  .finder-email-section {
+    width: 100%;
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+  .finder-email-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .finder-email-input {
+    width: 100%;
+    background: #fff;
+    border: 1.5px solid rgba(26,26,46,0.12);
+    border-radius: 12px;
+    padding: 13px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    color: var(--navy);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .finder-email-input:focus { border-color: var(--rust); }
+  .finder-email-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* ── Phase 7: inline card payment panel on Reunion ── */
+  .card-payment-panel {
+    width: 100%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 4px;
+  }
+  .card-panel-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 14px;
+  }
+  .card-panel-amount {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    color: #fff;
+    margin-bottom: 18px;
+    letter-spacing: -0.5px;
+  }
+  .stripe-card-wrap {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .card-error {
+    font-size: 13px;
+    color: #FF6B6B;
+    min-height: 18px;
+    margin-bottom: 8px;
+  }
+  .card-cancel-link {
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    cursor: pointer;
+    margin-top: 10px;
+    padding: 4px 0;
+  }
+  .card-cancel-link:active { color: rgba(255,255,255,0.6); }
+
   #screen-thanks {
     background: var(--navy);
   }
@@ -1769,7 +1850,12 @@
         <span class="tag">Gold clasp</span>
         <span class="tag">Medium</span>
       </div>
-      <button class="btn-full s-item" data-delay="340" onclick="go('phone')">Continue →</button>
+      <div class="finder-email-section s-item" data-delay="320">
+        <div class="finder-email-label">Get paid when your find is reunited</div>
+        <input class="finder-email-input" type="email" id="finder-email-input" placeholder="your@email.com" autocomplete="email" />
+        <div class="finder-email-hint">Optional — we'll email you when someone tips you.</div>
+      </div>
+      <button class="btn-full s-item" data-delay="390" onclick="finderDoneContinue()">Continue →</button>
     </div>
   </div>
 
@@ -2030,8 +2116,17 @@
         </div>
         <div class="tip-charity">or <u>donate to charity instead</u></div>
       </div>
-      <button class="btn-white s-item" data-delay="360" id="tip-send-btn" onclick="go('thanks')">Send $10 thank you →</button>
-      <button class="skip-btn s-item" data-delay="420" onclick="go('home')">Skip for now</button>
+      <button class="btn-white s-item" data-delay="360" id="tip-send-btn" onclick="sendTip()">Send $10 thank you →</button>
+      <button class="skip-btn s-item" data-delay="420" id="tip-skip-btn" onclick="go('home')">Skip for now</button>
+
+      <div class="card-payment-panel" id="card-payment-panel" style="display:none">
+        <div class="card-panel-label">Card details</div>
+        <div class="card-panel-amount" id="card-panel-amount">$10</div>
+        <div class="stripe-card-wrap" id="stripe-card-element"></div>
+        <div class="card-error" id="card-error"></div>
+        <button class="btn-white" id="confirm-pay-btn" onclick="confirmTip()">Pay $10 →</button>
+        <div class="card-cancel-link" onclick="cancelTip()">← Change amount</div>
+      </div>
     </div>
   </div>
 
@@ -2046,7 +2141,7 @@
       <div class="thanks-circle s-pop" data-delay="80">💛</div>
       <div class="thanks-title s-item" data-delay="160">Thank you<br><em>sent.</em></div>
       <div class="thanks-rule s-item" data-delay="210"></div>
-      <div class="thanks-sub s-item" data-delay="240">The finder has been notified. You made someone&#39;s day a little brighter.</div>
+      <div class="thanks-sub s-item" data-delay="240">You sent <strong id="thanks-amount">$10</strong> to the finder. They'll be notified. You made someone's day a little brighter.</div>
       <button class="btn-white s-item" data-delay="320" onclick="go('home')">Back to home</button>
       <div class="thanks-footer s-item" data-delay="400">Lost it. Found it. Here.</div>
     </div>
@@ -2513,6 +2608,118 @@
     document.getElementById('tip-'+amt).classList.add('selected');
     selectedTip = amt;
     document.getElementById('tip-send-btn').textContent = `Send $${amt} thank you →`;
+  }
+
+  // ── Phase 7: Stripe tip flow ──
+  const STRIPE_PK = 'pk_test_51T7nErBOuXHzjZNpmuFOEWtJzIhM4JJO7hrde3cWl03xDR7zVbrcCFrDqlfld6DLNiozLMK8Io2Xug6qcwakw7CN00tjHDjNRi';
+  const stripeClient = Stripe(STRIPE_PK);
+  let _cardElement = null;
+  let _tipClientSecret = null;
+
+  // Called by Finder Done "Continue →" — saves email (if given) then navigates
+  async function finderDoneContinue() {
+    const email = (document.getElementById('finder-email-input')?.value || '').trim();
+    if (email && state.finderItemId) {
+      try {
+        await fetch(`${API}/items/${state.finderItemId}/finder-email`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ finder_email: email }),
+        });
+      } catch (_) {
+        // Non-blocking — don't stop the finder flow if this fails
+      }
+    }
+    go('phone');
+  }
+
+  // Called when loser taps "Send $X thank you →"
+  async function sendTip() {
+    if (!state.matchedItem?.id || !state.loserItemId) {
+      showError('Missing item info — please restart the flow.');
+      return;
+    }
+    const amountCents = parseInt(selectedTip) * 100;
+
+    showLoading('Setting up payment…');
+    try {
+      const res = await fetch(`${API}/tip/create-payment-intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          finder_item_id: state.matchedItem.id,
+          loser_item_id: state.loserItemId,
+          amount_cents: amountCents,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
+      const { client_secret } = await res.json();
+      _tipClientSecret = client_secret;
+      hideLoading();
+
+      // Mount the Stripe Card Element
+      document.getElementById('tip-send-btn').style.display = 'none';
+      document.getElementById('tip-skip-btn').style.display = 'none';
+      const panel = document.getElementById('card-payment-panel');
+      panel.style.display = 'block';
+      document.getElementById('card-panel-amount').textContent = `$${selectedTip}`;
+      document.getElementById('confirm-pay-btn').textContent = `Pay $${selectedTip} →`;
+      document.getElementById('card-error').textContent = '';
+
+      const elements = stripeClient.elements();
+      _cardElement = elements.create('card', {
+        style: {
+          base: {
+            color: '#ffffff',
+            fontFamily: '"DM Sans", -apple-system, sans-serif',
+            fontSize: '15px',
+            fontSmoothing: 'antialiased',
+            '::placeholder': { color: 'rgba(255,255,255,0.35)' },
+            iconColor: 'rgba(255,255,255,0.5)',
+          },
+          invalid: { color: '#FF6B6B', iconColor: '#FF6B6B' },
+        },
+      });
+      _cardElement.mount('#stripe-card-element');
+    } catch (err) {
+      hideLoading();
+      showError(err.message || 'Could not start payment. Try again.');
+    }
+  }
+
+  // Called when loser taps "Pay $X →" on the card panel
+  async function confirmTip() {
+    if (!_cardElement || !_tipClientSecret) return;
+    const btn = document.getElementById('confirm-pay-btn');
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+    document.getElementById('card-error').textContent = '';
+
+    const { paymentIntent, error } = await stripeClient.confirmCardPayment(_tipClientSecret, {
+      payment_method: { card: _cardElement },
+    });
+
+    if (error) {
+      document.getElementById('card-error').textContent = error.message;
+      btn.disabled = false;
+      btn.textContent = `Pay $${selectedTip} →`;
+      return;
+    }
+
+    if (paymentIntent.status === 'succeeded') {
+      document.getElementById('thanks-amount').textContent = `$${selectedTip}`;
+      cancelTip();
+      go('thanks');
+    }
+  }
+
+  // Called when loser taps "← Change amount" — unmounts card, restores tip buttons
+  function cancelTip() {
+    if (_cardElement) { _cardElement.unmount(); _cardElement = null; }
+    _tipClientSecret = null;
+    document.getElementById('card-payment-panel').style.display = 'none';
+    document.getElementById('tip-send-btn').style.display = '';
+    document.getElementById('tip-skip-btn').style.display = '';
   }
 </script>
 </body>
