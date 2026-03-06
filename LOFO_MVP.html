@@ -1981,7 +1981,9 @@
         <div class="status-pill s-item" data-delay="310" id="waiting-pill-time"><span>🕑</span><span id="waiting-time-text">Submitted just now</span></div>
         <div class="status-pill s-item" data-delay="370"><span>✦</span><span>AI-powered visual matching</span></div>
       </div>
-      <button class="btn-full s-item" data-delay="430" onclick="go('match','loser')">Simulate match found →</button>
+      <div id="waiting-timeout" style="display:none; text-align:center; font-size:13px; color:var(--muted); font-weight:300; line-height:1.65; margin-top:auto; padding:0 8px 8px;">
+        Still scanning — no match yet. We'll text you the moment one appears. Safe to close this.
+      </div>
     </div>
   </div>
 
@@ -2344,6 +2346,11 @@
     if (name !== 'finder-camera' && name !== 'match') {
       setIsland('off');
     }
+    if (name === 'waiting') {
+      startPolling();
+    } else {
+      stopPolling();
+    }
     if (name === 'match') {
       const pct = state.matchedItem ? Math.round(state.matchedItem.similarity_score * 100) : 91;
       setTimeout(() => {
@@ -2576,6 +2583,56 @@
       const ampm = h >= 12 ? 'PM' : 'AM';
       const h12 = h % 12 || 12;
       timeEl.innerHTML = `Submitted at <strong>${h12}:${pad(m)} ${ampm}</strong>`;
+    }
+  }
+
+  // ── Phase 10: Real-time match polling ──
+  let _pollInterval = null;
+  let _pollCount    = 0;
+  const _POLL_INTERVAL_MS = 5000;
+  const _POLL_MAX         = 24;   // 2 minutes then give up
+
+  function startPolling() {
+    stopPolling();
+    if (!state.loserItemId) return;
+    _pollCount = 0;
+    // Hide stale timeout message from a previous session
+    const timeoutEl = document.getElementById('waiting-timeout');
+    if (timeoutEl) timeoutEl.style.display = 'none';
+    _pollInterval = setInterval(pollForMatch, _POLL_INTERVAL_MS);
+  }
+
+  function stopPolling() {
+    if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
+  }
+
+  async function pollForMatch() {
+    if (!state.loserItemId) { stopPolling(); return; }
+
+    _pollCount++;
+    if (_pollCount > _POLL_MAX) {
+      stopPolling();
+      const timeoutEl = document.getElementById('waiting-timeout');
+      if (timeoutEl) timeoutEl.style.display = 'block';
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/match`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ item_id: state.loserItemId }),
+      });
+      if (!res.ok) return; // transient error — try again next tick
+      const matches = await res.json();
+      if (matches.length > 0) {
+        stopPolling();
+        state.matchedItem = matches[0];
+        if (navigator.vibrate) navigator.vibrate([80, 40, 120]);
+        go('match', 'loser');
+      }
+    } catch (_) {
+      // Network blip — silent, try again next tick
     }
   }
 
