@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 5, 2026 (Phase 6 tested + UI bugs fixed)*
+*Last updated: March 5, 2026 (Phase 7 complete — Stripe tip flow live)*
 
 ---
 
@@ -21,34 +21,49 @@ UI prototype: `LOFO_MVP.html`
 | 2 — AI Ingestion | ✅ Complete | Claude Vision + text → structured item profile + Voyage embeddings |
 | 3 — Matching Engine | ✅ Complete | Cosine similarity matching with confidence scoring |
 | 4 — Security | ✅ Complete | Argon2id secret hashing, JWT handoff tokens, brute-force lockout |
-| 5 — UI Polish | ✅ Complete | 9-screen interactive prototype, iOS animations, Dynamic Island |
+| 5 — UI Polish | ✅ Complete | 13-screen interactive prototype, iOS animations, Dynamic Island |
 | 6 — API Wiring | ✅ Complete | All screens wired to real backend with live API calls |
-| 7 — Tip Flow | ← Next | Stripe Connect |
+| 7 — Tip Flow | ✅ Complete | Stripe inline card payment, finder email capture, tips table |
+| 8 — GPS & Proximity | ← Next | Real location capture, proximity-filtered matching |
+| 9 — SMS Verification | Planned | Real OTP via Twilio, replace fake verify screens |
+| 10 — Realtime Matching | Planned | Polling/Supabase realtime on Waiting screen |
+| 11 — Stripe Connect Payouts | Planned | Finder bank account, direct tip transfers |
 
 ---
 
-## Current Status: Phases 1–6 Complete & Tested ✓
+## Current Status: Phases 1–7 Complete & Deployed ✓
 
 ### What's running
-- **Local API server:** `http://localhost:8000`
-- **App UI (served from FastAPI):** `http://localhost:8000/`
-- **Interactive API docs:** `http://localhost:8000/docs`
-- **Database:** Supabase (PostgreSQL + pgvector)
-- **Project folder:** `~/Desktop/lofo-ai`
+
+| Thing | URL |
+|---|---|
+| **Live API (Railway)** | `https://lofo-ai-production.up.railway.app` |
+| **Live app (GitHub Pages)** | `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html` |
+| **API docs** | `https://lofo-ai-production.up.railway.app/docs` |
+| **Local API** | `http://localhost:8000` (only when uvicorn running) |
+| **Database** | Supabase (PostgreSQL + pgvector) |
+| **Project folder** | `~/Desktop/lofo-ai` |
+| **Git repo** | `https://github.com/md-gityup/lofo-ai` |
 
 ### Backend endpoints
+
 | Endpoint | What it does |
 |---|---|
 | `GET /` | Serves LOFO_MVP.html (the app UI) |
 | `POST /items` | Submit a structured item manually |
-| `POST /items/from-photo` | Upload a photo → Claude Vision extracts profile → stored with embedding |
+| `POST /items/from-photo` | Upload photo → Claude Vision extracts profile → stored with embedding |
 | `POST /items/from-text` | Submit text description → Claude extracts profile → stored with embedding |
 | `GET /items/{id}` | Retrieve an item by UUID |
 | `POST /match` | Find top matching finder items for a loser item (cosine similarity) |
 | `POST /verify` | Verify ownership via secret detail (Argon2id, 3-attempt lockout) |
 | `POST /handoff/validate` | Validate single-use JWT handoff token |
+| `PATCH /items/{id}/finder-email` | Store finder's payout email after item creation |
+| `POST /tip/create-payment-intent` | Create Stripe PaymentIntent, record pending tip |
+| `POST /stripe/webhook` | Mark tip completed on `payment_intent.succeeded` |
 
-### Database table: `items`
+### Database schema
+
+**Table: `items`**
 | Column | Type | Notes |
 |---|---|---|
 | id | UUID | Auto-generated |
@@ -59,269 +74,239 @@ UI prototype: `LOFO_MVP.html`
 | size | varchar | 'small' / 'medium' / 'large' |
 | features | text[] | e.g. ['gold clasp'] |
 | embedding | vector(1024) | Voyage AI, used for cosine matching |
-| secret_detail | varchar | Hashed with Argon2id (loser items only) |
-| attempt_count | integer | Brute-force lockout counter |
-| verified_at | timestamptz | Set on successful ownership verification |
+| finder_email | varchar | Optional — finder's payout email (Phase 7) |
 | status | varchar | Default 'active' |
 | expires_at | timestamptz | Default 30 days from creation |
 | created_at | timestamptz | Auto-set |
 
+**Table: `secret_verifications`**
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID | Auto-generated |
+| item_id | UUID | References items(id) |
+| secret_hash | varchar | Argon2id hash |
+| attempt_count | integer | Brute-force counter |
+| locked | boolean | True after 3 failed attempts |
+| verified_at | timestamptz | Set on successful verification |
+
+**Table: `used_tokens`**
+| Column | Type | Notes |
+|---|---|---|
+| jti | varchar | JWT ID — unique, prevents replay |
+| item_id | UUID | References items(id) |
+| used_at | timestamptz | When token was first used |
+| expires_at | timestamptz | Token expiry |
+
+**Table: `tips`** *(Phase 7 — new)*
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID | Auto-generated |
+| finder_item_id | UUID | References items(id) |
+| loser_item_id | UUID | References items(id) |
+| amount_cents | integer | e.g. 1000 = $10 |
+| stripe_payment_intent_id | varchar | Stripe PI ID, unique |
+| status | varchar | 'pending' → 'completed' via webhook |
+| created_at | timestamptz | Auto-set |
+
 ### Key files
+
 | File | What it does |
 |---|---|
-| `main.py` | FastAPI app — all endpoints + CORS + serves HTML |
+| `main.py` | FastAPI app — all 11 endpoints + CORS + serves HTML |
 | `database.py` | Supabase connection pool + API key loading |
-| `schema.sql` | PostgreSQL table definitions |
-| `requirements.txt` | Python dependencies |
-| `LOFO_MVP.html` | Fully wired 13-screen app — real API calls, real data |
+| `schema.sql` | PostgreSQL table definitions (all 4 tables) |
+| `requirements.txt` | Python dependencies (includes stripe) |
+| `LOFO_MVP.html` | Fully wired 13-screen app — real API calls, Stripe.js, real data |
 | `security.py` | Argon2id hashing + JWT handoff token logic |
-| `.env` | API keys and DB connection string — never share |
+| `.env` | API keys — never share, never commit |
+
+### Key credentials & locations
+
+| Thing | Where |
+|---|---|
+| Supabase project | supabase.com → LOFO → LOFO-AI |
+| Railway project | railway.app → lofo-ai |
+| GitHub repo | github.com/md-gityup/lofo-ai |
+| Stripe dashboard | dashboard.stripe.com |
+| All API keys | `.env` file on local machine only |
+
+**Railway environment variables (must match .env):**
+`DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`
+
+**Important:** Never share, paste, or commit your `.env` file.
 
 ---
 
-## Session Summary — March 5, 2026 (this session)
+## Session Summary — March 5, 2026 (Phase 7 session)
 
 ### What we did
-1. **Read all context** — reviewed `main.py`, `database.py`, `security.py`, and the existing progress doc to orient.
-2. **Confirmed the server was already running** — `uvicorn main:app --reload` was active in terminal 9 from a prior session.
-3. **Ran a full end-to-end API test** via curl — every endpoint exercised manually (see test results below).
-4. **Audited the UI** — opened `http://localhost:8000/` in the browser, walked through all 13 screens in the code, and identified 4 real bugs plus a set of intentional demo artifacts.
-5. **Fixed all 4 bugs** — surgical edits to `LOFO_MVP.html` only, no backend changes.
-6. **Updated this doc** — full record of what was built, tested, fixed.
+
+1. **Debugged GitHub Pages → Railway connection** — the `API` URL detection was wrong. The old logic only handled `file://` vs same-origin. GitHub Pages uses `https:` so `API` resolved to `''`, pointing all fetches at GitHub Pages instead of Railway. Fixed by checking `window.location.hostname` instead of `window.location.protocol`.
+
+2. **Fixed duplicate JWT_SECRET in `.env`** — two lines, python-dotenv loads first, Railway had a different value. Removed the duplicate locally, matched to Railway's value.
+
+3. **Built Phase 7 — Stripe tip flow** — full implementation across backend and frontend (see below).
+
+4. **Fixed demo mode error** — "Missing item info" error appeared when tapping to Reunion screen directly (no real API state). Fixed: `sendTip()` now detects demo mode (no `state.matchedItem`) and still shows the card element; `confirmTip()` in demo mode simulates success after 1.2s delay. Real flow does a real Stripe charge.
+
+5. **Pushed all changes to git** — Railway auto-redeploys from main branch. GitHub Pages serves the HTML.
 
 ### Issues hit and how they were resolved
 
-**Issue:** Browser screenshots always showed a cropped/zoomed view of the device frame — couldn't see the full UI visually.
-**Resolution:** Used the browser DOM snapshot tool instead, plus code review of the HTML source. Got a complete picture without relying on screenshots.
+**Issue:** GitHub Pages HTML was calling itself instead of Railway — all API calls 404'd.
+**Resolution:** Changed `const API` from protocol-check to hostname-check. Now correctly points to Railway from any non-Railway host.
 
-**Issue:** Prior session's test data (Birkenstock description, phone number) was still filling the forms when the browser tab was already open.
-**Resolution:** Identified this is just leftover browser state — not a bug. Refreshing the page clears it. Noted it during the bug audit.
+**Issue:** Stripe "You did not provide an API key" error on Railway.
+**Resolution:** `STRIPE_SECRET_KEY` wasn't set in Railway Variables. Added it there.
 
-**Issue:** Claude returned `Clogs/mules` as an item_type when classifying Birkenstock sandals — caused "We found your Clogs/mules." to render in the UI.
-**Resolution:** Added a `cleanType()` helper that splits on `/`, takes the first segment, trims and capitalises. Applied to all 4 places where `item_type` is displayed.
+**Issue:** "Missing item info — please restart the flow" when tapping directly to Reunion screen.
+**Resolution:** Added demo mode to `sendTip()` — checks if real item state exists. If not, skips the PaymentIntent API call, still mounts the Stripe Card Element, and simulates success on confirm.
 
 ---
 
-## UI Bug Fixes (March 5, 2026 — post-Phase 6)
+## Phase 7 — What Was Built
 
-Four bugs found during live testing and fixed in `LOFO_MVP.html`:
+### Backend (`main.py`)
 
-| Bug | Fix |
-|---|---|
-| Back button on Handoff went to `match`, skipping Ownership Verify | Now context-aware: losers go back to `ownership-verify`, finders go back to `match` |
-| Reunion screen hardcoded "Your bag is on its way" | Now reads from `state.matchedItem.item_type` on screen enter; falls back to "Your item" |
-| Claude sometimes returns slash-separated `item_type` (e.g. `Clogs/mules`) | Added `cleanType()` helper — takes everything before the `/`, trims, capitalises. Used everywhere item_type is displayed |
-| Match reason checklist was always hardcoded (fake location, time) | Now generated from real matched item fields (item type, color, material, size) — only shown if data exists |
+- `import stripe` + `stripe.api_key = _STRIPE_SECRET_KEY`
+- Added `Request` to FastAPI imports (needed for webhook body reading)
+- New Pydantic schemas: `FinderEmailUpdate`, `TipCreateRequest`
+- **`PATCH /items/{item_id}/finder-email`** — updates `finder_email` on a finder item after creation. Only updates `type = 'finder'` rows.
+- **`POST /tip/create-payment-intent`** — validates both items exist, creates Stripe PaymentIntent (`payment_method_types: ["card"]`, amount in cents, metadata with item IDs), inserts pending tip row, returns `client_secret`.
+- **`POST /stripe/webhook`** — reads raw body + Stripe-Signature header, verifies with `STRIPE_WEBHOOK_SECRET` if set (skips verification if blank — dev mode), handles `payment_intent.succeeded` by marking tip 'completed'.
 
-No backend changes. All fixes in `LOFO_MVP.html` only.
+### Database (`schema.sql`)
+
+- `ALTER TABLE items ADD COLUMN IF NOT EXISTS finder_email VARCHAR`
+- New `tips` table (see schema above)
+
+### Frontend (`LOFO_MVP.html`)
+
+- **Stripe.js CDN** added to `<head>`
+- **`const stripeClient = Stripe(pk_test_...)`** in script — initialized once at page load
+- **Finder Done screen** — new email input field: "Get paid when your find is reunited" (optional, hint: "we'll email you when someone tips you")
+- **`finderDoneContinue()`** — replaces `go('phone')` on Finder Done Continue button. If email is filled, PATCHes `/items/{finderItemId}/finder-email` (non-blocking, failure doesn't stop flow), then navigates to 'phone'.
+- **Reunion screen** — "Send $X →" button calls `sendTip()` instead of `go('thanks')`. New hidden `#card-payment-panel` div below the skip button.
+- **`sendTip()`** — real flow: creates PaymentIntent via API, stores `client_secret`, shows card panel, mounts Stripe Card Element with LOFO dark styling. Demo flow (no state): skips API call, shows card panel directly.
+- **`confirmTip()`** — real: calls `stripe.confirmCardPayment(clientSecret, { payment_method: { card: cardElement } })`. Demo: 1.2s simulated delay then go('thanks'). Both paths set `#thanks-amount` before navigating.
+- **`cancelTip()`** — unmounts card element, hides panel, restores tip send + skip buttons.
+- **Thanks screen** — "You sent **$X** to the finder." — `#thanks-amount` span updated dynamically.
+- **CSS additions** — `.finder-email-section`, `.finder-email-input`, `.card-payment-panel`, `.stripe-card-wrap`, `.card-error`, `.card-cancel-link`
 
 ### Known demo artifacts (intentional — do not fix yet)
 
-These were identified during the audit but deliberately left alone. They belong to future phases or are harmless placeholders:
-
 | Artifact | Where | Why it's intentional |
 |---|---|---|
-| "DEMO: CHOOSE OUTCOME" + two branch buttons on SMS Verify screen | `screen-verify` | The entire SMS/OTP flow is unbuilt. These are the only way to branch the finder demo. Fix in Phase 8 when SMS is added. |
-| Hardcoded OTP boxes showing "3 7 4 ·" | `screen-verify` | Same — placeholder UI for unbuilt SMS flow. |
-| "(555) 000-0000" in the verify screen copy | `screen-verify` | Same. |
-| "Simulate match found →" button on Waiting screen | `screen-waiting` | Useful for demo/testing when there's no real match seeded. Remove when polling/push notifications are added. |
-| Location and time pills on Waiting screen ("Within 0.5 mi…", "Today 1–4 PM") | `screen-waiting` | Hardcoded demo copy — no location/time data is captured yet. Leave until that feature is built. |
+| "DEMO: CHOOSE OUTCOME" + two branch buttons on SMS Verify screen | `screen-verify` | SMS/OTP flow unbuilt. Fix in Phase 9. |
+| Hardcoded OTP boxes showing "3 7 4 ·" | `screen-verify` | Same. |
+| "(555) 000-0000" in verify screen copy | `screen-verify` | Same. |
+| "Simulate match found →" button on Waiting screen | `screen-waiting` | Useful for demo. Remove when realtime matching is built (Phase 10). |
+| Location and time pills on Waiting screen | `screen-waiting` | Hardcoded demo copy. Fix in Phase 8 (GPS). |
+| Finder Connect Express onboarding | — | Tips currently held in LOFO's Stripe balance. Full finder payout in Phase 11. |
+| `STRIPE_WEBHOOK_SECRET` is blank | `.env` | Webhook runs without signature verification locally. Set this when adding the real webhook endpoint in Stripe dashboard. |
 
 ---
 
 ## Phase 6 — End-to-End Test Results (March 5, 2026)
 
-Full API test run — every endpoint verified working:
-
 | Test | Result |
 |---|---|
 | `POST /items/from-text` (finder) | Claude extracted: wallet, brown, leather, small, bifold, silver clasp ✅ |
-| `POST /items/from-text` (loser + secret) | Same extraction, secret hashed and stored in `secret_verifications` ✅ |
+| `POST /items/from-text` (loser + secret) | Same extraction, secret hashed and stored ✅ |
 | `POST /match` | **89.7% similarity score** — correct item returned, above 0.7 threshold ✅ |
 | `POST /verify` (wrong answer) | `verified: false, attempts_remaining: 2` ✅ |
 | `POST /verify` (correct answer) | `verified: true` + JWT handoff token issued ✅ |
 | `POST /handoff/validate` (1st use) | `valid: true` ✅ |
 | `POST /handoff/validate` (2nd use) | `409 — Handoff token has already been used` ✅ |
 
-The full loop works: AI ingestion → vector matching → Argon2id ownership verification → single-use JWT handoff. Security is confirmed: brute-force attempt counter increments correctly, and handoff tokens cannot be replayed.
-
-UI is live and served from `http://localhost:8000/`. The photo flow requires a real browser or iPhone (camera access needed).
-
----
-
-## Phase 6 — What Was Built (March 5, 2026 session)
-
-### The goal
-Wire the polished HTML prototype to the real backend. Replace all hardcoded demo data with live API calls. Every tap does something real.
-
-### What was added to `LOFO_MVP.html`
-
-**New screen: Ownership Verify** (`screen-ownership-verify`)
-- Sits between Match Found and Handoff in the loser flow
-- Text input for the secret detail the loser registered
-- 3 attempt dots that fill red on each wrong answer
-- Error message shows attempts remaining
-- On success: proceeds to Handoff
-- On failure with 0 attempts: button locks, item locked 423 response handled
-
-**Lost Prompt screen — updated**
-- Added `id="lost-description"` to the description textarea
-- Added "🔐 Secret detail only you'd know" input field with hint card
-- Button now calls `submitLost()` instead of navigating directly to Waiting
-
-**Script — fully replaced**
-- `const API` — auto-detects: `http://localhost:8000` when opened from `file://`, empty string (relative) when served from FastAPI
-- App state object: `{ finderItemId, loserItemId, matchedItem, handoffToken, failedAttempts }`
-- `triggerShutter()` — now clicks the hidden file input instead of running a fake timer
-- `handlePhotoFile()` — async: flash effect → camera AI overlay → `POST /items/from-photo` → populate Finder Done with real data → navigate
-- `renderFinderDone(item)` — populates item card with real `item_type`, colors, material, size, features + smart emoji
-- `submitLost()` — async: `POST /items/from-text` → `POST /match` → routes to Match Found (≥0.7) or Waiting
-- `submitOwnershipVerify()` — async: `POST /verify` → handles success (→ Handoff), failure (attempt dots), lockout (423)
-- `renderMatchFound(item)` — fills match card with real item data, updates confidence bar and Dynamic Island %
-- All existing functions preserved: `go()`, stagger system, Dynamic Island, `formatPhone`, `selectOption`, `selectTip`
-
-**New elements added to device div**
-- `<input type="file" id="photo-file-input" accept="image/*" capture="environment">` — triggers native camera on iOS, file picker on desktop
-- `#global-overlay` — dark blur loading overlay with spinner, used for all non-camera API calls
-- `#error-toast` — bottom-of-screen error pill, auto-dismisses after 4 seconds
-
-**CSS additions**
-- `.att-dot` / `.att-dot.used` — attempt tracking dots
-- `#global-overlay` and `#global-overlay-text` — loading overlay styles
-- `#error-toast` — error toast styles
-- `.secret-label`, `.secret-input`, `.secret-hint` — ownership proof input styling
-- `#screen-ownership-verify` — the new verify screen
-
-### What was changed in `main.py`
-- Added `CORSMiddleware` (`allow_origins=["*"]`) — allows the HTML to call the API from any origin, including `file://`
-- Added `GET /` route serving `LOFO_MVP.html` via `FileResponse` — so the app can be loaded from the server URL, enabling iPhone testing
-- Added `from fastapi.middleware.cors import CORSMiddleware`, `from fastapi.responses import FileResponse`, `import os`
-
-### Issues hit and how they were resolved
-
-**Issue:** AI created a brand-new LOFO_MVP.html, overwriting the existing prototype.
-**Resolution:** Deleted the new file, reverted main.py, user manually added the existing prototype to the project folder. All subsequent changes were surgical edits to the existing file.
-
-**Issue:** `LOFO_MVP.html` wasn't visible in the project folder at session start — `ls` and glob searches returned no HTML files.
-**Root cause:** The prototype existed but hadn't been copied into `~/Desktop/lofo-ai/` yet. User added it manually.
-
 ---
 
 ## How to Resume
 
-### Step 1 — Open the project
-Open Cursor → File → Open Folder → Desktop → lofo-ai
+### Option A — Test the live deployed app
+Go to: `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`
+API is at: `https://lofo-ai-production.up.railway.app`
 
-### Step 2 — Start the server
+### Option B — Run locally
 ```bash
+cd ~/Desktop/lofo-ai
 source .venv/bin/activate
 uvicorn main:app --reload
 ```
+Then open `http://localhost:8000/` or `LOFO_MVP.html` directly in a browser.
 
-### Step 3 — Test it
-
-**Desktop:** Open `LOFO_MVP.html` directly in a browser, or go to `http://localhost:8000/`
-
-**iPhone:** Make sure iPhone and Mac are on the same WiFi. Find your Mac's IP:
-```bash
-ipconfig getifaddr en0
-```
-Then go to `http://[YOUR MAC IP]:8000/` in Safari on your iPhone.
-
-### Step 4 — Seed test data (for match testing)
-Use Swagger at `http://localhost:8000/docs` to POST a finder item first, then describe it as a loser to test the match flow. Or snap two photos of the same object.
-
-**Quick curl test (confirmed working):**
+### Seed test data (for match testing)
 ```bash
 # 1. Submit a finder item
-curl -X POST http://localhost:8000/items/from-text \
+curl -X POST https://lofo-ai-production.up.railway.app/items/from-text \
   -H "Content-Type: application/json" \
   -d '{"type": "finder", "description": "Found a brown leather wallet near the park fountain. Small, bifold, with a silver clasp."}'
 
 # 2. Submit a matching loser item with a secret
-curl -X POST http://localhost:8000/items/from-text \
+curl -X POST https://lofo-ai-production.up.railway.app/items/from-text \
   -H "Content-Type: application/json" \
   -d '{"type": "loser", "description": "Lost my brown leather wallet, bifold with silver clasp, near the fountain.", "secret_detail": "There is a photo of my dog inside the left pocket"}'
 
 # 3. Run match (use loser item id from step 2)
-curl -X POST http://localhost:8000/match \
+curl -X POST https://lofo-ai-production.up.railway.app/match \
   -H "Content-Type: application/json" \
   -d '{"item_id": "<loser-item-id>"}'
+```
 
-# 4. Verify ownership (use loser item id)
-curl -X POST http://localhost:8000/verify \
-  -H "Content-Type: application/json" \
-  -d '{"item_id": "<loser-item-id>", "secret_detail": "There is a photo of my dog inside the left pocket"}'
+### Test the Stripe tip flow
+Use Stripe test card: `4242 4242 4242 4242` · exp `12/26` · CVC `123` · any ZIP.
+Check Stripe Dashboard → Payments to confirm charge appears.
+
+---
+
+## What's Next: Phase 8 — GPS & Proximity Matching
+
+**Goal:** Capture real lat/lng from the browser at item submission. Store location on each item. Filter match results by proximity so a wallet found in Chicago never matches a wallet lost in Miami.
+
+### What to build in Phase 8
+
+**8a — Frontend location capture**
+- Request `navigator.geolocation` permission when finder submits photo and when loser submits description
+- Pass `latitude` and `longitude` as optional fields on both `/items/from-photo` and `/items/from-text`
+- Replace hardcoded location pills on Waiting screen with real "Within X mi" data
+
+**8b — Backend schema + endpoint updates**
+- Add `latitude NUMERIC(9,6)` and `longitude NUMERIC(9,6)` columns to `items` table
+- Update all three item creation endpoints (`/items`, `/items/from-text`, `/items/from-photo`) to accept and store optional `lat`/`lng`
+- Update `/match` to filter by proximity (Haversine formula in SQL — no PostGIS needed for MVP)
+
+**8c — Match proximity filter**
+- Default radius: 10 miles
+- Items with no location stored are still matchable (fall back to embedding-only matching)
+- Match response includes distance in miles
+
+**Schema change needed on Supabase:**
+```sql
+ALTER TABLE items ADD COLUMN IF NOT EXISTS latitude  NUMERIC(9,6);
+ALTER TABLE items ADD COLUMN IF NOT EXISTS longitude NUMERIC(9,6);
 ```
 
 ---
 
-## Key Credentials & Locations
+## Cursor Prompt for Phase 8
 
-| Thing | Where it is |
-|---|---|
-| Supabase project | supabase.com → LOFO → LOFO-AI |
-| API keys (Anthropic, Voyage) | In your `.env` file |
-| DB connection string | `.env` file (Session Pooler URL) |
-| API running | localhost:8000 (only when uvicorn is running) |
-
-**Important:** Never share, paste, or commit your `.env` file. It stays on your machine only.
-
----
-
-## What's Next: Phase 7 — Stripe Connect Tip Flow
-
-**Goal:** The tip on the Reunion screen actually moves money. The finder gets paid at the moment of reunion.
-
-### What to build in Phase 7
-
-**7a — Stripe Connect onboarding for finders**
-- When a finder submits a photo, prompt them to connect a Stripe account (or a simplified payout method like Venmo handle / bank detail)
-- Store a `stripe_account_id` on the finder item or a separate `finders` table
-
-**7b — Tip charge on the loser side**
-- Reunion screen tip buttons ($5, $10, $20, custom) trigger a real Stripe charge
-- Loser pays; finder receives via Stripe Connect transfer
-- Add `POST /tip` endpoint: takes `item_id`, `amount_cents`, processes the charge and transfer
-
-**7c — Receipt / confirmation**
-- Thanks Sent screen confirms the exact amount sent
-- Optional: email receipt via Stripe's built-in receipt emails
-
-**Stripe setup needed:**
-- Create Stripe account at stripe.com
-- Add `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` to `.env`
-- Install: `pip install stripe`
-
----
-
-## Cursor Prompt for Phase 7
-
-When starting the Phase 7 Cursor session, paste this at the top of your first message:
+When starting the Phase 8 Cursor session, paste this:
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at ~/Desktop/lofo-ai. Read `LOFO_AI_Progress.md` first for full context. Here's the quick version:
 >
 > **What's complete and working:**
-> Phases 1–6 fully built, tested end-to-end, and UI bugs fixed. The entire loop works: finder snaps photo OR submits text → Claude Vision/text extracts item profile → Voyage AI embedding stored → loser describes lost item → cosine similarity match (tested at 89.7%) → loser verifies ownership with Argon2id-hashed secret (3-attempt lockout) → single-use JWT handoff token issued → handoff options shown. No mocked data anywhere in the main flow.
+> Phases 1–7 fully built and deployed. Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. The full loop works: finder snaps photo → Claude Vision extracts profile → Voyage AI embedding → loser describes lost item → cosine similarity match (tested 89.7%) → Argon2id ownership verification (3-attempt lockout) → single-use JWT handoff → Stripe inline card payment (Card Element, no redirect) → Thanks screen shows amount paid.
 >
-> **Backend:** FastAPI (`main.py`), Supabase/pgvector (`database.py`), security (`security.py`). Endpoints: `POST /items`, `POST /items/from-photo`, `POST /items/from-text`, `GET /items/{id}`, `POST /match`, `POST /verify`, `POST /handoff/validate`. Server runs with `source .venv/bin/activate && uvicorn main:app --reload`.
+> **Backend:** FastAPI (`main.py`), Supabase/pgvector (`database.py`), Stripe (`stripe`), security (`security.py`). 11 endpoints. Deployed on Railway. `.env` has: DATABASE_URL, ANTHROPIC_API_KEY, VOYAGE_API_KEY, JWT_SECRET, STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET (blank for now).
 >
-> **Frontend:** `LOFO_MVP.html` — 13 screens, all live API calls, served from FastAPI at `GET /`. Key JS: `state` object, `go()` navigation, `submitLost()`, `submitOwnershipVerify()`, `cleanType()` helper (handles Claude slash-separated item types), dynamic match reasons, dynamic reunion title.
+> **Frontend:** `LOFO_MVP.html` — 13 screens, all live API calls, Stripe.js inline card payment. Key JS: `state` object, `go()` navigation, `submitLost()`, `submitOwnershipVerify()`, `sendTip()`, `confirmTip()`, `finderDoneContinue()`, `cleanType()`.
 >
-> **Known intentional placeholders (do not touch):** SMS/OTP verify screens are fake (future Phase 8), "Simulate match found" button on Waiting screen, hardcoded location pills on Waiting screen.
+> **Known intentional placeholders (do not touch):** SMS/OTP verify screens are fake (Phase 9), 'Simulate match found' button on Waiting screen (Phase 10), hardcoded location pills on Waiting screen (Phase 8 — that's what we're building now).
 >
-> **What's next — Phase 7: Stripe Connect tip flow**
-> The Reunion screen has tip buttons ($5, $10, $20, custom) that go nowhere. Goal: the loser's tap on "Send $10 thank you →" actually charges their card and pays the finder.
+> **What's next — Phase 8: GPS & Proximity Matching**
+> Capture real lat/lng from the browser Geolocation API at item submission. Store it on the items table. Update the match endpoint to filter by proximity (Haversine in SQL). Replace hardcoded location pills with real distance data.
 >
-> Start by reading `main.py`, `LOFO_MVP.html` (Reunion screen `#screen-reunion` and Thanks screen `#screen-thanks`), and `.env`. Then design the data model for Phase 7a: what tables/columns do we need to store a finder's Stripe payout account, and what does a tip transaction record look like?"
-
----
-
-## Claude Chat Starter for Phase 7 Review
-
-When starting a new Claude chat to review Phase 7 progress, paste this:
-
-> "I'm building LOFO.AI — a lost and found app. Phases 1–6 complete and tested: FastAPI backend, Supabase/pgvector, Claude Vision + Voyage AI ingestion, cosine matching (89.7% on a real test), Argon2id ownership verification, JWT single-use handoff tokens, and a fully wired 13-screen HTML frontend. I've just finished Phase 7: the Stripe Connect tip flow. Here's what I built: [paste what Cursor did]. Help me review it and plan Phase 8."
+> Start by reading `main.py` and `LOFO_MVP.html`. Then run the two schema changes on Supabase (in the progress doc) and begin implementation."
 
 ---
 
