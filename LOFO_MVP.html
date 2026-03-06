@@ -1719,6 +1719,89 @@
   }
   #error-toast.visible { transform: translateX(-50%) translateY(0); }
 
+  /* ─────────────────────────────────────────
+     SCREEN 5b: LOSER WAIT (hang tight)
+  ───────────────────────────────────────── */
+  #screen-loser-wait {
+    background: var(--navy);
+  }
+  #screen-loser-wait .status-time { color: rgba(255,255,255,0.25); }
+  .loser-wait-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 28px 52px;
+    text-align: center;
+  }
+  /* Breathing orb */
+  .breathe-wrap {
+    width: 160px;
+    height: 160px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 44px;
+    flex-shrink: 0;
+  }
+  .breathe-ring {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.045);
+    animation: breatheRing 4s ease-in-out infinite;
+  }
+  .breathe-ring:nth-child(1) { width: 160px; height: 160px; animation-delay: 0s; }
+  .breathe-ring:nth-child(2) { width: 120px; height: 120px; animation-delay: -1.33s; }
+  .breathe-ring:nth-child(3) { width: 82px;  height: 82px;  animation-delay: -2.66s; }
+  @keyframes breatheRing {
+    0%, 100% { transform: scale(0.72); opacity: 0; }
+    35%       { opacity: 1; }
+    65%       { opacity: 0.5; }
+    100%      { transform: scale(1.28); opacity: 0; }
+  }
+  .breathe-center {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.14);
+    position: relative;
+    z-index: 2;
+    animation: breatheCenter 4s ease-in-out infinite;
+  }
+  @keyframes breatheCenter {
+    0%, 100% { transform: scale(0.88); box-shadow: 0 0 0 0 rgba(255,255,255,0.04); }
+    50%       { transform: scale(1.12); box-shadow: 0 0 32px 8px rgba(255,255,255,0.06); }
+  }
+  .loser-wait-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 44px;
+    color: #fff;
+    line-height: 1.0;
+    letter-spacing: -0.5px;
+    margin-bottom: 0;
+  }
+  .loser-wait-title em {
+    font-style: italic;
+    color: rgba(255,255,255,0.45);
+  }
+  .loser-wait-rule {
+    width: 32px;
+    height: 1.5px;
+    background: rgba(255,255,255,0.15);
+    margin: 18px auto 16px;
+  }
+  .loser-wait-sub {
+    font-size: 14px;
+    color: rgba(255,255,255,0.38);
+    font-weight: 300;
+    line-height: 1.75;
+    max-width: 260px;
+    margin-bottom: 40px;
+  }
+
   /* ── Scrollable content areas (screens with more content than fits) ── */
   #screen-finder-done .content,
   #screen-lost-prompt .content,
@@ -2037,6 +2120,29 @@
   </div>
 
   <!-- ═══════════════════════════════════════
+       SCREEN 5b: LOSER WAIT (hang tight)
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-loser-wait">
+    <div class="status">
+      <span class="status-time" style="color:rgba(255,255,255,0.25)">9:41</span>
+    </div>
+    <div class="loser-wait-body">
+      <div class="breathe-wrap">
+        <div class="breathe-ring"></div>
+        <div class="breathe-ring"></div>
+        <div class="breathe-ring"></div>
+        <div class="breathe-center"></div>
+      </div>
+      <div class="loser-wait-title s-item" data-delay="60">Hang tight.<br><em>Think positive.</em></div>
+      <div class="loser-wait-rule s-item" data-delay="120"></div>
+      <div class="loser-wait-sub s-item" data-delay="170" id="loser-wait-sub">
+        People do good things.<br>We'll text you the moment<br>someone finds your item.
+      </div>
+      <button class="skip-btn s-item" data-delay="260" onclick="go('home')">Back to home</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
        SCREEN 6: MATCH FOUND
   ═══════════════════════════════════════ -->
   <div class="screen" id="screen-match">
@@ -2265,12 +2371,13 @@
     longitude:      null,
     phone:          null,
     loserPhone:     null,
+    loserItemType:  null,
   };
 
   // ── Screen flow order (determines push/pop direction) ──
   const flowOrder = [
     'home','finder-camera','finder-done','phone','verify','allset',
-    'lost-prompt','waiting','match','ownership-verify','confirmed','handoff','reunion','thanks'
+    'lost-prompt','waiting','loser-wait','match','ownership-verify','confirmed','handoff','reunion','thanks'
   ];
   const screenMap = {
     'home':             'screen-home',
@@ -2281,6 +2388,7 @@
     'allset':           'screen-allset',
     'lost-prompt':      'screen-lost-prompt',
     'waiting':          'screen-waiting',
+    'loser-wait':       'screen-loser-wait',
     'match':            'screen-match',
     'ownership-verify': 'screen-ownership-verify',
     'confirmed':        'screen-confirmed',
@@ -2288,7 +2396,7 @@
     'reunion':          'screen-reunion',
     'thanks':           'screen-thanks',
   };
-  const modalScreens = new Set(['match','reunion','thanks']);
+  const modalScreens = new Set(['match','loser-wait','reunion','thanks']);
 
   let current = 'home';
   let isAnimating = false;
@@ -2437,6 +2545,13 @@
       startPolling();
     } else {
       stopPolling();
+    }
+    if (name === 'loser-wait') {
+      const sub = document.getElementById('loser-wait-sub');
+      if (sub) {
+        const label = state.loserItemType ? cleanType(state.loserItemType) : 'item';
+        sub.innerHTML = `People do good things.<br>We'll text you the moment<br>someone finds your ${label}.`;
+      }
     }
     if (name === 'match') {
       const pct = state.matchedItem ? Math.round(state.matchedItem.similarity_score * 100) : 91;
@@ -2648,7 +2763,8 @@
       });
       if (!r1.ok) throw new Error((await r1.json().catch(()=>({}))).detail || `Error ${r1.status}`);
       const item = await r1.json();
-      state.loserItemId = item.id;
+      state.loserItemId   = item.id;
+      state.loserItemType = item.item_type || null;
 
       // 6c — POST /match
       showLoading('Searching for matches…');
@@ -3037,9 +3153,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
       });
-      if (btn) btn.style.display = 'none';
-      const confirmed = document.getElementById('loser-notify-confirmed');
-      if (confirmed) confirmed.style.display = 'block';
+      go('loser-wait');
     } catch (_) {
       if (btn) { btn.disabled = false; btn.textContent = 'Notify me →'; }
       showError('Could not save your number. Try again.');
