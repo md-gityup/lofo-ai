@@ -2635,65 +2635,75 @@
 
   // Called when loser taps "Send $X thank you →"
   async function sendTip() {
-    if (!state.matchedItem?.id || !state.loserItemId) {
-      showError('Missing item info — please restart the flow.');
-      return;
-    }
     const amountCents = parseInt(selectedTip) * 100;
+    const isRealFlow = !!(state.matchedItem?.id && state.loserItemId);
 
-    showLoading('Setting up payment…');
-    try {
-      const res = await fetch(`${API}/tip/create-payment-intent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          finder_item_id: state.matchedItem.id,
-          loser_item_id: state.loserItemId,
-          amount_cents: amountCents,
-        }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
-      const { client_secret } = await res.json();
-      _tipClientSecret = client_secret;
-      hideLoading();
-
-      // Mount the Stripe Card Element
-      document.getElementById('tip-send-btn').style.display = 'none';
-      document.getElementById('tip-skip-btn').style.display = 'none';
-      const panel = document.getElementById('card-payment-panel');
-      panel.style.display = 'block';
-      document.getElementById('card-panel-amount').textContent = `$${selectedTip}`;
-      document.getElementById('confirm-pay-btn').textContent = `Pay $${selectedTip} →`;
-      document.getElementById('card-error').textContent = '';
-
-      const elements = stripeClient.elements();
-      _cardElement = elements.create('card', {
-        style: {
-          base: {
-            color: '#ffffff',
-            fontFamily: '"DM Sans", -apple-system, sans-serif',
-            fontSize: '15px',
-            fontSmoothing: 'antialiased',
-            '::placeholder': { color: 'rgba(255,255,255,0.35)' },
-            iconColor: 'rgba(255,255,255,0.5)',
-          },
-          invalid: { color: '#FF6B6B', iconColor: '#FF6B6B' },
-        },
-      });
-      _cardElement.mount('#stripe-card-element');
-    } catch (err) {
-      hideLoading();
-      showError(err.message || 'Could not start payment. Try again.');
+    if (isRealFlow) {
+      showLoading('Setting up payment…');
+      try {
+        const res = await fetch(`${API}/tip/create-payment-intent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            finder_item_id: state.matchedItem.id,
+            loser_item_id: state.loserItemId,
+            amount_cents: amountCents,
+          }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
+        const { client_secret } = await res.json();
+        _tipClientSecret = client_secret;
+        hideLoading();
+      } catch (err) {
+        hideLoading();
+        showError(err.message || 'Could not start payment. Try again.');
+        return;
+      }
     }
+    // _tipClientSecret stays null in demo mode — confirmTip handles it
+
+    document.getElementById('tip-send-btn').style.display = 'none';
+    document.getElementById('tip-skip-btn').style.display = 'none';
+    const panel = document.getElementById('card-payment-panel');
+    panel.style.display = 'block';
+    document.getElementById('card-panel-amount').textContent = `$${selectedTip}`;
+    document.getElementById('confirm-pay-btn').textContent = `Pay $${selectedTip} →`;
+    document.getElementById('card-error').textContent = '';
+
+    const elements = stripeClient.elements();
+    _cardElement = elements.create('card', {
+      style: {
+        base: {
+          color: '#ffffff',
+          fontFamily: '"DM Sans", -apple-system, sans-serif',
+          fontSize: '15px',
+          fontSmoothing: 'antialiased',
+          '::placeholder': { color: 'rgba(255,255,255,0.35)' },
+          iconColor: 'rgba(255,255,255,0.5)',
+        },
+        invalid: { color: '#FF6B6B', iconColor: '#FF6B6B' },
+      },
+    });
+    _cardElement.mount('#stripe-card-element');
   }
 
   // Called when loser taps "Pay $X →" on the card panel
   async function confirmTip() {
-    if (!_cardElement || !_tipClientSecret) return;
+    if (!_cardElement) return;
     const btn = document.getElementById('confirm-pay-btn');
     btn.disabled = true;
     btn.textContent = 'Processing…';
     document.getElementById('card-error').textContent = '';
+
+    // Demo mode — no real PaymentIntent, simulate success after brief delay
+    if (!_tipClientSecret) {
+      setTimeout(() => {
+        document.getElementById('thanks-amount').textContent = `$${selectedTip}`;
+        cancelTip();
+        go('thanks');
+      }, 1200);
+      return;
+    }
 
     const { paymentIntent, error } = await stripeClient.confirmCardPayment(_tipClientSecret, {
       payment_method: { card: _cardElement },
