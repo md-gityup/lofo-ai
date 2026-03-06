@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 5, 2026 — Phases 1–9a complete and deployed*
+*Last updated: March 6, 2026 — Phases 1–9b complete and deployed*
 
 ---
 
@@ -23,8 +23,8 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 8 — GPS & Proximity | ✅ Complete | Real location capture, proximity-filtered matching |
 | 8.5 — UX & Flow Fixes | ✅ Complete | Live clock, GPS pre-fetch, phone propagation, real distances, scroll fixes |
 | 9a — Ownership Verification Rethink | ✅ Complete | Finder-owned secret detail; Claude fuzzy matching; loser flow friction removed |
-| **9b — SMS Verification** | **← Next** | Real OTP via Twilio, replace fake verify screens |
-| 10 — Realtime Matching | Planned | Polling/Supabase realtime on Waiting screen |
+| 9b — SMS Verification | ✅ Complete | Real OTP via Twilio, interactive digit inputs, demo buttons removed |
+| **10 — Realtime Matching** | **← Next** | Polling/Supabase realtime on Waiting screen |
 | 11 — Stripe Connect Payouts | Planned | Finder bank account, direct tip transfers |
 
 ---
@@ -58,6 +58,8 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `PATCH /items/{id}/finder-info` | Save finder's `finder_email` and/or `secret_detail` after item creation |
 | `POST /tip/create-payment-intent` | Create Stripe PaymentIntent, record pending tip |
 | `POST /stripe/webhook` | Mark tip `completed` on `payment_intent.succeeded` |
+| `POST /sms/send-otp` | Generate 4-digit code, store in-memory (10 min TTL), send via Twilio SMS |
+| `POST /sms/verify-otp` | Validate submitted code; returns `{verified: bool, reason?}` |
 
 ---
 
@@ -128,7 +130,7 @@ Was used for Argon2id loser-owned secrets. Replaced by `secret_detail` on `items
 | Stripe dashboard | dashboard.stripe.com |
 | All API keys | `.env` on local machine only |
 
-**Railway environment variables:** `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`
+**Railway environment variables:** `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
 
 ---
 
@@ -136,8 +138,6 @@ Was used for Argon2id loser-owned secrets. Replaced by `secret_detail` on `items
 
 | Artifact | Screen | Fix in |
 |---|---|---|
-| Fake SMS OTP — hardcoded "3 7 4 ·" boxes | `screen-verify` | Phase 9b |
-| "DEMO: CHOOSE OUTCOME" branch buttons | `screen-verify` | Phase 9b |
 | "Simulate match found →" button | `screen-waiting` | Phase 10 |
 | Finder payout (tips held in LOFO's Stripe balance) | — | Phase 11 |
 
@@ -180,48 +180,53 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 9b — SMS Verification
+## What's Next: Phase 10 — Realtime Matching
 
-Replace the fake phone verify flow with real Twilio OTP.
-
-**Before starting:** Create a free Twilio account at twilio.com and add three new Railway environment variables:
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_PHONE_NUMBER` (a Twilio-provisioned number, e.g. `+15005550006`)
+Replace the "Simulate match found →" button on `screen-waiting` with real polling. When a loser submits their item and lands on the waiting screen, the app should poll `/match` every few seconds. If a result comes back, animate the transition to `screen-match` automatically. Remove the simulate button when this is built.
 
 **What to build:**
-- New backend endpoint `POST /sms/send-otp` — generates a random 4-digit code, stores it (in-memory or a new `otp_sessions` table), sends it via Twilio SMS to the provided phone number
-- New backend endpoint `POST /sms/verify-otp` — checks submitted code against stored code, returns `{verified: bool}`
-- Frontend: `screen-phone` "Send code →" calls `/sms/send-otp`; replace hardcoded OTP boxes with a real interactive 4-input; submit calls `/sms/verify-otp`; on success navigate to `allset` or `match` depending on whether a match exists
-- Remove the "DEMO: CHOOSE OUTCOME" branch buttons from `screen-verify`
+- On `screen-waiting` entry: start a polling interval that calls `POST /match` with `state.loserItemId` every ~5 seconds
+- If match returned: clear interval, populate `state.matchedItem`, navigate to `match`
+- If no match after a configurable timeout (e.g. 2 minutes): stop polling, show a "We'll text you" message
+- Remove the "Simulate match found →" button from `screen-waiting`
+- Optional: Supabase realtime subscription as a push alternative to polling
 
 ---
 
-## Cursor Prompt for Phase 9b
+## Cursor Prompt for Phase 10
 
 Paste this to start the next agent session:
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–9a):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full loop: finder snaps photo → Claude Vision extracts profile → Voyage AI embedding → loser describes lost item → cosine similarity + proximity match → optional ownership verify (finder adds a secret detail; Claude fuzzy-matches loser's claim against it) → Stripe inline tip payment → Thanks screen.
+> **What's complete and deployed (Phases 1–9b):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full loop works end-to-end: finder snaps photo → Claude Vision → Voyage embedding → phone number → real Twilio OTP verify → allset screen. Loser describes item → cosine similarity + proximity match → optional ownership verify (Claude fuzzy-match) → Stripe inline tip → Thanks screen.
 >
-> **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, `security.py`. Deployed on Railway. `.env` has: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`.
+> **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, Twilio, `security.py`. Deployed on Railway. All env vars set: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`.
 >
-> **Frontend:** `LOFO_MVP.html` — 13 screens, all live API calls, Stripe.js. Key JS: `state` object, `go()` navigation, `submitLost()`, `submitOwnershipVerify()`, `sendTip()`, `confirmTip()`, `finderDoneContinue()`, `sendCode()`.
+> **Frontend:** `LOFO_MVP.html` — 13 screens, all live API calls, Stripe.js, Twilio OTP. Key JS: `state` object (`finderItemId`, `loserItemId`, `matchedItem`, `phone`), `go()` navigation, `submitLost()`, `submitOwnershipVerify()`, `sendTip()`, `confirmTip()`, `finderDoneContinue()`, `sendCode()`, `verifyCode()`.
 >
-> **Known intentional placeholders — do not touch:**
-> - `screen-verify`: fake SMS OTP with hardcoded "3 7 4 ·" boxes and two "DEMO: CHOOSE OUTCOME" branch buttons. This is exactly what Phase 9b replaces.
-> - `screen-waiting`: "Simulate match found →" button. Keep until Phase 10.
+> **Known intentional placeholder — do not touch yet:**
+> - `screen-waiting`: "Simulate match found →" button. This is exactly what Phase 10 replaces.
 >
-> **What's next — Phase 9b: Real SMS Verification via Twilio**
-> Replace the fake phone verify flow with real OTP. New backend endpoints: `POST /sms/send-otp` (generate + store code, send via Twilio) and `POST /sms/verify-otp` (validate submitted code). Frontend: wire `screen-phone` "Send code →" to the real endpoint, replace hardcoded OTP boxes with interactive digit inputs, verify on submit, remove demo branch buttons. Twilio credentials are already set in Railway env vars (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`).
+> **What's next — Phase 10: Realtime Matching**
+> Replace the simulate button with real polling. On `screen-waiting` entry, poll `POST /match` every ~5 seconds using `state.loserItemId`. On match: clear interval, set `state.matchedItem`, navigate to `match`. After ~2 min with no match: stop polling, show a calm 'We'll notify you' message. Remove the simulate button.
 >
 > Start by reading `main.py` and `LOFO_MVP.html`, then begin implementation."
 
 ---
 
 ## Session History
+
+### Phase 9b — March 6, 2026
+
+**What changed:** Fake SMS verify flow replaced with real Twilio OTP end-to-end.
+
+**Backend:** Two new endpoints — `POST /sms/send-otp` generates a random 4-digit code, stores it in an in-memory dict (10-minute TTL, thread-safe lock), and sends it via Twilio. Falls back to `print()` log if Twilio env vars aren't set, so dev/staging never crashes. `POST /sms/verify-otp` checks the code, handles expiry, deletes on success, returns `{verified: bool, reason?}`. `_normalize_phone()` helper strips US formatting to E.164 (`+1XXXXXXXXXX`). `twilio` added to `requirements.txt`. Twilio env vars added to Railway.
+
+**Frontend:** `screen-verify` hardcoded `3 7 4 ·` divs replaced with four real `<input type="text" inputmode="numeric">` elements (`otp-0` through `otp-3`). `initOtpInputs()` wires each input: digit-only filter, auto-advance on entry, backspace navigates back, auto-submits on 4th digit. `sendCode()` made async — calls `/sms/send-otp` with loading overlay, clears inputs and focuses `otp-0` after transition. `verifyCode()` calls `/sms/verify-otp`, shows inline error on failure, navigates to `allset` on success. `resendCode()` re-fires the API without leaving the screen. "DEMO: CHOOSE OUTCOME" branch buttons removed entirely. `state.phone` added to carry the number across screens.
+
+---
 
 ### Phase 9a — March 5, 2026
 
