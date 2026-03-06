@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 6, 2026 — Phases 1–10b complete and deployed*
+*Last updated: March 6, 2026 — Phases 1–10c complete and deployed*
 
 ---
 
@@ -26,6 +26,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 9b — SMS Verification | ✅ Complete | Real OTP via Twilio Verify, 6-digit inputs, demo buttons removed |
 | 10 — Realtime Matching | ✅ Complete | 5s polling on Waiting screen; auto-navigates to Match on hit |
 | 10b — Two-sided SMS Notifications | ✅ Complete | Finder posts → SMS waiting losers; loser posts → SMS matched finders |
+| 10c — Match Flow Redesign | ✅ Complete | Realistic loser flow: potential match → ownership verify → confirmed screen → broker SMS → tip |
 | **11 — Stripe Connect Payouts** | **← Next** | Finder bank account, direct tip transfers |
 
 ---
@@ -221,6 +222,25 @@ Paste this to start the next agent session:
 ---
 
 ## Session History
+
+### Phase 10c — March 6, 2026
+
+**What changed:** Complete redesign of the loser post-match flow to reflect real-world reunion mechanics.
+
+**The problem:** Old flow went Match → "How to meet" (placeholder options) → Tip. This skipped ownership verification context, had no emotional confidence-building moment, never captured the loser's phone in the happy path, and never actually connected the two parties.
+
+**New loser flow:**
+1. **Match screen** — eyebrow changed to "Good news", headline to "We may have found your [item]" (tentative, honest). Meta now shows "Found X min/hrs ago · X mi away" using `created_at` from the match response. Haptic fires on both immediate match and polling match.
+2. **Ownership verify** — unchanged mechanically; skipped if no `secret_detail`.
+3. **Confirmed screen** (new `screen-confirmed`) — post-verification payoff. Strong triple-pulse haptic. Shows item card (emoji + attributes). Requires loser's phone number. "Connect us →" calls `POST /handoff/coordinate`. "I'll sort it out myself" skips to tip.
+4. **Broker SMS** — `POST /handoff/coordinate` saves loser phone, fetches finder phone, fires intro SMS to both parties. Loser gets finder's number; finder gets loser's number. LOFO exits the loop.
+5. **Tip screen** — reached after coordination, not before. Loser is now in peak grateful state.
+
+**Backend:** `POST /handoff/coordinate` endpoint added. `MatchResponse` now includes `created_at`. `_MATCH_SQL` updated to return `f.created_at::text`. Fixed missing `_TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")` (was referenced but never defined — silent SMS failures now fixed). `CoordinateRequest` schema added.
+
+**Frontend:** `screen-confirmed` HTML + CSS added. `flowOrder` and `screenMap` updated. `state.loserPhone` added. `timeAgo()` helper for human-readable timestamps. `coordinateHandoff()` function. `submitOwnershipVerify()` now routes to `confirmed` on success. Match screen CTA (no secret path) now routes to `confirmed`. `saveLoserPhone()` saves to `state.loserPhone` for pre-population on confirmed screen.
+
+---
 
 ### Phase 10b — March 6, 2026
 

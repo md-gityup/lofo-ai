@@ -1722,9 +1722,47 @@
   /* ── Scrollable content areas (screens with more content than fits) ── */
   #screen-finder-done .content,
   #screen-lost-prompt .content,
-  #screen-ownership-verify .content {
+  #screen-ownership-verify .content,
+  #screen-confirmed .content {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* ─────────────────────────────────────────
+     SCREEN 6c: CONFIRMED (ownership verified)
+  ───────────────────────────────────────── */
+  #screen-confirmed {
+    background: var(--cream);
+  }
+  .confirmed-icon {
+    width: 64px;
+    height: 64px;
+    background: #E6F5ED;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-top: 48px;
+    margin-bottom: 24px;
+    flex-shrink: 0;
+    color: #3A9E6A;
+    box-shadow: 0 0 0 8px rgba(58,158,106,0.08), 0 0 0 16px rgba(58,158,106,0.04);
+  }
+  .confirmed-phone-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .confirmed-phone-hint {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+    margin-top: 6px;
+    line-height: 1.6;
   }
 </style>
 </head>
@@ -2057,6 +2095,42 @@
   </div>
 
   <!-- ═══════════════════════════════════════
+       SCREEN 6c: CONFIRMED (ownership verified)
+  ═══════════════════════════════════════ -->
+  <div class="screen" id="screen-confirmed">
+    <div class="status">
+      <span class="status-time">9:41</span>
+      <div class="status-icons"><span>●●●</span></div>
+    </div>
+    <div class="content">
+      <div class="confirmed-icon s-pop" data-delay="0">✓</div>
+      <div class="done-title s-item" data-delay="80">It's yours.<br><em>Confirmed.</em></div>
+      <div class="done-rule s-item" data-delay="130"></div>
+      <div class="done-sub s-item" data-delay="160">Ownership verified. Enter your number and we'll connect you with the finder to arrange pickup.</div>
+
+      <div class="item-card s-item" data-delay="220">
+        <div class="item-thumb" id="confirmed-item-thumb">📦</div>
+        <div>
+          <div class="item-name" id="confirmed-item-name">Your item</div>
+          <div class="item-meta" id="confirmed-item-meta">Verified match</div>
+        </div>
+      </div>
+
+      <div class="s-item" data-delay="280" style="width:100%; margin-top:4px;">
+        <div class="confirmed-phone-label">Your number to coordinate pickup</div>
+        <div class="phone-input-wrap" id="confirmed-phone-wrap">
+          <div class="phone-flag">🇺🇸</div>
+          <input class="phone-input" id="confirmed-phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
+        </div>
+        <div class="confirmed-phone-hint">We'll introduce you and the finder over SMS — one text each, then it's all you.</div>
+      </div>
+
+      <button class="btn-full s-item" data-delay="360" style="margin-top:28px" onclick="coordinateHandoff()">Connect us →</button>
+      <button class="ghost-btn s-item" data-delay="420" onclick="go('reunion')" style="margin-top:4px;">I'll sort it out myself</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
        SCREEN 7: HANDOFF
   ═══════════════════════════════════════ -->
   <div class="screen" id="screen-handoff">
@@ -2190,12 +2264,13 @@
     latitude:       null,
     longitude:      null,
     phone:          null,
+    loserPhone:     null,
   };
 
   // ── Screen flow order (determines push/pop direction) ──
   const flowOrder = [
     'home','finder-camera','finder-done','phone','verify','allset',
-    'lost-prompt','waiting','match','ownership-verify','handoff','reunion','thanks'
+    'lost-prompt','waiting','match','ownership-verify','confirmed','handoff','reunion','thanks'
   ];
   const screenMap = {
     'home':             'screen-home',
@@ -2208,6 +2283,7 @@
     'waiting':          'screen-waiting',
     'match':            'screen-match',
     'ownership-verify': 'screen-ownership-verify',
+    'confirmed':        'screen-confirmed',
     'handoff':          'screen-handoff',
     'reunion':          'screen-reunion',
     'thanks':           'screen-thanks',
@@ -2378,49 +2454,49 @@
       const cta      = document.getElementById('match-cta');
       const ghost    = document.getElementById('match-ghost');
 
-      // Populate card and reasons with real data if available
-      if (state.matchedItem) {
-        const m = state.matchedItem;
-        const label   = cleanType(m.item_type || 'item');
-        const details = [m.material, m.size].filter(Boolean).join(', ');
-        document.querySelector('#screen-match .item-thumb').textContent = itemEmoji(m.item_type);
-        document.querySelector('#screen-match .item-name').textContent  = label + ((m.color||[]).length ? ' — ' + m.color.join(', ') : '');
-        const distPart = (m.distance_miles != null) ? ` · ${m.distance_miles} mi away` : '';
-        meta.textContent = (details || 'Found recently') + distPart;
+        // Populate card and reasons with real data if available
+        if (state.matchedItem) {
+          const m = state.matchedItem;
+          const label   = cleanType(m.item_type || 'item');
+          document.querySelector('#screen-match .item-thumb').textContent = itemEmoji(m.item_type);
+          document.querySelector('#screen-match .item-name').textContent  = label + ((m.color||[]).length ? ' — ' + m.color.join(', ') : '');
+          const timeStr  = timeAgo(m.created_at);
+          const distPart = (m.distance_miles != null) ? ` · ${m.distance_miles} mi away` : '';
+          meta.textContent = timeStr + distPart;
 
-        // Build reason checklist from real fields
-        const reasons = [];
-        if (m.item_type) reasons.push(`Item type matches — ${label}`);
-        if ((m.color||[]).length) reasons.push(`Color matches — ${m.color.join(', ')}`);
-        if (m.material) reasons.push(`Material matches — ${cap(m.material)}`);
-        if (m.size) reasons.push(`Size matches — ${m.size}`);
-        if (reasons.length === 0) reasons.push('High similarity score');
+          // Build reason checklist from real fields
+          const reasons = [];
+          if (m.item_type) reasons.push(`Item type matches — ${label}`);
+          if ((m.color||[]).length) reasons.push(`Color matches — ${m.color.join(', ')}`);
+          if (m.material) reasons.push(`Material matches — ${cap(m.material)}`);
+          if (m.size) reasons.push(`Size matches — ${m.size}`);
+          if (reasons.length === 0) reasons.push('High similarity score');
 
-        const reasonsEl = document.getElementById('match-reasons');
-        if (reasonsEl) {
-          reasonsEl.innerHTML = reasons.map((r, i) =>
-            `<div class="reason s-check" data-delay="${280 + i * 60}"><div class="check-dot">✓</div>${r}</div>`
-          ).join('');
-          triggerStagger(reasonsEl);
+          const reasonsEl = document.getElementById('match-reasons');
+          if (reasonsEl) {
+            reasonsEl.innerHTML = reasons.map((r, i) =>
+              `<div class="reason s-check" data-delay="${280 + i * 60}"><div class="check-dot">✓</div>${r}</div>`
+            ).join('');
+            triggerStagger(reasonsEl);
+          }
         }
-      }
 
-      if (matchContext === 'finder') {
-        eyebrow.textContent = 'Owner found';
-        headline.innerHTML  = 'Someone\'s<br><em>missing this.</em>';
-        cta.textContent     = 'Coordinate the return →';
-        cta.onclick         = () => go('handoff');
-        ghost.textContent   = 'Not a match';
-      } else {
-        const itemLabel   = state.matchedItem ? cleanType(state.matchedItem.item_type) : 'item';
-        const hasSecret   = state.matchedItem?.has_secret ?? false;
-        eyebrow.textContent = 'Match found';
-        headline.innerHTML  = `We found<br><em>your ${itemLabel}.</em>`;
-        cta.textContent     = 'This is mine — get it back →';
-        // Only show ownership-verify when the finder added a secret detail
-        cta.onclick         = hasSecret ? () => go('ownership-verify') : () => go('handoff');
-        ghost.textContent   = 'Not my item';
-      }
+        if (matchContext === 'finder') {
+          eyebrow.textContent = 'Owner found';
+          headline.innerHTML  = 'Someone\'s<br><em>missing this.</em>';
+          cta.textContent     = 'Coordinate the return →';
+          cta.onclick         = () => go('handoff');
+          ghost.textContent   = 'Not a match';
+        } else {
+          const itemLabel   = state.matchedItem ? cleanType(state.matchedItem.item_type) : 'item';
+          const hasSecret   = state.matchedItem?.has_secret ?? false;
+          eyebrow.textContent = 'Good news';
+          headline.innerHTML  = `We may have<br><em>found your ${itemLabel}.</em>`;
+          cta.textContent     = 'This is mine →';
+          // If finder added a secret detail, verify ownership first; otherwise go straight to confirmed
+          cta.onclick         = hasSecret ? () => go('ownership-verify') : () => go('confirmed');
+          ghost.textContent   = 'Not my item';
+        }
     }
     if (name !== 'match') {
       const bar = document.getElementById('conf-bar');
@@ -2452,6 +2528,27 @@
       if (err) err.style.display = 'none';
       const btn = document.getElementById('ownership-verify-btn');
       if (btn) btn.disabled = false;
+    }
+    if (name === 'confirmed') {
+      // Celebratory haptic — stronger than the match-found pulse
+      if (navigator.vibrate) navigator.vibrate([40, 30, 80, 30, 200]);
+
+      const m = state.matchedItem;
+      if (m) {
+        const thumb  = document.getElementById('confirmed-item-thumb');
+        const nameEl = document.getElementById('confirmed-item-name');
+        const metaEl = document.getElementById('confirmed-item-meta');
+        if (thumb)  thumb.textContent  = itemEmoji(m.item_type);
+        if (nameEl) nameEl.textContent = cleanType(m.item_type || 'item') + ((m.color||[]).length ? ' — ' + m.color.join(', ') : '');
+        if (metaEl) {
+          const parts = [m.material, m.size].filter(Boolean);
+          metaEl.textContent = parts.length ? parts.join(', ') : 'Ownership verified';
+        }
+      }
+
+      // Pre-populate phone if they already entered it on the waiting screen
+      const phoneInput = document.getElementById('confirmed-phone-input');
+      if (phoneInput) phoneInput.value = state.loserPhone || '';
     }
   }
 
@@ -2566,6 +2663,7 @@
 
       if (matches.length > 0) {
         state.matchedItem = matches[0];
+        if (navigator.vibrate) navigator.vibrate([60, 30, 100]);
         go('match', 'loser');
       } else {
         const waitTitle = document.querySelector('#screen-waiting .waiting-title');
@@ -2676,7 +2774,7 @@
       hideLoading();
 
       if (result.verified) {
-        go('handoff');
+        go('confirmed');
       } else {
         const errEl = document.getElementById('ownership-error');
         if (errEl) {
@@ -2692,6 +2790,17 @@
 
   // ── Helpers ──
   function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+  function timeAgo(isoString) {
+    if (!isoString) return 'Found recently';
+    const mins = Math.floor((Date.now() - new Date(isoString).getTime()) / 60000);
+    if (mins < 1)   return 'Found just now';
+    if (mins < 60)  return `Found ${mins} min ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)   return `Found ${hrs} hr${hrs > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hrs / 24);
+    return `Found ${days} day${days > 1 ? 's' : ''} ago`;
+  }
 
   // Normalise item_type: take the first part before any slash, trim, lowercase, then cap
   // e.g. "Clogs/mules" → "Clogs", "running shoes/trainers" → "Running shoes"
@@ -2917,6 +3026,7 @@
     const phone = (document.getElementById('loser-phone-input')?.value || '').trim();
     if (!phone) { showError('Please enter your phone number.'); return; }
     if (!state.loserItemId) return;
+    state.loserPhone = phone;
 
     const btn = document.getElementById('loser-notify-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
@@ -2933,6 +3043,36 @@
     } catch (_) {
       if (btn) { btn.disabled = false; btn.textContent = 'Notify me →'; }
       showError('Could not save your number. Try again.');
+    }
+  }
+
+  // Called from confirmed screen — saves loser phone + fires intro SMS to both parties
+  async function coordinateHandoff() {
+    const phone = (document.getElementById('confirmed-phone-input')?.value || '').trim();
+    if (!phone) { showError('Please enter your phone number.'); return; }
+    if (!state.matchedItem?.id || !state.loserItemId) {
+      showError('Missing item info — please restart the flow.');
+      return;
+    }
+
+    showLoading('Connecting you with the finder…');
+    try {
+      const res = await fetch(`${API}/handoff/coordinate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          finder_item_id: state.matchedItem.id,
+          loser_item_id:  state.loserItemId,
+          loser_phone:    phone,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
+      hideLoading();
+      state.loserPhone = phone;
+      go('reunion');
+    } catch (err) {
+      hideLoading();
+      showError(err.message || 'Something went wrong. Try again.');
     }
   }
 

@@ -32,6 +32,7 @@ stripe.api_key = _STRIPE_SECRET_KEY
 _TWILIO_ACCOUNT_SID  = os.getenv("TWILIO_ACCOUNT_SID", "")
 _TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN", "")
 _TWILIO_VERIFY_SID   = os.getenv("TWILIO_VERIFY_SID", "")
+_TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
 _twilio_client = None
 if _TWILIO_ACCOUNT_SID and _TWILIO_AUTH_TOKEN:
@@ -228,6 +229,7 @@ class MatchResponse(BaseModel):
     similarity_score: float
     distance_miles: Optional[float] = None
     has_secret: bool = False
+    created_at: Optional[str] = None
 
 
 class VerifyRequest(BaseModel):
@@ -247,6 +249,12 @@ class FinderInfoUpdate(BaseModel):
 
 class LoserInfoUpdate(BaseModel):
     phone: str
+
+
+class CoordinateRequest(BaseModel):
+    finder_item_id: uuid.UUID
+    loser_item_id: uuid.UUID
+    loser_phone: str
 
 
 class TipCreateRequest(BaseModel):
@@ -360,6 +368,7 @@ _MATCH_SQL = """
         f.status,
         1 - (f.embedding <=> l.embedding) AS similarity_score,
         (f.secret_detail IS NOT NULL) AS has_secret,
+        f.created_at::text,
         CASE
             WHEN f.latitude IS NOT NULL AND l.latitude IS NOT NULL THEN
                 ROUND(CAST(
@@ -684,6 +693,60 @@ def update_loser_info(item_id: uuid.UUID, body: LoserInfoUpdate):
         conn.commit()
     if row is None:
         raise HTTPException(status_code=404, detail="Loser item not found")
+    return {"ok": True}
+
+
+@app.post("/handoff/coordinate", status_code=200)
+def coordinate_handoff(body: CoordinateRequest):
+    """
+    Called after loser confirms ownership.
+    Saves the loser's phone and fires intro SMS to both parties so they can
+    coordinate pickup directly — LOFO never needs to be in the loop again.
+    """
+    loser_phone = _normalize_phone(body.loser_phone)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE items SET phone = %s WHERE id = %s AND type = 'loser' RETURNING id",
+                (loser_phone, str(body.loser_item_id)),
+            )
+            if cur.fetchone() is None:
+                raise HTTPException(status_code=404, detail="Loser item not found")
+        conn.commit()
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT phone, item_type FROM items WHERE id = %s AND type = 'finder'",
+                (str(body.finder_item_id),),
+            )
+            finder = cur.fetchone()
+
+    if finder is None:
+        raise HTTPException(status_code=404, detail="Finder item not found")
+
+    label = finder["item_type"] or "item"
+    finder_phone = finder["phone"]
+
+    if finder_phone:
+        _sms(
+            loser_phone,
+            f"LOFO: Ownership confirmed! Your {label} is waiting for you. "
+            f"The finder's number: {finder_phone}. Reach out to arrange pickup!"
+        )
+        _sms(
+            finder_phone,
+            f"LOFO: The owner of the {label} you found has been verified! "
+            f"They'd like to arrange pickup — reach them at {loser_phone}."
+        )
+    else:
+        _sms(
+            loser_phone,
+            f"LOFO: Ownership confirmed! Your {label} is waiting for you. "
+            f"The finder will be in touch shortly to arrange the return."
+        )
+
     return {"ok": True}
 
 
