@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 5, 2026 (Phase 7 fully complete — Stripe tip flow + webhook configured)*
+*Last updated: March 5, 2026 (Phase 8 fully complete — GPS & proximity matching)*
 
 ---
 
@@ -24,8 +24,8 @@ UI prototype: `LOFO_MVP.html`
 | 5 — UI Polish | ✅ Complete | 13-screen interactive prototype, iOS animations, Dynamic Island |
 | 6 — API Wiring | ✅ Complete | All screens wired to real backend with live API calls |
 | 7 — Tip Flow | ✅ Complete | Stripe inline card payment, finder email capture, tips table |
-| 8 — GPS & Proximity | ← Next | Real location capture, proximity-filtered matching |
-| 9 — SMS Verification | Planned | Real OTP via Twilio, replace fake verify screens |
+| 8 — GPS & Proximity | ✅ Complete | Real location capture, proximity-filtered matching |
+| 9 — SMS Verification | ← Next | Real OTP via Twilio, replace fake verify screens |
 | 10 — Realtime Matching | Planned | Polling/Supabase realtime on Waiting screen |
 | 11 — Stripe Connect Payouts | Planned | Finder bank account, direct tip transfers |
 
@@ -75,6 +75,8 @@ UI prototype: `LOFO_MVP.html`
 | features | text[] | e.g. ['gold clasp'] |
 | embedding | vector(1024) | Voyage AI, used for cosine matching |
 | finder_email | varchar | Optional — finder's payout email (Phase 7) |
+| latitude | numeric(9,6) | Optional — GPS latitude at submission (Phase 8) |
+| longitude | numeric(9,6) | Optional — GPS longitude at submission (Phase 8) |
 | status | varchar | Default 'active' |
 | expires_at | timestamptz | Default 30 days from creation |
 | created_at | timestamptz | Auto-set |
@@ -134,6 +136,72 @@ UI prototype: `LOFO_MVP.html`
 `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`
 
 **Important:** Never share, paste, or commit your `.env` file.
+
+---
+
+## Session Summary — March 5, 2026 (Phase 8 session)
+
+### What we did
+
+1. **Ran schema migration** — `ALTER TABLE items ADD COLUMN latitude NUMERIC(9,6)` and `longitude`. Confirmed via psycopg2 — both columns now live on Supabase.
+
+2. **Updated all item creation endpoints** — `/items`, `/items/from-text`, `/items/from-photo` all accept optional `latitude` / `longitude`. The photo endpoint takes them as `Form` fields alongside the file upload.
+
+3. **Haversine proximity filter in `/match`** — SQL now computes distance in miles using the pure-SQL Haversine formula (no PostGIS). Results are filtered to a 10-mile radius when both items have coordinates; if either item has no location, embedding-only matching is used as fallback. `MatchResponse` now includes `distance_miles` (null when coordinates absent).
+
+4. **Frontend geolocation** — new `getLocation()` helper calls `navigator.geolocation.getCurrentPosition` with a 6-second timeout. Called in both the finder photo upload handler and `submitLost()`. Coordinates stored in `state.latitude` / `state.longitude` and sent on every item creation request.
+
+5. **Real waiting screen pills** — replaced hardcoded "Lincoln Park / Today 1–4 PM" copy. Now shows "Within 10 mi of your location" (or "Searching all nearby finds" if GPS was denied) and the actual submission time.
+
+6. **Match card distance** — match screen meta now appends "· X.X mi away" when `distance_miles` is returned from the API.
+
+7. **Pushed and deployed** — committed and pushed to `main`; Railway auto-redeploys.
+
+### Issues hit and how they were resolved
+
+None — clean build.
+
+---
+
+## Phase 8 — What Was Built
+
+### Backend (`main.py`)
+
+- `ItemCreate`, `TextItemCreate` schemas: added `latitude: Optional[float]` and `longitude: Optional[float]`
+- `create_item_from_photo`: added `latitude: Optional[float] = Form(None)` and `longitude: Optional[float] = Form(None)`
+- `_INSERT_SQL`: updated to always include `latitude, longitude` columns (pass `None` when absent)
+- `_MATCH_SQL`: Haversine formula computes `distance_miles`; `AND (...)` clause filters to 10-mile radius or falls back to embedding-only when no coords
+- `MatchResponse`: new `distance_miles: Optional[float] = None` field
+
+### Database (`schema.sql` / Supabase)
+
+- `ALTER TABLE items ADD COLUMN IF NOT EXISTS latitude NUMERIC(9,6)` ✅
+- `ALTER TABLE items ADD COLUMN IF NOT EXISTS longitude NUMERIC(9,6)` ✅
+
+### Frontend (`LOFO_MVP.html`)
+
+- `state` now tracks `latitude` and `longitude`
+- `getLocation()` — Promise wrapper around `navigator.geolocation.getCurrentPosition`; resolves null on error/denial/timeout
+- Finder photo upload: calls `getLocation()` before fetch, appends `latitude`/`longitude` to FormData when available
+- `submitLost()`: calls `getLocation()` before fetch, spreads coords into JSON body when available
+- `updateWaitingPills()`: sets location pill ("Within 10 mi" or fallback) and time pill (real HH:MM AM/PM)
+- Waiting screen HTML: replaced hardcoded pills with `id="waiting-location-text"` / `id="waiting-time-text"` spans
+- Match screen: `item-meta` now appends distance string when `m.distance_miles != null`
+
+### Known intentional placeholders (updated)
+
+| Artifact | Where | Status |
+|---|---|---|
+| "DEMO: CHOOSE OUTCOME" + two branch buttons | `screen-verify` | Phase 9 |
+| Hardcoded OTP boxes | `screen-verify` | Phase 9 |
+| "Simulate match found →" button | `screen-waiting` | Phase 10 |
+| Location/time pills | `screen-waiting` | ✅ Fixed Phase 8 |
+
+---
+
+## What's Next: Phase 9 — SMS Verification
+
+Replace the fake SMS/OTP verify screens with real Twilio-based phone verification.
 
 ---
 
@@ -201,7 +269,7 @@ UI prototype: `LOFO_MVP.html`
 | Hardcoded OTP boxes showing "3 7 4 ·" | `screen-verify` | Same. |
 | "(555) 000-0000" in verify screen copy | `screen-verify` | Same. |
 | "Simulate match found →" button on Waiting screen | `screen-waiting` | Useful for demo. Remove when realtime matching is built (Phase 10). |
-| Location and time pills on Waiting screen | `screen-waiting` | Hardcoded demo copy. Fix in Phase 8 (GPS). |
+| Location and time pills on Waiting screen | `screen-waiting` | ✅ Fixed in Phase 8 — real GPS + submission time. |
 | Finder Connect Express onboarding | — | Tips currently held in LOFO's Stripe balance. Full finder payout in Phase 11. |
 
 ---
