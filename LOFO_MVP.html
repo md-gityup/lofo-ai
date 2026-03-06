@@ -3302,8 +3302,7 @@
       });
       if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
       const { url } = await res.json();
-      if (btn) { btn.disabled = false; btn.textContent = 'Set up →'; }
-      window.open(url, '_blank');
+      window.location.href = url;
     } catch (err) {
       if (btn) { btn.disabled = false; btn.textContent = 'Set up →'; }
       showError(err.message || 'Could not open payout setup. Try again.');
