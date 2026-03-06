@@ -1598,6 +1598,59 @@
     line-height: 1.5;
   }
 
+  /* Payout card on allset screen */
+  .allset-payout-inner {
+    background: var(--navy);
+    border-radius: 18px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .allset-payout-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .allset-payout-icon { font-size: 20px; flex-shrink: 0; }
+  .allset-payout-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    margin-bottom: 2px;
+  }
+  .allset-payout-desc {
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    font-weight: 300;
+    line-height: 1.4;
+  }
+  .allset-payout-btn {
+    background: rgba(255,255,255,0.10);
+    border: 1.5px solid rgba(255,255,255,0.18);
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, transform 0.15s;
+    flex-shrink: 0;
+  }
+  .allset-payout-btn:active { background: rgba(255,255,255,0.2); transform: scale(0.96); }
+  .allset-payout-btn:disabled { opacity: 0.5; pointer-events: none; }
+  .allset-payout-btn.connected {
+    background: rgba(74,222,128,0.15);
+    border-color: rgba(74,222,128,0.35);
+    color: #4ADE80;
+    pointer-events: none;
+  }
+
   /* ─────────────────────────────────────────
      SPLASH SCREEN
   ───────────────────────────────────────── */
@@ -2054,7 +2107,19 @@
           <div class="allset-card-desc">A text to (555) 000-0000 as soon as there's a verified match.</div>
         </div>
       </div>
-      <button class="btn-full s-item" data-delay="340" style="margin-top:auto;" onclick="go('home')">Done</button>
+      <div class="s-item" data-delay="330">
+        <div class="allset-payout-inner">
+          <div class="allset-payout-left">
+            <div class="allset-payout-icon">💸</div>
+            <div>
+              <div class="allset-payout-title">Get paid for returns</div>
+              <div class="allset-payout-desc">Connect your bank — tips go straight to you.</div>
+            </div>
+          </div>
+          <button id="allset-connect-btn" class="allset-payout-btn" onclick="startConnectOnboarding()">Set up →</button>
+        </div>
+      </div>
+      <button class="btn-full s-item" data-delay="410" style="margin-top:auto;" onclick="go('home')">Done</button>
     </div>
   </div>
 
@@ -2362,16 +2427,17 @@
 
   // ── App state ──
   const state = {
-    finderItemId:   null,
-    loserItemId:    null,
-    matchedItem:    null,
-    handoffToken:   null,
-    failedAttempts: 0,
-    latitude:       null,
-    longitude:      null,
-    phone:          null,
-    loserPhone:     null,
-    loserItemType:  null,
+    finderItemId:     null,
+    loserItemId:      null,
+    matchedItem:      null,
+    handoffToken:     null,
+    failedAttempts:   0,
+    latitude:         null,
+    longitude:        null,
+    phone:            null,
+    loserPhone:       null,
+    loserItemType:    null,
+    rejectedMatchIds: [],
   };
 
   // ── Screen flow order (determines push/pop direction) ──
@@ -2500,9 +2566,18 @@
   function showError(msg) {
     const t = document.getElementById('error-toast');
     t.textContent = msg;
+    t.style.background = '';
     t.classList.add('visible');
     clearTimeout(_errTimer);
     _errTimer = setTimeout(() => t.classList.remove('visible'), 4200);
+  }
+  function showSuccess(msg) {
+    const t = document.getElementById('error-toast');
+    t.textContent = msg;
+    t.style.background = '#1A3A2A';
+    t.classList.add('visible');
+    clearTimeout(_errTimer);
+    _errTimer = setTimeout(() => { t.classList.remove('visible'); t.style.background = ''; }, 4200);
   }
 
   // ── Live clock ──
@@ -2777,8 +2852,9 @@
       const matches = await r2.json();
       hideLoading();
 
-      if (matches.length > 0) {
-        state.matchedItem = matches[0];
+      const fresh = matches.filter(m => !state.rejectedMatchIds.includes(m.id));
+      if (fresh.length > 0) {
+        state.matchedItem = fresh[0];
         if (navigator.vibrate) navigator.vibrate([60, 30, 100]);
         go('match', 'loser');
       } else {
@@ -2861,9 +2937,10 @@
       });
       if (!res.ok) return; // transient error — try again next tick
       const matches = await res.json();
-      if (matches.length > 0) {
+      const fresh = matches.filter(m => !state.rejectedMatchIds.includes(m.id));
+      if (fresh.length > 0) {
         stopPolling();
-        state.matchedItem = matches[0];
+        state.matchedItem = fresh[0];
         if (navigator.vibrate) navigator.vibrate([80, 40, 120]);
         go('match', 'loser');
       }
@@ -2946,6 +3023,12 @@
   window.addEventListener('load', () => {
     triggerStagger(document.getElementById('screen-home'));
     initOtpInputs();
+
+    // Show success toast when Stripe Connect onboarding redirects back
+    if (new URLSearchParams(window.location.search).get('connected') === 'true') {
+      history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => showSuccess('Payouts connected! Tips will go directly to your bank.'), 600);
+    }
   });
 
   // ── Phone screen: send real OTP via Twilio ──
@@ -3097,6 +3180,9 @@
 
   // ── Reject a match — loser returns to waiting, finder returns home ──
   function rejectMatch() {
+    if (state.matchedItem?.id) {
+      state.rejectedMatchIds.push(state.matchedItem.id);
+    }
     state.matchedItem = null;
     if (matchContext === 'loser') {
       go('waiting');
@@ -3197,6 +3283,30 @@
     } catch (err) {
       hideLoading();
       showError(err.message || 'Something went wrong. Try again.');
+    }
+  }
+
+  // ── Phase 11: Stripe Connect — finder bank onboarding ──
+  async function startConnectOnboarding() {
+    if (!state.finderItemId) {
+      showError('Item not saved yet — please restart the finder flow.');
+      return;
+    }
+    const btn = document.getElementById('allset-connect-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
+    try {
+      const res = await fetch(`${API}/connect/onboard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: state.finderItemId }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
+      const { url } = await res.json();
+      if (btn) { btn.disabled = false; btn.textContent = 'Set up →'; }
+      window.open(url, '_blank');
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Set up →'; }
+      showError(err.message || 'Could not open payout setup. Try again.');
     }
   }
 

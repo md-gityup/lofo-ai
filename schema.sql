@@ -16,9 +16,13 @@ CREATE TABLE IF NOT EXISTS items (
 );
 
 -- Phase 7: tip flow
--- Run these ALTER statements if the table already exists:
---   ALTER TABLE items ADD COLUMN IF NOT EXISTS finder_email VARCHAR;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS finder_email VARCHAR;
+
+-- Phase 10b: SMS notifications
+ALTER TABLE items ADD COLUMN IF NOT EXISTS phone VARCHAR;
+
+-- Phase 11: Stripe Connect payouts
+ALTER TABLE items ADD COLUMN IF NOT EXISTS stripe_connect_account_id VARCHAR;
 
 CREATE TABLE IF NOT EXISTS tips (
     id                        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Form, HTTPException, File, UploadFile, Request
+from fastapi import FastAPI, Form, HTTPException, File, UploadFile, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, field_validator
 import os
 from typing import Optional
@@ -270,6 +270,10 @@ class OtpSendRequest(BaseModel):
 class OtpVerifyRequest(BaseModel):
     phone: str
     code: str
+
+
+class ConnectOnboardRequest(BaseModel):
+    item_id: uuid.UUID
 
 
 # --------------------------------------------------------------------------- #
@@ -763,14 +767,17 @@ def create_tip_payment_intent(body: TipCreateRequest):
     if body.amount_cents < 50:
         raise HTTPException(status_code=422, detail="Minimum tip amount is $0.50")
 
+    connect_account_id = None
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id FROM items WHERE id = %s AND type = 'finder'",
+                "SELECT stripe_connect_account_id FROM items WHERE id = %s AND type = 'finder'",
                 (str(body.finder_item_id),),
             )
-            if cur.fetchone() is None:
+            finder_row = cur.fetchone()
+            if finder_row is None:
                 raise HTTPException(status_code=404, detail="Finder item not found")
+            connect_account_id = finder_row["stripe_connect_account_id"]
             cur.execute(
                 "SELECT id FROM items WHERE id = %s AND type = 'loser'",
                 (str(body.loser_item_id),),
@@ -778,18 +785,30 @@ def create_tip_payment_intent(body: TipCreateRequest):
             if cur.fetchone() is None:
                 raise HTTPException(status_code=404, detail="Loser item not found")
 
+    intent_kwargs: dict = {
+        "amount": body.amount_cents,
+        "currency": "usd",
+        "payment_method_types": ["card"],
+        "metadata": {
+            "finder_item_id": str(body.finder_item_id),
+            "loser_item_id": str(body.loser_item_id),
+        },
+    }
+    if connect_account_id:
+        intent_kwargs["transfer_data"] = {"destination": connect_account_id}
+
     try:
-        intent = stripe.PaymentIntent.create(
-            amount=body.amount_cents,
-            currency="usd",
-            payment_method_types=["card"],
-            metadata={
-                "finder_item_id": str(body.finder_item_id),
-                "loser_item_id": str(body.loser_item_id),
-            },
-        )
+        intent = stripe.PaymentIntent.create(**intent_kwargs)
     except stripe.StripeError as exc:
-        raise HTTPException(status_code=502, detail=f"Stripe error: {exc.user_message}") from exc
+        if connect_account_id and intent_kwargs.get("transfer_data"):
+            # Connect account not ready — fall back to platform-held payment
+            del intent_kwargs["transfer_data"]
+            try:
+                intent = stripe.PaymentIntent.create(**intent_kwargs)
+            except stripe.StripeError as exc2:
+                raise HTTPException(status_code=502, detail=f"Stripe error: {exc2.user_message}") from exc2
+        else:
+            raise HTTPException(status_code=502, detail=f"Stripe error: {exc.user_message}") from exc
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -881,6 +900,91 @@ def verify_otp(body: OtpVerifyRequest):
     if check.status == "approved":
         return {"verified": True}
     return {"verified": False, "reason": "Incorrect code. Check your messages and try again."}
+
+
+_RAILWAY_URL = "https://lofo-ai-production.up.railway.app"
+
+
+@app.post("/connect/onboard", status_code=200)
+def connect_onboard(body: ConnectOnboardRequest):
+    """
+    Create (or retrieve) a Stripe Connect Express account for a finder item.
+    Returns a Stripe-hosted onboarding URL the finder opens to link their bank.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT stripe_connect_account_id FROM items WHERE id = %s AND type = 'finder'",
+                (str(body.item_id),),
+            )
+            row = cur.fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Finder item not found")
+
+    connect_account_id = row["stripe_connect_account_id"]
+
+    try:
+        if not connect_account_id:
+            account = stripe.Account.create(type="express")
+            connect_account_id = account.id
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "UPDATE items SET stripe_connect_account_id = %s WHERE id = %s",
+                        (connect_account_id, str(body.item_id)),
+                    )
+                conn.commit()
+
+        account_link = stripe.AccountLink.create(
+            account=connect_account_id,
+            refresh_url=f"{_RAILWAY_URL}/connect/refresh?item_id={body.item_id}",
+            return_url=f"{_RAILWAY_URL}/connect/return?item_id={body.item_id}",
+            type="account_onboarding",
+        )
+    except stripe.StripeError as exc:
+        raise HTTPException(status_code=502, detail=f"Stripe error: {exc.user_message}") from exc
+
+    return {"url": account_link.url, "account_id": connect_account_id}
+
+
+@app.get("/connect/return", include_in_schema=False)
+def connect_return(item_id: Optional[str] = Query(None)):
+    """Stripe redirects here after the finder completes onboarding."""
+    return RedirectResponse(f"{_APP_URL}?connected=true")
+
+
+@app.get("/connect/refresh", include_in_schema=False)
+def connect_refresh(item_id: Optional[str] = Query(None)):
+    """Stripe redirects here if the onboarding link expires — we generate a fresh one."""
+    if not item_id:
+        return RedirectResponse(_APP_URL)
+    try:
+        item_uuid = uuid.UUID(item_id)
+    except ValueError:
+        return RedirectResponse(_APP_URL)
+
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT stripe_connect_account_id FROM items WHERE id = %s AND type = 'finder'",
+                    (str(item_uuid),),
+                )
+                row = cur.fetchone()
+
+        if row is None or not row["stripe_connect_account_id"]:
+            return RedirectResponse(_APP_URL)
+
+        account_link = stripe.AccountLink.create(
+            account=row["stripe_connect_account_id"],
+            refresh_url=f"{_RAILWAY_URL}/connect/refresh?item_id={item_id}",
+            return_url=f"{_RAILWAY_URL}/connect/return?item_id={item_id}",
+            type="account_onboarding",
+        )
+        return RedirectResponse(account_link.url)
+    except Exception:
+        return RedirectResponse(_APP_URL)
 
 
 @app.post("/handoff/validate")
