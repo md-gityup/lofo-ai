@@ -666,6 +666,16 @@ def _normalize_phone(raw: str) -> str:
     raise HTTPException(status_code=422, detail="Please enter a valid 10-digit US phone number.")
 
 
+@app.get("/sms/status", include_in_schema=False)
+def sms_status():
+    return {
+        "twilio_configured": _twilio_client is not None,
+        "has_account_sid":   bool(_TWILIO_ACCOUNT_SID),
+        "has_auth_token":    bool(_TWILIO_AUTH_TOKEN),
+        "phone_number":      _TWILIO_PHONE_NUMBER or "(not set)",
+    }
+
+
 @app.post("/sms/send-otp", status_code=200)
 def send_otp(body: OtpSendRequest):
     phone = _normalize_phone(body.phone)
