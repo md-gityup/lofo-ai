@@ -245,6 +245,8 @@ class FinderInfoUpdate(BaseModel):
     finder_email: Optional[str] = None
     secret_detail: Optional[str] = None
     phone: Optional[str] = None
+    finder_payout_app: Optional[str] = None    # e.g. 'venmo', 'paypal', 'cashapp', 'zelle'
+    finder_payout_handle: Optional[str] = None  # e.g. '@username', '$cashtag', email
 
 
 class LoserInfoUpdate(BaseModel):
@@ -670,6 +672,10 @@ def update_finder_info(item_id: uuid.UUID, body: FinderInfoUpdate):
         updates["secret_detail"] = body.secret_detail
     if body.phone is not None:
         updates["phone"] = body.phone
+    if body.finder_payout_app is not None:
+        updates["finder_payout_app"] = body.finder_payout_app
+    if body.finder_payout_handle is not None:
+        updates["finder_payout_handle"] = body.finder_payout_handle
     if not updates:
         return {"ok": True}
     set_clause = ", ".join(f"{k} = %s" for k in updates)

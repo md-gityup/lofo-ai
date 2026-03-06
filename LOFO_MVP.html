@@ -1598,57 +1598,107 @@
     line-height: 1.5;
   }
 
-  /* Payout card on allset screen */
-  .allset-payout-inner {
-    background: var(--navy);
+  /* Get paid section on allset screen */
+  .payout-section {
+    background: #fff;
+    border: 1.5px solid var(--border);
     border-radius: 18px;
     padding: 16px 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
     margin-top: 12px;
   }
-  .allset-payout-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-  }
-  .allset-payout-icon { font-size: 20px; flex-shrink: 0; }
-  .allset-payout-title {
-    font-size: 13px;
+  .payout-section-label {
+    font-size: 12px;
     font-weight: 500;
-    color: #fff;
-    margin-bottom: 2px;
+    color: var(--navy);
+    letter-spacing: 0.02em;
+    margin-bottom: 11px;
   }
-  .allset-payout-desc {
-    font-size: 11px;
-    color: rgba(255,255,255,0.45);
-    font-weight: 300;
-    line-height: 1.4;
+  .payout-apps {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
   }
-  .allset-payout-btn {
-    background: rgba(255,255,255,0.10);
-    border: 1.5px solid rgba(255,255,255,0.18);
-    border-radius: 12px;
-    padding: 8px 14px;
+  .payout-app-pill {
+    background: var(--cream);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 13px;
     font-family: 'DM Sans', sans-serif;
     font-size: 13px;
     font-weight: 400;
-    color: #fff;
+    color: var(--navy);
     cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.15s, transform 0.15s;
-    flex-shrink: 0;
+    transition: all 0.15s;
   }
-  .allset-payout-btn:active { background: rgba(255,255,255,0.2); transform: scale(0.96); }
-  .allset-payout-btn:disabled { opacity: 0.5; pointer-events: none; }
-  .allset-payout-btn.connected {
-    background: rgba(74,222,128,0.15);
-    border-color: rgba(74,222,128,0.35);
-    color: #4ADE80;
-    pointer-events: none;
+  .payout-app-pill.selected {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: #fff;
+  }
+  .payout-app-pill:active { opacity: 0.75; transform: scale(0.95); }
+  .payout-handle-input {
+    width: 100%;
+    background: var(--cream);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    color: var(--navy);
+    font-weight: 300;
+    outline: none;
+    transition: border-color 0.15s;
+    margin-top: 11px;
+  }
+  .payout-handle-input:focus { border-color: var(--navy); }
+  .payout-handle-input::placeholder { color: #C5C2BA; }
+  .payout-handle-error {
+    font-size: 12px;
+    color: #C0392B;
+    margin-top: 6px;
+    margin-left: 2px;
+    line-height: 1.5;
+  }
+  .payout-save-btn {
+    width: 100%;
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 13px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .payout-save-btn:active { opacity: 0.84; transform: scale(0.98); }
+  .payout-save-btn:disabled { opacity: 0.5; pointer-events: none; }
+  .payout-confirmed-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: #EAF5EE;
+    border-radius: 11px;
+  }
+  .payout-confirmed-text {
+    font-size: 13px;
+    color: #1A6B3A;
+    font-weight: 400;
+  }
+  .payout-edit-btn {
+    background: none;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    padding: 0;
   }
 
   /* ─────────────────────────────────────────
@@ -2107,16 +2157,24 @@
           <div class="allset-card-desc">A text to (555) 000-0000 as soon as there's a verified match.</div>
         </div>
       </div>
-      <div class="s-item" data-delay="330">
-        <div class="allset-payout-inner">
-          <div class="allset-payout-left">
-            <div class="allset-payout-icon">💸</div>
-            <div>
-              <div class="allset-payout-title">Get paid for returns</div>
-              <div class="allset-payout-desc">Connect your bank — tips go straight to you.</div>
-            </div>
+      <div class="s-item" data-delay="330" id="allset-payout-section">
+        <div class="payout-section">
+          <div class="payout-section-label">Get paid when it's returned</div>
+          <div class="payout-apps">
+            <button class="payout-app-pill" data-app="venmo"   onclick="selectPayoutApp('venmo')">Venmo</button>
+            <button class="payout-app-pill" data-app="paypal"  onclick="selectPayoutApp('paypal')">PayPal</button>
+            <button class="payout-app-pill" data-app="cashapp" onclick="selectPayoutApp('cashapp')">Cash App</button>
+            <button class="payout-app-pill" data-app="zelle"   onclick="selectPayoutApp('zelle')">Zelle</button>
           </div>
-          <button id="allset-connect-btn" class="allset-payout-btn" onclick="startConnectOnboarding()">Set up →</button>
+          <div id="payout-handle-wrap" style="display:none;">
+            <input class="payout-handle-input" id="payout-handle-input" type="text" placeholder="@username" autocorrect="off" autocapitalize="none" />
+            <div class="payout-handle-error" id="payout-handle-error" style="display:none;"></div>
+            <button class="payout-save-btn" id="payout-save-btn" onclick="savePayoutHandle()">Save →</button>
+          </div>
+          <div id="payout-confirmed-row" style="display:none;" class="payout-confirmed-row">
+            <span class="payout-confirmed-text" id="payout-confirmed-text"></span>
+            <button class="payout-edit-btn" onclick="editPayoutHandle()">Edit</button>
+          </div>
         </div>
       </div>
       <button class="btn-full s-item" data-delay="410" style="margin-top:auto;" onclick="go('home')">Done</button>
@@ -2620,6 +2678,19 @@
       startPolling();
     } else {
       stopPolling();
+    }
+    if (name === 'allset') {
+      // Reset payout section so it's fresh each time
+      _selectedPayoutApp = null;
+      document.querySelectorAll('.payout-app-pill').forEach(p => p.classList.remove('selected'));
+      const hw = document.getElementById('payout-handle-wrap');
+      const cr = document.getElementById('payout-confirmed-row');
+      const inp = document.getElementById('payout-handle-input');
+      const err = document.getElementById('payout-handle-error');
+      if (hw)  hw.style.display  = 'none';
+      if (cr)  cr.style.display  = 'none';
+      if (inp) inp.value          = '';
+      if (err) err.style.display  = 'none';
     }
     if (name === 'loser-wait') {
       const sub = document.getElementById('loser-wait-sub');
@@ -3286,27 +3357,112 @@
     }
   }
 
-  // ── Phase 11: Stripe Connect — finder bank onboarding ──
-  async function startConnectOnboarding() {
-    if (!state.finderItemId) {
-      showError('Item not saved yet — please restart the finder flow.');
+  // ── Phase 11b: Payout handle capture (Venmo / PayPal / Cash App / Zelle) ──
+  let _selectedPayoutApp = null;
+
+  function selectPayoutApp(app) {
+    _selectedPayoutApp = app;
+    document.querySelectorAll('.payout-app-pill').forEach(p => p.classList.remove('selected'));
+    document.querySelector(`.payout-app-pill[data-app="${app}"]`)?.classList.add('selected');
+
+    const placeholders = { venmo: '@username', paypal: 'email or @username', cashapp: '$cashtag', zelle: 'phone or email' };
+    const input = document.getElementById('payout-handle-input');
+    if (input) input.placeholder = placeholders[app] || '@handle';
+
+    const errEl = document.getElementById('payout-handle-error');
+    if (errEl) errEl.style.display = 'none';
+
+    document.getElementById('payout-handle-wrap').style.display = 'block';
+    setTimeout(() => input?.focus(), 80);
+  }
+
+  function _validatePayoutHandle(app, raw) {
+    const h = raw.trim();
+    if (!h) return 'Please enter your handle.';
+    switch (app) {
+      case 'venmo': {
+        const v = h.startsWith('@') ? h.slice(1) : h;
+        if (!/^[a-zA-Z0-9_-]{1,30}$/.test(v))
+          return 'Venmo usernames use letters, numbers, - and _ only (no spaces).';
+        return null;
+      }
+      case 'paypal': {
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(h)) return null;
+        const pp = h.startsWith('@') ? h.slice(1) : h;
+        if (!/^[a-zA-Z0-9._-]{3,64}$/.test(pp))
+          return 'Enter a valid PayPal email or @username.';
+        return null;
+      }
+      case 'cashapp': {
+        const c = h.startsWith('$') ? h.slice(1) : h;
+        if (!/^[a-zA-Z0-9_]{1,20}$/.test(c))
+          return 'Cash App tags use letters, numbers and _ only (e.g. $yourcashtag).';
+        return null;
+      }
+      case 'zelle': {
+        const digits = h.replace(/\D/g, '');
+        if (digits.length >= 10) return null;
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(h)) return null;
+        return 'Enter the phone number or email address linked to your Zelle account.';
+      }
+      default: return 'Select an app first.';
+    }
+  }
+
+  function _normalizePayoutHandle(app, raw) {
+    const h = raw.trim();
+    if (app === 'venmo'   && !h.startsWith('@')) return '@' + h;
+    if (app === 'cashapp' && !h.startsWith('$')) return '$' + h;
+    return h;
+  }
+
+  async function savePayoutHandle() {
+    if (!_selectedPayoutApp) { showError('Pick an app first.'); return; }
+    const input  = document.getElementById('payout-handle-input');
+    const errEl  = document.getElementById('payout-handle-error');
+    const raw    = input?.value || '';
+    const valErr = _validatePayoutHandle(_selectedPayoutApp, raw);
+
+    if (valErr) {
+      if (errEl) { errEl.textContent = valErr; errEl.style.display = 'block'; }
+      input?.focus();
       return;
     }
-    const btn = document.getElementById('allset-connect-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
-    try {
-      const res = await fetch(`${API}/connect/onboard`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item_id: state.finderItemId }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
-      const { url } = await res.json();
-      window.location.href = url;
-    } catch (err) {
-      if (btn) { btn.disabled = false; btn.textContent = 'Set up →'; }
-      showError(err.message || 'Could not open payout setup. Try again.');
+    if (errEl) errEl.style.display = 'none';
+
+    const handle = _normalizePayoutHandle(_selectedPayoutApp, raw);
+
+    if (!state.finderItemId) {
+      showError('Item not saved — please restart the finder flow.');
+      return;
     }
+
+    const btn = document.getElementById('payout-save-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+    try {
+      await fetch(`${API}/items/${state.finderItemId}/finder-info`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ finder_payout_app: _selectedPayoutApp, finder_payout_handle: handle }),
+      });
+
+      const appLabels = { venmo: 'Venmo', paypal: 'PayPal', cashapp: 'Cash App', zelle: 'Zelle' };
+      const confirmedText = document.getElementById('payout-confirmed-text');
+      if (confirmedText) confirmedText.textContent = `✓ ${appLabels[_selectedPayoutApp]}  ${handle}`;
+      document.getElementById('payout-handle-wrap').style.display   = 'none';
+      document.getElementById('payout-confirmed-row').style.display = 'flex';
+    } catch (_) {
+      showError('Could not save — try again.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Save →'; }
+    }
+  }
+
+  function editPayoutHandle() {
+    document.getElementById('payout-confirmed-row').style.display = 'none';
+    document.getElementById('payout-handle-wrap').style.display   = 'block';
+    document.getElementById('payout-handle-input')?.focus();
   }
 
   // Called when loser taps "Send $X thank you →"

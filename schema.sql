@@ -21,8 +21,12 @@ ALTER TABLE items ADD COLUMN IF NOT EXISTS finder_email VARCHAR;
 -- Phase 10b: SMS notifications
 ALTER TABLE items ADD COLUMN IF NOT EXISTS phone VARCHAR;
 
--- Phase 11: Stripe Connect payouts
+-- Phase 11: Stripe Connect payouts (deprecated — kept for rollback)
 ALTER TABLE items ADD COLUMN IF NOT EXISTS stripe_connect_account_id VARCHAR;
+
+-- Phase 11b: Simple payout handle (Venmo / PayPal / Cash App / Zelle)
+ALTER TABLE items ADD COLUMN IF NOT EXISTS finder_payout_app VARCHAR;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS finder_payout_handle VARCHAR;
 
 CREATE TABLE IF NOT EXISTS tips (
     id                        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
