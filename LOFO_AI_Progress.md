@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 6, 2026 — Phases 1–10c complete and deployed*
+*Last updated: March 6, 2026 — Phases 1–10c + bug fixes complete and deployed*
 
 ---
 
@@ -27,6 +27,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 10 — Realtime Matching | ✅ Complete | 5s polling on Waiting screen; auto-navigates to Match on hit |
 | 10b — Two-sided SMS Notifications | ✅ Complete | Finder posts → SMS waiting losers; loser posts → SMS matched finders |
 | 10c — Match Flow Redesign | ✅ Complete | Realistic loser flow: potential match → ownership verify → confirmed screen → broker SMS → tip |
+| 10d — Flow Bug Fixes | ✅ Complete | Loser-wait screen, "Not my item" routing, finder phone save bug, CSS animation fix |
 | **11 — Stripe Connect Payouts** | **← Next** | Finder bank account, direct tip transfers |
 
 ---
@@ -63,6 +64,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `POST /stripe/webhook` | Mark tip `completed` on `payment_intent.succeeded` |
 | `POST /sms/send-otp` | Send 6-digit OTP via Twilio Verify |
 | `POST /sms/verify-otp` | Validate submitted OTP; returns `{verified: bool}` |
+| `POST /handoff/coordinate` | Save loser phone + fire intro SMS to both parties with each other's numbers |
 
 ---
 
@@ -119,7 +121,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `database.py` | Supabase connection pool + API key loading |
 | `schema.sql` | PostgreSQL table definitions |
 | `requirements.txt` | Python dependencies |
-| `LOFO_MVP.html` | 13-screen app — all live API calls, Stripe.js, GPS, Twilio OTP |
+| `LOFO_MVP.html` | 16-screen app — all live API calls, Stripe.js, GPS, Twilio OTP |
 | `security.py` | Argon2id hashing + JWT handoff token logic |
 | `.env` | API keys — never share, never commit |
 
@@ -143,6 +145,13 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | Artifact | Screen | Fix in |
 |---|---|---|
 | Finder payout (tips held in LOFO's Stripe balance) | — | Phase 11 |
+| Photo not stored — confirmed screen shows item attributes instead of actual photo | Confirmed | Phase 11 or 12 |
+
+## Known Bugs To Fix
+
+| Bug | Details |
+|---|---|
+| Rejected match loops | If loser taps "Not my item" and there's only one potential match, polling finds the same match again immediately. Need to track rejected match IDs in `state` (e.g. `state.rejectedMatchIds = []`) and filter them out of `/match` results — either client-side or via a `exclude_ids` param on the backend. If multiple matches exist, serve the next one; only show "no match" if all candidates are exhausted. |
 
 ---
 
@@ -197,24 +206,24 @@ Right now tips are collected by Stripe but sit in LOFO's Stripe balance. Finders
 
 ---
 
-## Cursor Prompt for Phase 11
+## Cursor Prompt for Next Session
 
 Paste this to start the next agent session:
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–10b):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop: finder snaps photo → Claude Vision → Voyage embedding → phone OTP via Twilio Verify → allset. Loser describes item → cosine similarity + proximity match → if no match, waits 10s then captures phone for SMS notification → polling auto-navigates on match. When finder posts, backend SMSes any waiting losers whose item matches. When loser posts and matches instantly, backend SMSes the finder. Ownership verify (Claude fuzzy-match) → Stripe inline tip → handoff → thanks.
+> **What's complete and deployed (Phases 1–10d):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop: finder snaps photo → Claude Vision → Voyage embedding → phone OTP via Twilio Verify → allset. Loser describes item → cosine similarity + proximity match → if no match, waits 10s then captures phone for SMS notification → polling auto-navigates on match → "hang tight" screen. When finder posts, backend SMSes any waiting losers whose item matches. When loser posts and matches instantly, backend SMSes the finder. Match screen shows confidence + when/where found → ownership verify (Claude fuzzy-match) → confirmed screen captures loser phone → `POST /handoff/coordinate` fires intro SMS to both parties → Stripe inline tip → thanks.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, Twilio, `security.py`. Deployed on Railway. All env vars set: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `TWILIO_VERIFY_SID`.
 >
-> **Frontend:** `LOFO_MVP.html` — 13 screens, all live. Key JS: `state` object (`finderItemId`, `loserItemId`, `matchedItem`, `phone`), `go()` + `onScreenEnter()` navigation lifecycle, `submitLost()`, `submitOwnershipVerify()`, `sendTip()`, `confirmTip()`, `finderDoneContinue()`, `sendCode()`, `verifyCode()`, `saveLoserPhone()`, `startPolling()`.
+> **Frontend:** `LOFO_MVP.html` — 16 screens, all live. Key JS: `state` object (`finderItemId`, `loserItemId`, `matchedItem`, `phone`, `loserPhone`, `loserItemType`, `latitude`, `longitude`), `go()` + `onScreenEnter()` navigation lifecycle, `submitLost()`, `submitOwnershipVerify()`, `coordinateHandoff()`, `sendTip()`, `confirmTip()`, `finderDoneContinue()`, `sendCode()`, `verifyCode()`, `saveLoserPhone()`, `startPolling()`, `rejectMatch()`, `timeAgo()`.
 >
-> **DB schema:** `items` table has `phone VARCHAR` (added in 10b), `finder_email`, `secret_detail`, GPS coords, `embedding vector(1024)`. `tips` table tracks Stripe payments.
+> **DB schema:** `items` table has `phone VARCHAR`, `finder_email`, `secret_detail`, GPS coords, `embedding vector(1024)`, `created_at`. `tips` table tracks Stripe payments.
 >
-> **Known placeholder:** Tips are collected but held in LOFO's Stripe balance — finders never receive the money. This is exactly what Phase 11 fixes.
+> **Known bug to fix first:** When loser taps "Not my item" and there's only one potential match, polling finds the same match again immediately — creating a loop. Fix: track rejected match IDs in `state.rejectedMatchIds = []`, filter them out of `/match` results client-side (or add `exclude_ids` param to backend). If all candidates are exhausted, go to waiting screen normally.
 >
-> **What's next — Phase 11: Stripe Connect Payouts**
+> **Next after that — Phase 11: Stripe Connect Payouts**
 > Wire Stripe Connect so tips route directly to finders. Build onboarding flow: after OTP verify on allset screen, prompt finder to connect their bank. Backend: `POST /connect/onboard` creates Stripe Connect Express account + returns onboarding URL. Store `stripe_connect_account_id` on finder items. Update `POST /tip/create-payment-intent` to use `transfer_data` to route funds to the finder's Connect account.
 >
 > Start by reading `main.py` and `LOFO_MVP.html`, then begin implementation."
@@ -222,6 +231,26 @@ Paste this to start the next agent session:
 ---
 
 ## Session History
+
+### Phase 10d — March 6, 2026
+
+**What changed:** Four bug fixes discovered during live testing of Phase 10c flow.
+
+**1. Loser-wait screen (dead end fix)**
+After the loser entered their phone on the waiting screen and tapped "Notify me →", they were stuck — a confirmation text appeared but nothing happened. Added a new `screen-loser-wait` terminal screen (navy background, modal slide-up) that navigates to after `saveLoserPhone()` succeeds. Features a breathing orb animation (3 concentric rings staggered at -1.33s, 4s ease-in-out cycle) simulating calm breathing. Copy: "Hang tight. Think positive." / "People do good things. We'll text you the moment someone finds your [item]." Item type populated from `state.loserItemType` stored at submit time.
+
+**2. Finder phone never saved (broker SMS broken)**
+`PATCH /items/{id}/finder-info` endpoint had `FinderInfoUpdate` schema with a `phone` field, but the endpoint only processed `finder_email` and `secret_detail` — the `phone` field was silently dropped. This meant finder's phone was always `NULL` in the DB, so `POST /handoff/coordinate` could never SMS the finder or give the loser the finder's number. Added `if body.phone is not None: updates["phone"] = body.phone` to the endpoint.
+
+**3. "Not my item" sent loser to home instead of waiting**
+Ghost button on match screen had hardcoded `onclick="go('home')"`. Added `rejectMatch()` function that checks `matchContext`: if `'loser'` → `go('waiting')` (polling restarts, same session continues); if `'finder'` → `go('home')`. Clears `state.matchedItem` on reject.
+
+**4. Backward-from-modal animation broken**
+`.screen.active { transform: translateX(0) !important }` — the `!important` declaration beats a normal inline style in the CSS cascade. When `go()` set the animation start position via `element.style.transform = 'translateX(-28%)'` and then added the `active` class, the CSS `!important` immediately overrode the inline style, snapping the destination screen to position 0 before the animation could run. Removed `!important` from `.screen.active` transform — inline start positions now win during setup, RAF animates to 0, cleanup `setTimeout` removes exit classes.
+
+**Also fixed in this session:** `_TWILIO_PHONE_NUMBER` was referenced in `_sms()` but never defined — all Phase 10b notification SMS were silently failing. Added `_TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")`.
+
+---
 
 ### Phase 10c — March 6, 2026
 
