@@ -8,6 +8,9 @@ from datetime import datetime, timezone
 import uuid
 import base64
 import json
+import random
+import time
+from threading import Lock
 
 import io
 
@@ -28,6 +31,20 @@ voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
 _STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 _STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 stripe.api_key = _STRIPE_SECRET_KEY
+
+_TWILIO_ACCOUNT_SID  = os.getenv("TWILIO_ACCOUNT_SID", "")
+_TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN", "")
+_TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
+
+_twilio_client = None
+if _TWILIO_ACCOUNT_SID and _TWILIO_AUTH_TOKEN:
+    from twilio.rest import Client as TwilioClient
+    _twilio_client = TwilioClient(_TWILIO_ACCOUNT_SID, _TWILIO_AUTH_TOKEN)
+
+# In-memory OTP store: normalized_phone -> {code, expires_at}
+_otp_store: dict[str, dict] = {}
+_otp_lock = Lock()
+_OTP_TTL_SECONDS = 600  # 10 minutes
 
 _VISION_SYSTEM_PROMPT = (
     'You are an item classifier for a lost and found app. Analyze the image and extract structured information. '
@@ -149,6 +166,15 @@ class TipCreateRequest(BaseModel):
     finder_item_id: uuid.UUID
     loser_item_id: uuid.UUID
     amount_cents: int
+
+
+class OtpSendRequest(BaseModel):
+    phone: str
+
+
+class OtpVerifyRequest(BaseModel):
+    phone: str
+    code: str
 
 
 # --------------------------------------------------------------------------- #
@@ -628,6 +654,58 @@ async def stripe_webhook(request: Request):
             conn.commit()
 
     return {"received": True}
+
+
+def _normalize_phone(raw: str) -> str:
+    """Strip formatting, require a 10-digit US number, return E.164 (+1XXXXXXXXXX)."""
+    digits = "".join(c for c in raw if c.isdigit())
+    if len(digits) == 10:
+        return f"+1{digits}"
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+    raise HTTPException(status_code=422, detail="Please enter a valid 10-digit US phone number.")
+
+
+@app.post("/sms/send-otp", status_code=200)
+def send_otp(body: OtpSendRequest):
+    phone = _normalize_phone(body.phone)
+    code = f"{random.randint(0, 9999):04d}"
+
+    with _otp_lock:
+        _otp_store[phone] = {"code": code, "expires_at": time.time() + _OTP_TTL_SECONDS}
+
+    if _twilio_client and _TWILIO_PHONE_NUMBER:
+        try:
+            _twilio_client.messages.create(
+                body=f"Your LOFO code is {code}. Valid for 10 minutes.",
+                from_=_TWILIO_PHONE_NUMBER,
+                to=phone,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"SMS delivery failed: {exc}") from exc
+    else:
+        # Dev / staging fallback — code visible in Railway logs
+        print(f"[LOFO OTP] {phone} → {code}")
+
+    return {"ok": True}
+
+
+@app.post("/sms/verify-otp", status_code=200)
+def verify_otp(body: OtpVerifyRequest):
+    phone = _normalize_phone(body.phone)
+
+    with _otp_lock:
+        entry = _otp_store.get(phone)
+        if not entry:
+            return {"verified": False, "reason": "No code found for this number. Request a new one."}
+        if time.time() > entry["expires_at"]:
+            del _otp_store[phone]
+            return {"verified": False, "reason": "Code expired. Tap 'Resend code' to get a new one."}
+        if body.code.strip() != entry["code"]:
+            return {"verified": False, "reason": "Incorrect code. Check your messages and try again."}
+        del _otp_store[phone]
+
+    return {"verified": True}
 
 
 @app.post("/handoff/validate")

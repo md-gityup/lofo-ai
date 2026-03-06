@@ -11,3 +11,4 @@ voyageai
 argon2-cffi
 PyJWT
 stripe
+twilio

@@ -1479,13 +1479,15 @@
     background: #fff;
     border: 1.5px solid var(--border);
     border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-family: 'DM Serif Display', serif;
     font-size: 28px;
     color: var(--navy);
-    transition: border-color 0.15s, transform 0.15s;
+    text-align: center;
+    outline: none;
+    caret-color: transparent;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    -webkit-appearance: none;
+    appearance: none;
   }
   .otp-box.filled {
     border-color: var(--navy);
@@ -1495,7 +1497,7 @@
     0% { transform: scale(0.92); }
     100% { transform: scale(1); }
   }
-  .otp-box.active {
+  .otp-box:focus {
     border-color: var(--rust);
     box-shadow: 0 0 0 3px var(--rust-light);
   }
@@ -1899,19 +1901,13 @@
       <div class="verify-title s-item" data-delay="80">Check your<br>messages.</div>
       <div class="verify-sub s-item" data-delay="140">We sent a 4-digit code to <strong>(555) 000-0000</strong>. Enter it below.</div>
       <div class="otp-row s-item" data-delay="200">
-        <div class="otp-box filled">3</div>
-        <div class="otp-box filled">7</div>
-        <div class="otp-box filled">4</div>
-        <div class="otp-box active">·</div>
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" id="otp-0" autocomplete="one-time-code" />
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" id="otp-1" />
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" id="otp-2" />
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" id="otp-3" />
       </div>
-      <div class="resend-row s-item" data-delay="260">Didn't get it? <span>Resend code</span></div>
-
-      <!-- Demo branch — two outcomes -->
-      <div class="s-item" data-delay="320" style="margin-top:auto; display:flex; flex-direction:column; gap:10px;">
-        <div style="text-align:center; font-size:11px; color:var(--muted); font-weight:300; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:4px;">Demo: choose outcome</div>
-        <button class="btn-full" style="margin-top:0; background:var(--navy);" onclick="go('allset')">No match yet — notify me →</button>
-        <button class="btn-full" style="margin-top:0; background:var(--rust);" onclick="go('match','finder')">Instant match found! →</button>
-      </div>
+      <div class="otp-error s-item" id="otp-error" style="display:none; text-align:center; color:#c0392b; font-size:13px; margin-top:-16px; margin-bottom:16px;"></div>
+      <div class="resend-row s-item" data-delay="260">Didn't get it? <span onclick="resendCode()">Resend code</span></div>
     </div>
   </div>
 
@@ -2178,6 +2174,7 @@
     failedAttempts: 0,
     latitude:       null,
     longitude:      null,
+    phone:          null,
   };
 
   // ── Screen flow order (determines push/pop direction) ──
@@ -2639,21 +2636,140 @@
     return '📦';
   }
 
-  // ── Init stagger on home ──
-  window.addEventListener('load', () => triggerStagger(document.getElementById('screen-home')));
+  // ── Init stagger on home + wire OTP inputs ──
+  window.addEventListener('load', () => {
+    triggerStagger(document.getElementById('screen-home'));
+    initOtpInputs();
+  });
 
-  // ── Phone screen: capture number, propagate, then navigate ──
-  function sendCode() {
+  // ── Phone screen: send real OTP via Twilio ──
+  async function sendCode() {
     const phone = (document.querySelector('#screen-phone .phone-input')?.value || '').trim();
-    if (phone) {
-      // Update verify screen subtitle
-      const verifySub = document.querySelector('#screen-verify .verify-sub strong');
-      if (verifySub) verifySub.textContent = phone;
-      // Update allset confirmation card
-      const allsetDesc = document.querySelector('#screen-allset .allset-card-desc');
-      if (allsetDesc) allsetDesc.textContent = `A text to ${phone} as soon as there's a verified match.`;
+    if (!phone) return;
+
+    state.phone = phone;
+    const verifySub = document.querySelector('#screen-verify .verify-sub strong');
+    if (verifySub) verifySub.textContent = phone;
+    const allsetDesc = document.querySelector('#screen-allset .allset-card-desc');
+    if (allsetDesc) allsetDesc.textContent = `A text to ${phone} as soon as there's a verified match.`;
+
+    showLoading('Sending code…');
+    try {
+      const res = await fetch(`${API}/sms/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Error ${res.status}`);
+      }
+      hideLoading();
+      go('verify');
+      // Clear any stale OTP input, focus first box after animation
+      setTimeout(() => {
+        [0, 1, 2, 3].forEach(i => {
+          const el = document.getElementById(`otp-${i}`);
+          if (el) { el.value = ''; el.classList.remove('filled'); }
+        });
+        const errEl = document.getElementById('otp-error');
+        if (errEl) errEl.style.display = 'none';
+        document.getElementById('otp-0')?.focus();
+      }, 380);
+    } catch (err) {
+      hideLoading();
+      showError(err.message || 'Could not send code. Try again.');
     }
-    go('verify');
+  }
+
+  // ── Resend OTP ──
+  async function resendCode() {
+    if (!state.phone) return;
+    showLoading('Resending…');
+    try {
+      const res = await fetch(`${API}/sms/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: state.phone }),
+      });
+      if (!res.ok) throw new Error('Failed to resend');
+      hideLoading();
+      [0, 1, 2, 3].forEach(i => {
+        const el = document.getElementById(`otp-${i}`);
+        if (el) { el.value = ''; el.classList.remove('filled'); }
+      });
+      const errEl = document.getElementById('otp-error');
+      if (errEl) errEl.style.display = 'none';
+      document.getElementById('otp-0')?.focus();
+    } catch (err) {
+      hideLoading();
+      showError(err.message || 'Could not resend. Try again.');
+    }
+  }
+
+  // ── Submit OTP for verification ──
+  async function verifyCode() {
+    const digits = [0, 1, 2, 3].map(i => (document.getElementById(`otp-${i}`)?.value || '')).join('');
+    if (digits.length < 4) return;
+
+    showLoading('Verifying…');
+    try {
+      const res = await fetch(`${API}/sms/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: state.phone, code: digits }),
+      });
+      const data = await res.json();
+      hideLoading();
+
+      if (data.verified) {
+        go('allset');
+      } else {
+        const errEl = document.getElementById('otp-error');
+        if (errEl) {
+          errEl.textContent = data.reason || 'Incorrect code. Try again.';
+          errEl.style.display = 'block';
+        }
+        [0, 1, 2, 3].forEach(i => {
+          const el = document.getElementById(`otp-${i}`);
+          if (el) { el.value = ''; el.classList.remove('filled'); }
+        });
+        document.getElementById('otp-0')?.focus();
+      }
+    } catch (err) {
+      hideLoading();
+      showError(err.message || 'Verification failed. Try again.');
+    }
+  }
+
+  // ── OTP input wiring: auto-advance, backspace, auto-submit ──
+  function initOtpInputs() {
+    for (let i = 0; i < 4; i++) {
+      const el = document.getElementById(`otp-${i}`);
+      if (!el || el._otpInited) continue;
+      el._otpInited = true;
+
+      el.addEventListener('input', (e) => {
+        const digit = e.target.value.replace(/\D/g, '');
+        e.target.value = digit.slice(-1);
+        if (digit) {
+          e.target.classList.add('filled');
+          if (i < 3) document.getElementById(`otp-${i + 1}`)?.focus();
+          else verifyCode();
+        } else {
+          e.target.classList.remove('filled');
+        }
+      });
+
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && i > 0) {
+          const prev = document.getElementById(`otp-${i - 1}`);
+          if (prev) { prev.value = ''; prev.classList.remove('filled'); prev.focus(); }
+        }
+      });
+
+      el.addEventListener('focus', () => el.select());
+    }
   }
 
   // ── Phone number formatter ──
