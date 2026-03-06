@@ -72,6 +72,8 @@ class ItemCreate(BaseModel):
     material: Optional[str] = None
     size: Optional[str] = None
     features: Optional[list[str]] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
     @field_validator("type")
     @classmethod
@@ -86,6 +88,8 @@ class TextItemCreate(BaseModel):
     description: str
     location_description: Optional[str] = None
     secret_detail: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
     @field_validator("type")
     @classmethod
@@ -121,6 +125,7 @@ class MatchResponse(BaseModel):
     features: Optional[list[str]]
     status: str
     similarity_score: float
+    distance_miles: Optional[float] = None
 
 
 class VerifyRequest(BaseModel):
@@ -195,8 +200,8 @@ def _validate_extracted_profile(extracted: dict) -> None:
 
 
 _INSERT_SQL = """
-    INSERT INTO items (type, item_type, color, material, size, features)
-    VALUES (%s, %s, %s, %s, %s, %s)
+    INSERT INTO items (type, item_type, color, material, size, features, latitude, longitude)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING
         id,
         type,
@@ -235,7 +240,18 @@ _MATCH_SQL = """
         f.size,
         f.features,
         f.status,
-        1 - (f.embedding <=> l.embedding) AS similarity_score
+        1 - (f.embedding <=> l.embedding) AS similarity_score,
+        CASE
+            WHEN f.latitude IS NOT NULL AND l.latitude IS NOT NULL THEN
+                ROUND(CAST(
+                    3958.8 * 2 * ASIN(SQRT(
+                        POWER(SIN(RADIANS(f.latitude  - l.latitude)  / 2), 2) +
+                        COS(RADIANS(l.latitude)) * COS(RADIANS(f.latitude)) *
+                        POWER(SIN(RADIANS(f.longitude - l.longitude) / 2), 2)
+                    ))
+                AS NUMERIC), 1)
+            ELSE NULL
+        END AS distance_miles
     FROM items f
     CROSS JOIN items l
     WHERE l.id = %s
@@ -243,6 +259,14 @@ _MATCH_SQL = """
       AND f.status = 'active'
       AND f.embedding IS NOT NULL
       AND l.embedding IS NOT NULL
+      AND (
+          f.latitude IS NULL OR l.latitude IS NULL
+          OR 3958.8 * 2 * ASIN(SQRT(
+              POWER(SIN(RADIANS(f.latitude  - l.latitude)  / 2), 2) +
+              COS(RADIANS(l.latitude)) * COS(RADIANS(f.latitude)) *
+              POWER(SIN(RADIANS(f.longitude - l.longitude) / 2), 2)
+          )) <= 10
+      )
     ORDER BY f.embedding <=> l.embedding
     LIMIT 5
 """
@@ -258,7 +282,8 @@ def create_item(item: ItemCreate):
         with conn.cursor() as cur:
             cur.execute(
                 _INSERT_SQL,
-                (item.type, item.item_type, item.color, item.material, item.size, item.features),
+                (item.type, item.item_type, item.color, item.material, item.size, item.features,
+                 item.latitude, item.longitude),
             )
             row = cur.fetchone()
         conn.commit()
@@ -305,6 +330,8 @@ def create_item_from_text(body: TextItemCreate):
                     extracted.get("material"),
                     extracted.get("size"),
                     extracted.get("features", []),
+                    body.latitude,
+                    body.longitude,
                 ),
             )
             row = cur.fetchone()
@@ -330,6 +357,8 @@ def create_item_from_text(body: TextItemCreate):
 async def create_item_from_photo(
     file: UploadFile = File(...),
     type: str = Form("finder"),
+    latitude: Optional[float] = Form(None),
+    longitude: Optional[float] = Form(None),
 ):
     if type not in ("finder", "loser"):
         raise HTTPException(status_code=422, detail="type must be 'finder' or 'loser'")
@@ -392,6 +421,8 @@ async def create_item_from_photo(
                     extracted.get("material"),
                     extracted.get("size"),
                     extracted.get("features", []),
+                    latitude,
+                    longitude,
                 ),
             )
             row = cur.fetchone()

@@ -1976,9 +1976,9 @@
       <div class="waiting-rule s-item" data-delay="150"></div>
       <div class="waiting-sub s-item" data-delay="190">Scanning nearby finds. You'll feel your phone the moment we have something.</div>
       <div class="status-pills">
-        <div class="status-pill s-item" data-delay="250"><span>📍</span><span>Within <strong>0.5 mi</strong> of Lincoln Park</span></div>
-        <div class="status-pill s-item" data-delay="310"><span>🕑</span><span>Time window: <strong>Today, 1–4 PM</strong></span></div>
-        <div class="status-pill s-item" data-delay="370"><span>✦</span><span>Checking <strong>14 nearby finds</strong></span></div>
+        <div class="status-pill s-item" data-delay="250" id="waiting-pill-location"><span>📍</span><span id="waiting-location-text">Searching nearby finds</span></div>
+        <div class="status-pill s-item" data-delay="310" id="waiting-pill-time"><span>🕑</span><span id="waiting-time-text">Submitted just now</span></div>
+        <div class="status-pill s-item" data-delay="370"><span>✦</span><span>AI-powered visual matching</span></div>
       </div>
       <button class="btn-full s-item" data-delay="430" onclick="go('match','loser')">Simulate match found →</button>
     </div>
@@ -2178,6 +2178,8 @@
     matchedItem:    null,
     handoffToken:   null,
     failedAttempts: 0,
+    latitude:       null,
+    longitude:      null,
   };
 
   // ── Screen flow order (determines push/pop direction) ──
@@ -2344,7 +2346,8 @@
         const details = [m.material, m.size].filter(Boolean).join(', ');
         document.querySelector('#screen-match .item-thumb').textContent = itemEmoji(m.item_type);
         document.querySelector('#screen-match .item-name').textContent  = label + ((m.color||[]).length ? ' — ' + m.color.join(', ') : '');
-        meta.textContent = details || 'Found recently';
+        const distPart = (m.distance_miles != null) ? ` · ${m.distance_miles} mi away` : '';
+        meta.textContent = (details || 'Found recently') + distPart;
 
         // Build reason checklist from real fields
         const reasons = [];
@@ -2401,6 +2404,18 @@
     }
   }
 
+  // ── Geolocation ──
+  function getLocation() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) { resolve(null); return; }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => resolve(null),
+        { timeout: 6000, maximumAge: 60000 }
+      );
+    });
+  }
+
   // ── Camera / Finder flow ──
   function triggerShutter() {
     if (isAnimating) return;
@@ -2422,9 +2437,16 @@
     overlay.classList.add('visible');
 
     try {
+      const loc = await getLocation();
+      if (loc) { state.latitude = loc.latitude; state.longitude = loc.longitude; }
+
       const fd = new FormData();
       fd.append('file', file);
       fd.append('type', 'finder');
+      if (loc) {
+        fd.append('latitude',  loc.latitude.toString());
+        fd.append('longitude', loc.longitude.toString());
+      }
       const res = await fetch(`${API}/items/from-photo`, { method: 'POST', body: fd });
       overlay.classList.remove('visible');
       if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
@@ -2466,11 +2488,17 @@
 
     showLoading('Describing your item…');
     try {
+      const loc = await getLocation();
+      if (loc) { state.latitude = loc.latitude; state.longitude = loc.longitude; }
+
       // 6b — POST /items/from-text
       const r1 = await fetch(`${API}/items/from-text`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'loser', description: desc, secret_detail: secret }),
+        body: JSON.stringify({
+          type: 'loser', description: desc, secret_detail: secret,
+          ...(loc ? { latitude: loc.latitude, longitude: loc.longitude } : {}),
+        }),
       });
       if (!r1.ok) throw new Error((await r1.json().catch(()=>({}))).detail || `Error ${r1.status}`);
       const item = await r1.json();
@@ -2493,11 +2521,30 @@
       } else {
         const waitTitle = document.querySelector('#screen-waiting .waiting-title');
         if (waitTitle) waitTitle.innerHTML = `Looking for<br><em>your ${cleanType(item.item_type)}.</em>`;
+        updateWaitingPills();
         go('waiting');
       }
     } catch (err) {
       hideLoading();
       showError(err.message || 'Something went wrong. Try again.');
+    }
+  }
+
+  function updateWaitingPills() {
+    const locEl  = document.getElementById('waiting-location-text');
+    const timeEl = document.getElementById('waiting-time-text');
+    if (locEl) {
+      locEl.innerHTML = state.latitude
+        ? 'Within <strong>10 mi</strong> of your location'
+        : 'Searching all nearby finds';
+    }
+    if (timeEl) {
+      const now = new Date();
+      const h = now.getHours(), m = now.getMinutes();
+      const pad = n => String(n).padStart(2, '0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      timeEl.innerHTML = `Submitted at <strong>${h12}:${pad(m)} ${ampm}</strong>`;
     }
   }
 
