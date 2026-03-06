@@ -8,9 +8,6 @@ from datetime import datetime, timezone
 import uuid
 import base64
 import json
-import random
-import time
-from threading import Lock
 
 import io
 
@@ -34,17 +31,12 @@ stripe.api_key = _STRIPE_SECRET_KEY
 
 _TWILIO_ACCOUNT_SID  = os.getenv("TWILIO_ACCOUNT_SID", "")
 _TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN", "")
-_TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
+_TWILIO_VERIFY_SID   = os.getenv("TWILIO_VERIFY_SID", "")
 
 _twilio_client = None
 if _TWILIO_ACCOUNT_SID and _TWILIO_AUTH_TOKEN:
     from twilio.rest import Client as TwilioClient
     _twilio_client = TwilioClient(_TWILIO_ACCOUNT_SID, _TWILIO_AUTH_TOKEN)
-
-# In-memory OTP store: normalized_phone -> {code, expires_at}
-_otp_store: dict[str, dict] = {}
-_otp_lock = Lock()
-_OTP_TTL_SECONDS = 600  # 10 minutes
 
 _VISION_SYSTEM_PROMPT = (
     'You are an item classifier for a lost and found app. Analyze the image and extract structured information. '
@@ -672,30 +664,25 @@ def sms_status():
         "twilio_configured": _twilio_client is not None,
         "has_account_sid":   bool(_TWILIO_ACCOUNT_SID),
         "has_auth_token":    bool(_TWILIO_AUTH_TOKEN),
-        "phone_number":      _TWILIO_PHONE_NUMBER or "(not set)",
+        "verify_sid":        _TWILIO_VERIFY_SID or "(not set)",
     }
 
 
 @app.post("/sms/send-otp", status_code=200)
 def send_otp(body: OtpSendRequest):
     phone = _normalize_phone(body.phone)
-    code = f"{random.randint(0, 9999):04d}"
 
-    with _otp_lock:
-        _otp_store[phone] = {"code": code, "expires_at": time.time() + _OTP_TTL_SECONDS}
+    if not (_twilio_client and _TWILIO_VERIFY_SID):
+        print(f"[LOFO OTP] Twilio Verify not configured — skipping SMS for {phone}")
+        return {"ok": True}
 
-    if _twilio_client and _TWILIO_PHONE_NUMBER:
-        try:
-            _twilio_client.messages.create(
-                body=f"Your LOFO code is {code}. Valid for 10 minutes.",
-                from_=_TWILIO_PHONE_NUMBER,
-                to=phone,
-            )
-        except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"SMS delivery failed: {exc}") from exc
-    else:
-        # Dev / staging fallback — code visible in Railway logs
-        print(f"[LOFO OTP] {phone} → {code}")
+    try:
+        _twilio_client.verify.v2.services(_TWILIO_VERIFY_SID).verifications.create(
+            to=phone,
+            channel="sms",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"SMS delivery failed: {exc}") from exc
 
     return {"ok": True}
 
@@ -704,18 +691,21 @@ def send_otp(body: OtpSendRequest):
 def verify_otp(body: OtpVerifyRequest):
     phone = _normalize_phone(body.phone)
 
-    with _otp_lock:
-        entry = _otp_store.get(phone)
-        if not entry:
-            return {"verified": False, "reason": "No code found for this number. Request a new one."}
-        if time.time() > entry["expires_at"]:
-            del _otp_store[phone]
-            return {"verified": False, "reason": "Code expired. Tap 'Resend code' to get a new one."}
-        if body.code.strip() != entry["code"]:
-            return {"verified": False, "reason": "Incorrect code. Check your messages and try again."}
-        del _otp_store[phone]
+    if not (_twilio_client and _TWILIO_VERIFY_SID):
+        # Dev fallback — accept any 4-digit code when Twilio isn't configured
+        return {"verified": True}
 
-    return {"verified": True}
+    try:
+        check = _twilio_client.verify.v2.services(_TWILIO_VERIFY_SID).verification_checks.create(
+            to=phone,
+            code=body.code.strip(),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Verification check failed: {exc}") from exc
+
+    if check.status == "approved":
+        return {"verified": True}
+    return {"verified": False, "reason": "Incorrect code. Check your messages and try again."}
 
 
 @app.post("/handoff/validate")
