@@ -1641,15 +1641,6 @@
     background: var(--cream);
   }
 
-  /* Attempt dots for verify failures */
-  .att-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    background: var(--border);
-    transition: background 0.3s;
-  }
-  .att-dot.used { background: #C0392B; }
-
   /* Secret detail label + input */
   .secret-label {
     font-size: 11px;
@@ -1865,7 +1856,12 @@
         <input class="finder-email-input" type="email" id="finder-email-input" placeholder="your@email.com" autocomplete="email" />
         <div class="finder-email-hint">Optional — we'll email you when someone tips you.</div>
       </div>
-      <button class="btn-full s-item" data-delay="390" onclick="finderDoneContinue()">Continue →</button>
+      <div class="finder-email-section s-item" data-delay="360">
+        <div class="finder-email-label">🔐 Add a secret detail</div>
+        <input class="finder-email-input" type="text" id="finder-secret-input" placeholder="e.g. name engraved inside, red dragon sticker, 3 pennies inside" />
+        <div class="finder-email-hint">Optional — for high-value items. The owner must confirm this before you hand it off. Pick something only the real owner would know.</div>
+      </div>
+      <button class="btn-full s-item" data-delay="420" onclick="finderDoneContinue()">Continue →</button>
     </div>
   </div>
 
@@ -1960,10 +1956,7 @@
         <div class="chip">📍 Add location</div>
         <div class="chip">🕑 Add time</div>
       </div>
-      <label class="secret-label s-item" data-delay="250">🔐 Secret detail only you'd know *</label>
-      <input id="lost-secret" class="secret-input s-item" data-delay="260" type="text" placeholder="e.g. crescent scratch on back, sticker inside, inscription">
-      <div class="secret-hint s-item" data-delay="270">This proves you own it. Pick one detail only you'd know — an inscription, what's inside, a unique mark.</div>
-      <button class="btn-full s-item" data-delay="300" style="margin-top:24px" onclick="submitLost()">Start looking →</button>
+      <button class="btn-full s-item" data-delay="260" style="margin-top:24px" onclick="submitLost()">Start looking →</button>
     </div>
   </div>
 
@@ -2032,28 +2025,23 @@
     </div>
     <div class="content">
       <div class="phone-icon s-pop" data-delay="0">🔐</div>
-      <div class="phone-title s-item" data-delay="80">Prove it's<br>yours.</div>
-      <div class="phone-sub s-item" data-delay="140">Enter the secret detail you registered when you described your lost item. Only the real owner would know this.</div>
+      <div class="phone-title s-item" data-delay="80">One quick<br>check.</div>
+      <div class="phone-sub s-item" data-delay="140">The finder noted something specific about this item. Describe it in your own words to confirm it's really yours.</div>
       <input
         id="ownership-secret-input"
         class="secret-input s-item"
         data-delay="200"
         type="text"
-        placeholder="Enter the detail only you know"
+        placeholder="What do you know about this specific item?"
       >
-      <div class="s-item" data-delay="240" style="display:flex;gap:8px;margin:4px 0 8px;">
-        <div class="att-dot" id="att-0"></div>
-        <div class="att-dot" id="att-1"></div>
-        <div class="att-dot" id="att-2"></div>
-      </div>
-      <div id="ownership-error" style="font-size:13px;color:#C0392B;display:none;margin-bottom:4px;font-weight:400;line-height:1.5;"></div>
+      <div id="ownership-error" style="font-size:13px;color:#C0392B;display:none;margin-bottom:4px;font-weight:400;line-height:1.5;margin-top:8px;"></div>
       <button
         class="btn-full s-item"
-        data-delay="280"
+        data-delay="260"
         id="ownership-verify-btn"
         style="margin-top:32px"
         onclick="submitOwnershipVerify()"
-      >Verify ownership →</button>
+      >Confirm →</button>
     </div>
   </div>
 
@@ -2407,11 +2395,13 @@
         cta.onclick         = () => go('handoff');
         ghost.textContent   = 'Not a match';
       } else {
-        const itemLabel = state.matchedItem ? cleanType(state.matchedItem.item_type) : 'item';
+        const itemLabel   = state.matchedItem ? cleanType(state.matchedItem.item_type) : 'item';
+        const hasSecret   = state.matchedItem?.has_secret ?? false;
         eyebrow.textContent = 'Match found';
         headline.innerHTML  = `We found<br><em>your ${itemLabel}.</em>`;
         cta.textContent     = 'This is mine — get it back →';
-        cta.onclick         = () => go('ownership-verify');
+        // Only show ownership-verify when the finder added a secret detail
+        cta.onclick         = hasSecret ? () => go('ownership-verify') : () => go('handoff');
         ghost.textContent   = 'Not my item';
       }
     }
@@ -2445,8 +2435,6 @@
       if (err) err.style.display = 'none';
       const btn = document.getElementById('ownership-verify-btn');
       if (btn) btn.disabled = false;
-      state.failedAttempts = 0;
-      updateAttemptDots(0);
     }
   }
 
@@ -2527,22 +2515,20 @@
 
   // ── Lost item flow ──
   async function submitLost() {
-    const desc   = (document.getElementById('lost-description')?.value || '').trim();
-    const secret = (document.getElementById('lost-secret')?.value || '').trim();
-    if (!desc)   { showError('Please describe what you lost.'); return; }
-    if (!secret) { showError('Please enter a secret detail to prove ownership later.'); return; }
+    const desc = (document.getElementById('lost-description')?.value || '').trim();
+    if (!desc) { showError('Please describe what you lost.'); return; }
 
     showLoading('Describing your item…');
     try {
       const loc = await getLocation();
       if (loc) { state.latitude = loc.latitude; state.longitude = loc.longitude; }
 
-      // 6b — POST /items/from-text
+      // POST /items/from-text
       const r1 = await fetch(`${API}/items/from-text`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'loser', description: desc, secret_detail: secret,
+          type: 'loser', description: desc,
           ...(loc ? { latitude: loc.latitude, longitude: loc.longitude } : {}),
         }),
       });
@@ -2594,58 +2580,35 @@
     }
   }
 
-  // ── Ownership verification ──
+  // ── Ownership verification — Claude fuzzy-matches loser's claim against finder's secret ──
   async function submitOwnershipVerify() {
-    const secret = (document.getElementById('ownership-secret-input')?.value || '').trim();
-    if (!secret) { showError('Please enter your secret detail.'); return; }
+    const claim = (document.getElementById('ownership-secret-input')?.value || '').trim();
+    if (!claim) { showError('Please describe what you know about this item.'); return; }
+    if (!state.matchedItem?.id) { showError('No matched item — please restart the flow.'); return; }
 
-    showLoading('Verifying ownership…');
+    showLoading('Checking your answer…');
     try {
       const res = await fetch(`${API}/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item_id: state.loserItemId, secret_detail: secret }),
+        body: JSON.stringify({ finder_item_id: state.matchedItem.id, loser_claim: claim }),
       });
-      if (res.status === 423) {
-        hideLoading();
-        showError('Too many failed attempts. This item is locked.');
-        const btn = document.getElementById('ownership-verify-btn');
-        if (btn) btn.disabled = true;
-        return;
-      }
       if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
       const result = await res.json();
       hideLoading();
 
       if (result.verified) {
-        state.handoffToken = result.handoff_token;
         go('handoff');
       } else {
-        const remaining = result.attempts_remaining ?? 0;
-        state.failedAttempts = 3 - remaining;
-        updateAttemptDots(state.failedAttempts);
         const errEl = document.getElementById('ownership-error');
         if (errEl) {
-          errEl.textContent = remaining > 0
-            ? `Incorrect. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
-            : 'No attempts remaining. This item is locked.';
+          errEl.textContent = result.reason || 'That doesn\'t match what the finder noted. Try again.';
           errEl.style.display = 'block';
-        }
-        if (remaining === 0) {
-          const btn = document.getElementById('ownership-verify-btn');
-          if (btn) btn.disabled = true;
         }
       }
     } catch (err) {
       hideLoading();
       showError(err.message || 'Something went wrong. Try again.');
-    }
-  }
-
-  function updateAttemptDots(failed) {
-    for (let i = 0; i < 3; i++) {
-      const d = document.getElementById('att-' + i);
-      if (d) d.classList.toggle('used', i < failed);
     }
   }
 
@@ -2723,15 +2686,19 @@
   let _cardElement = null;
   let _tipClientSecret = null;
 
-  // Called by Finder Done "Continue →" — saves email (if given) then navigates
+  // Called by Finder Done "Continue →" — saves email + optional secret detail, then navigates
   async function finderDoneContinue() {
-    const email = (document.getElementById('finder-email-input')?.value || '').trim();
-    if (email && state.finderItemId) {
+    const email  = (document.getElementById('finder-email-input')?.value  || '').trim();
+    const secret = (document.getElementById('finder-secret-input')?.value || '').trim();
+    if (state.finderItemId && (email || secret)) {
+      const payload = {};
+      if (email)  payload.finder_email  = email;
+      if (secret) payload.secret_detail = secret;
       try {
-        await fetch(`${API}/items/${state.finderItemId}/finder-email`, {
+        await fetch(`${API}/items/${state.finderItemId}/finder-info`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ finder_email: email }),
+          body: JSON.stringify(payload),
         });
       } catch (_) {
         // Non-blocking — don't stop the finder flow if this fails

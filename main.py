@@ -74,6 +74,7 @@ class ItemCreate(BaseModel):
     features: Optional[list[str]] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    secret_detail: Optional[str] = None  # finder items only
 
     @field_validator("type")
     @classmethod
@@ -87,7 +88,7 @@ class TextItemCreate(BaseModel):
     type: str
     description: str
     location_description: Optional[str] = None
-    secret_detail: Optional[str] = None
+    secret_detail: Optional[str] = None  # finder items only; ignored for loser
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
@@ -110,6 +111,7 @@ class ItemResponse(BaseModel):
     status: str
     expires_at: str
     created_at: str
+    has_secret: bool = False
 
 
 class MatchRequest(BaseModel):
@@ -126,19 +128,21 @@ class MatchResponse(BaseModel):
     status: str
     similarity_score: float
     distance_miles: Optional[float] = None
+    has_secret: bool = False
 
 
 class VerifyRequest(BaseModel):
-    item_id: uuid.UUID
-    secret_detail: str
+    finder_item_id: uuid.UUID  # the finder's item that holds the secret
+    loser_claim: str           # the loser's description — Claude judges the match
 
 
 class HandoffValidateRequest(BaseModel):
     token: str
 
 
-class FinderEmailUpdate(BaseModel):
-    finder_email: str
+class FinderInfoUpdate(BaseModel):
+    finder_email: Optional[str] = None
+    secret_detail: Optional[str] = None
 
 
 class TipCreateRequest(BaseModel):
@@ -200,8 +204,8 @@ def _validate_extracted_profile(extracted: dict) -> None:
 
 
 _INSERT_SQL = """
-    INSERT INTO items (type, item_type, color, material, size, features, latitude, longitude)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO items (type, item_type, color, material, size, features, latitude, longitude, secret_detail)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING
         id,
         type,
@@ -212,7 +216,8 @@ _INSERT_SQL = """
         features,
         status,
         expires_at::text,
-        created_at::text
+        created_at::text,
+        (secret_detail IS NOT NULL) AS has_secret
 """
 
 _SELECT_SQL = """
@@ -241,6 +246,7 @@ _MATCH_SQL = """
         f.features,
         f.status,
         1 - (f.embedding <=> l.embedding) AS similarity_score,
+        (f.secret_detail IS NOT NULL) AS has_secret,
         CASE
             WHEN f.latitude IS NOT NULL AND l.latitude IS NOT NULL THEN
                 ROUND(CAST(
@@ -283,7 +289,7 @@ def create_item(item: ItemCreate):
             cur.execute(
                 _INSERT_SQL,
                 (item.type, item.item_type, item.color, item.material, item.size, item.features,
-                 item.latitude, item.longitude),
+                 item.latitude, item.longitude, item.secret_detail),
             )
             row = cur.fetchone()
         conn.commit()
@@ -319,6 +325,9 @@ def create_item_from_text(body: TextItemCreate):
     extracted = _parse_claude_json(message.content[0].text.strip())
     _validate_extracted_profile(extracted)
 
+    # Store secret_detail on finder items only
+    stored_secret = body.secret_detail if body.type == "finder" else None
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -332,6 +341,7 @@ def create_item_from_text(body: TextItemCreate):
                     extracted.get("features", []),
                     body.latitude,
                     body.longitude,
+                    stored_secret,
                 ),
             )
             row = cur.fetchone()
@@ -339,17 +349,6 @@ def create_item_from_text(body: TextItemCreate):
 
     item = dict(row)
     _store_embedding(item["id"], extracted)
-
-    if body.type == "loser" and body.secret_detail:
-        secret_hash = hash_secret(body.secret_detail)
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO secret_verifications (item_id, secret_hash) VALUES (%s, %s)",
-                    (str(item["id"]), secret_hash),
-                )
-            conn.commit()
-
     return item
 
 
@@ -359,6 +358,7 @@ async def create_item_from_photo(
     type: str = Form("finder"),
     latitude: Optional[float] = Form(None),
     longitude: Optional[float] = Form(None),
+    secret_detail: Optional[str] = Form(None),
 ):
     if type not in ("finder", "loser"):
         raise HTTPException(status_code=422, detail="type must be 'finder' or 'loser'")
@@ -410,6 +410,8 @@ async def create_item_from_photo(
     extracted = _parse_claude_json(message.content[0].text.strip())
     _validate_extracted_profile(extracted)
 
+    stored_secret = secret_detail if type == "finder" else None
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -423,6 +425,7 @@ async def create_item_from_photo(
                     extracted.get("features", []),
                     latitude,
                     longitude,
+                    stored_secret,
                 ),
             )
             row = cur.fetchone()
@@ -469,7 +472,16 @@ def match_item(body: MatchRequest):
     return [dict(r) for r in rows if r["similarity_score"] >= 0.7]
 
 
-_MAX_VERIFY_ATTEMPTS = 3
+_VERIFY_SYSTEM_PROMPT = (
+    "You are an ownership verifier for a lost and found app. "
+    "A finder has noted a specific physical detail about a found item. "
+    "A claimant says they own the item and provides their own description of that same detail. "
+    "Determine whether the claimant's description is consistent with the finder's observation — "
+    "they are describing the same real object so the details should align, even if phrased differently. "
+    "Be forgiving of synonym use, abbreviation, and different phrasing. "
+    "Be strict about factual contradictions (wrong color, wrong number, fundamentally different detail). "
+    'Respond ONLY with valid JSON: {"match": true/false, "reason": "one sentence explanation"}'
+)
 
 
 @app.post("/verify")
@@ -477,67 +489,71 @@ def verify_item(body: VerifyRequest):
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """
-                SELECT id, secret_hash, attempt_count, locked
-                FROM secret_verifications
-                WHERE item_id = %s
-                """,
-                (str(body.item_id),),
+                "SELECT secret_detail FROM items WHERE id = %s AND type = 'finder'",
+                (str(body.finder_item_id),),
             )
             row = cur.fetchone()
 
     if row is None:
-        raise HTTPException(status_code=404, detail="Item not found or has no secret registered")
+        raise HTTPException(status_code=404, detail="Finder item not found")
 
-    if row["locked"]:
-        raise HTTPException(
-            status_code=423,
-            detail="Item is locked due to too many failed verification attempts",
+    finder_secret = row["secret_detail"]
+    if not finder_secret:
+        # No secret set — skip verification entirely
+        return {"verified": True, "reason": "No secret detail required for this item"}
+
+    try:
+        message = claude_client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=256,
+            system=_VERIFY_SYSTEM_PROMPT,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f'Finder observed: "{finder_secret}"\n'
+                    f'Claimant says: "{body.loser_claim}"\n'
+                    "Do these describe the same physical detail of the same item?"
+                ),
+            }],
         )
+    except anthropic.APIError as exc:
+        raise HTTPException(status_code=502, detail=f"Claude API error: {exc}") from exc
 
-    if verify_secret(body.secret_detail, row["secret_hash"]):
-        token, _jti, _expires_at = create_handoff_token(str(body.item_id))
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE secret_verifications SET verified_at = now() WHERE id = %s",
-                    (str(row["id"]),),
-                )
-            conn.commit()
-        return {"verified": True, "item_id": str(body.item_id), "handoff_token": token}
+    result = _parse_claude_json(message.content[0].text.strip())
+    matched = bool(result.get("match", False))
+    reason  = result.get("reason", "")
 
+    return {"verified": matched, "reason": reason}
+
+
+@app.patch("/items/{item_id}/finder-info", status_code=200)
+def update_finder_info(item_id: uuid.UUID, body: FinderInfoUpdate):
+    updates: dict = {}
+    if body.finder_email is not None:
+        updates["finder_email"] = body.finder_email
+    if body.secret_detail is not None:
+        updates["secret_detail"] = body.secret_detail
+    if not updates:
+        return {"ok": True}
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
+    values = list(updates.values()) + [str(item_id)]
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """
-                UPDATE secret_verifications
-                SET attempt_count = attempt_count + 1,
-                    locked        = (attempt_count + 1 >= %s)
-                WHERE id = %s
-                RETURNING attempt_count
-                """,
-                (_MAX_VERIFY_ATTEMPTS, str(row["id"])),
-            )
-            updated = cur.fetchone()
-        conn.commit()
-
-    attempts_remaining = max(0, _MAX_VERIFY_ATTEMPTS - updated["attempt_count"])
-    return {"verified": False, "attempts_remaining": attempts_remaining}
-
-
-@app.patch("/items/{item_id}/finder-email", status_code=200)
-def update_finder_email(item_id: uuid.UUID, body: FinderEmailUpdate):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE items SET finder_email = %s WHERE id = %s AND type = 'finder' RETURNING id",
-                (body.finder_email, str(item_id)),
+                f"UPDATE items SET {set_clause} WHERE id = %s AND type = 'finder' RETURNING id",
+                values,
             )
             row = cur.fetchone()
         conn.commit()
     if row is None:
         raise HTTPException(status_code=404, detail="Finder item not found")
     return {"ok": True}
+
+
+# Keep old URL alive so existing deployed HTML still works during transition
+@app.patch("/items/{item_id}/finder-email", status_code=200, include_in_schema=False)
+def update_finder_email_legacy(item_id: uuid.UUID, body: FinderInfoUpdate):
+    return update_finder_info(item_id, body)
 
 
 @app.post("/tip/create-payment-intent", status_code=201)
