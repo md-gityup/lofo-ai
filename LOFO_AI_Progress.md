@@ -33,7 +33,7 @@ UI prototype: `LOFO_MVP.html`
 
 ---
 
-## Current Status: Phases 1–7 Complete & Deployed ✓
+## Current Status: Phases 1–9a Complete & Deployed ✓
 
 ### What's running
 
@@ -53,13 +53,13 @@ UI prototype: `LOFO_MVP.html`
 |---|---|
 | `GET /` | Serves LOFO_MVP.html (the app UI) |
 | `POST /items` | Submit a structured item manually |
-| `POST /items/from-photo` | Upload photo → Claude Vision extracts profile → stored with embedding |
+| `POST /items/from-photo` | Upload photo → Claude Vision extracts profile → stored with embedding; accepts optional `secret_detail` |
 | `POST /items/from-text` | Submit text description → Claude extracts profile → stored with embedding |
 | `GET /items/{id}` | Retrieve an item by UUID |
-| `POST /match` | Find top matching finder items for a loser item (cosine similarity) |
-| `POST /verify` | Verify ownership via secret detail (Argon2id, 3-attempt lockout) |
+| `POST /match` | Find top matching finder items for a loser item (cosine similarity + proximity); returns `has_secret` |
+| `POST /verify` | Fuzzy ownership verify — Claude compares finder's `secret_detail` against loser's `loser_claim`; returns `{verified, reason}` |
 | `POST /handoff/validate` | Validate single-use JWT handoff token |
-| `PATCH /items/{id}/finder-email` | Store finder's payout email after item creation |
+| `PATCH /items/{id}/finder-info` | Store finder's payout email and/or secret detail after item creation |
 | `POST /tip/create-payment-intent` | Create Stripe PaymentIntent, record pending tip |
 | `POST /stripe/webhook` | Mark tip completed on `payment_intent.succeeded` |
 
@@ -79,6 +79,7 @@ UI prototype: `LOFO_MVP.html`
 | finder_email | varchar | Optional — finder's payout email (Phase 7) |
 | latitude | numeric(9,6) | Optional — GPS latitude at submission (Phase 8) |
 | longitude | numeric(9,6) | Optional — GPS longitude at submission (Phase 8) |
+| secret_detail | text | Optional — finder's physical observation for ownership verify (Phase 9a) |
 | status | varchar | Default 'active' |
 | expires_at | timestamptz | Default 30 days from creation |
 | created_at | timestamptz | Auto-set |
@@ -269,9 +270,33 @@ None — clean build.
 
 ---
 
-## What's Next: Phase 9 — SMS Verification
+## What's Next: Phase 9b — SMS Verification
 
 Replace the fake SMS/OTP verify screens with real Twilio-based phone verification.
+
+---
+
+## Cursor Prompt for Phase 9b
+
+When starting the next session, paste this:
+
+> "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
+>
+> **What's complete and deployed (Phases 1–9a):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full loop works: finder snaps photo → Claude Vision extracts profile → Voyage AI embedding → loser describes lost item → cosine similarity match → optional ownership verify (finder adds a secret detail; Claude fuzzy-matches loser's claim against it) → Stripe inline tip payment → Thanks screen.
+>
+> **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, security.py. Deployed on Railway. `.env` has: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`.
+>
+> **Frontend:** `LOFO_MVP.html` — 13 screens, all live API calls, Stripe.js inline card payment.
+>
+> **Known intentional placeholders (do not touch yet):**
+> - `screen-verify` — fake SMS OTP with hardcoded "3 7 4 ·" boxes and two demo branch buttons. This is exactly what Phase 9b replaces.
+> - `screen-waiting` — "Simulate match found →" button. Remove when realtime is built (Phase 10).
+>
+> **What's next — Phase 9b: Real SMS Verification via Twilio**
+> Replace the fake phone verify flow with real OTP. When a finder taps "Send code →" on `screen-phone`, call a new backend endpoint that triggers Twilio to send a 4-digit SMS. Replace the hardcoded OTP boxes with a real interactive input. Verify the code on submit. On success, navigate to `screen-allset` (no match yet) or `screen-match` (instant match). Remove the demo branch buttons.
+>
+> Start by reading `main.py` and `LOFO_MVP.html`, then begin implementation."
 
 ---
 
