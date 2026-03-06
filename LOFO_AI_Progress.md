@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 5, 2026 (Phase 8 fully complete — GPS & proximity matching)*
+*Last updated: March 5, 2026 (Phase 9a complete — finder-owned secret detail with Claude fuzzy verification)*
 
 ---
 
@@ -25,7 +25,9 @@ UI prototype: `LOFO_MVP.html`
 | 6 — API Wiring | ✅ Complete | All screens wired to real backend with live API calls |
 | 7 — Tip Flow | ✅ Complete | Stripe inline card payment, finder email capture, tips table |
 | 8 — GPS & Proximity | ✅ Complete | Real location capture, proximity-filtered matching |
-| 9 — SMS Verification | ← Next | Real OTP via Twilio, replace fake verify screens |
+| 8.5 — UX & Flow Fixes | ✅ Complete | Live clock, GPS pre-fetch, phone propagation, real distances, scroll fixes |
+| 9a — Ownership Verification Rethink | ✅ Complete | Finder-owned secret detail; Claude fuzzy matching; loser flow friction removed |
+| 9b — SMS Verification | ← Next | Real OTP via Twilio, replace fake verify screens |
 | 10 — Realtime Matching | Planned | Polling/Supabase realtime on Waiting screen |
 | 11 — Stripe Connect Payouts | Planned | Finder bank account, direct tip transfers |
 
@@ -196,6 +198,74 @@ None — clean build.
 | Hardcoded OTP boxes | `screen-verify` | Phase 9 |
 | "Simulate match found →" button | `screen-waiting` | Phase 10 |
 | Location/time pills | `screen-waiting` | ✅ Fixed Phase 8 |
+
+---
+
+---
+
+## Session Summary — March 5, 2026 (Phase 9a session)
+
+### What we built
+
+**New ownership verification model:** The finder optionally adds a secret physical observation about the item they found (inscription, sticker, what's inside, unique mark). If they do, the loser must describe that detail before the handoff proceeds. Claude judges whether the descriptions match — semantically, not word-for-word.
+
+**Why this is better than the old model:**
+- Old: loser had to invent a secret at submission time, remember it later, and match it exactly (Argon2id hash)
+- New: finder is the independent witness — they have the item in hand and can note objective details. Loser just describes what they know about their own item. Claude handles fuzzy matching.
+
+**Backend (`main.py`):**
+- `ALTER TABLE items ADD COLUMN IF NOT EXISTS secret_detail TEXT` — run on Supabase
+- `ItemCreate` / `TextItemCreate`: accept optional `secret_detail` (stored on finder items only)
+- `ItemResponse` + `MatchResponse`: new `has_secret: bool` field
+- `_INSERT_SQL`: +`secret_detail` column; RETURNING `(secret_detail IS NOT NULL) AS has_secret`
+- `_MATCH_SQL`: `(f.secret_detail IS NOT NULL) AS has_secret` in SELECT
+- `create_item_from_photo`: accepts `secret_detail: Optional[str] = Form(None)`
+- `create_item_from_text`: stores `secret_detail` for finder items; removed old `secret_verifications` INSERT
+- `PATCH /items/{id}/finder-info`: new endpoint replaces `/finder-email`; accepts both `finder_email` and `secret_detail`; old URL kept as silent alias
+- `POST /verify`: complete rewrite — fetches finder item's `secret_detail`, calls Claude to fuzzy-match against `loser_claim`, returns `{verified, reason}`; skips Claude call if no secret was set
+
+**Frontend (`LOFO_MVP.html`):**
+- Lost-prompt: removed secret detail field + required validation — loser flow is now two fields (description + location)
+- Finder-done: added optional "🔐 Add a secret detail" input below the email field
+- `finderDoneContinue()`: PATCHes `/finder-info` with email + secret_detail if provided
+- Match screen CTA: routes to `ownership-verify` only when `state.matchedItem.has_secret === true`; skips straight to handoff otherwise
+- Ownership-verify screen: new copy ("One quick check." / "The finder noted something specific…"); removed attempt-dot UI
+- `submitOwnershipVerify()`: sends `{finder_item_id, loser_claim}`; shows Claude's human-readable `reason` on failure
+- Removed dead `.att-dot` CSS
+
+### Known intentional placeholders
+
+| Artifact | Where | Status |
+|---|---|---|
+| Fake SMS OTP boxes | `screen-verify` | Phase 9b |
+| "DEMO: CHOOSE OUTCOME" buttons | `screen-verify` | Phase 9b |
+| "Simulate match found →" button | `screen-waiting` | Phase 10 |
+
+---
+
+## Session Summary — March 5, 2026 (Phase 8.5 session)
+
+### What we did
+
+Six UX & flow bugs identified and fixed in `LOFO_MVP.html`:
+
+1. **Broken `.desktop-hint` CSS** — the comment block was malformed (missing closing `*/` and the selector itself). The "Tap through the full LOFO.AI user journey" hint below the phone shell had no styles at all. Fixed.
+
+2. **Camera geo-row hardcoded** — `"Lincoln Park · Chicago"` was still in the HTML from before Phase 8. Phase 8 fixed the Waiting screen pills but missed the camera screen. Now shows `"Acquiring location…"` on entry and updates to `"Location acquired"` or `"Location unavailable"` once GPS resolves.
+
+3. **GPS pre-fetch on camera entry** — Previously `getLocation()` was only called when the shutter was pressed. Now it's called immediately in `onScreenEnter('finder-camera')`, so the OS permission prompt fires while the user is composing the shot. By the time they tap the shutter, GPS is already resolved.
+
+4. **Live clock** — All status bars showed frozen `"9:41"`. Added `updateClock()` that reads `new Date()` and writes the real time to every `.status-time` element. Runs on load and every 30 seconds.
+
+5. **Phone number not carried forward** — User typed their number on screen-phone but `screen-verify` subtitle and `screen-allset` card still showed hardcoded `(555) 000-0000`. The "Send code →" button now calls `sendCode()` which captures the input value, writes it to both downstream screens, then navigates.
+
+6. **Handoff screen hardcoded distance** — `"0.3 miles away · Lincoln Park"` was static HTML. `onScreenEnter('handoff')` now reads `state.matchedItem.distance_miles` and writes the real value (or `"Coordinate the return"` if no distance data).
+
+7. **Content overflow/clipping** — `finder-done`, `lost-prompt`, and `ownership-verify` content areas had `overflow: hidden` (inherited from `.content`). Added `overflow-y: auto; -webkit-overflow-scrolling: touch` to those three screens so content scrolls instead of being clipped.
+
+### Issues hit
+
+None — clean build.
 
 ---
 
