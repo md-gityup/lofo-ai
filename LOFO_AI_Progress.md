@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 6, 2026 — Phases 1–10c + bug fixes complete and deployed*
+*Last updated: March 6, 2026 — Phases 1–11 complete and deployed*
 
 ---
 
@@ -28,7 +28,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 10b — Two-sided SMS Notifications | ✅ Complete | Finder posts → SMS waiting losers; loser posts → SMS matched finders |
 | 10c — Match Flow Redesign | ✅ Complete | Realistic loser flow: potential match → ownership verify → confirmed screen → broker SMS → tip |
 | 10d — Flow Bug Fixes | ✅ Complete | Loser-wait screen, "Not my item" routing, finder phone save bug, CSS animation fix |
-| **11 — Stripe Connect Payouts** | **← Next** | Finder bank account, direct tip transfers |
+| 11 — Stripe Connect Payouts | ✅ Complete | Finder bank onboarding, direct tip transfers via transfer_data |
 
 ---
 
@@ -60,11 +60,14 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `POST /handoff/validate` | Validate single-use JWT handoff token |
 | `PATCH /items/{id}/finder-info` | Save finder's `finder_email`, `secret_detail`, and/or `phone` after item creation |
 | `PATCH /items/{id}/loser-info` | Save loser's `phone` so they can receive match notifications |
-| `POST /tip/create-payment-intent` | Create Stripe PaymentIntent, record pending tip |
+| `POST /tip/create-payment-intent` | Create Stripe PaymentIntent; routes via `transfer_data` to finder's Connect account if set, falls back to platform-held |
 | `POST /stripe/webhook` | Mark tip `completed` on `payment_intent.succeeded` |
 | `POST /sms/send-otp` | Send 6-digit OTP via Twilio Verify |
 | `POST /sms/verify-otp` | Validate submitted OTP; returns `{verified: bool}` |
 | `POST /handoff/coordinate` | Save loser phone + fire intro SMS to both parties with each other's numbers |
+| `POST /connect/onboard` | Create Stripe Connect Express account for finder; return onboarding URL |
+| `GET /connect/return` | Post-onboarding redirect → back to frontend with `?connected=true` |
+| `GET /connect/refresh` | Re-generate expired onboarding link |
 
 ---
 
@@ -86,6 +89,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | longitude | numeric(9,6) | Optional — GPS longitude at submission |
 | secret_detail | text | Optional — finder's physical observation for ownership verify |
 | phone | varchar | Optional — contact phone for SMS notifications (both finder and loser) |
+| stripe_connect_account_id | varchar | Optional — Stripe Connect Express account ID for direct payouts |
 | status | varchar | Default `'active'` |
 | expires_at | timestamptz | Default 30 days from creation |
 | created_at | timestamptz | Auto-set |
@@ -149,9 +153,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 
 ## Known Bugs To Fix
 
-| Bug | Details |
-|---|---|
-| Rejected match loops | If loser taps "Not my item" and there's only one potential match, polling finds the same match again immediately. Need to track rejected match IDs in `state` (e.g. `state.rejectedMatchIds = []`) and filter them out of `/match` results — either client-side or via a `exclude_ids` param on the backend. If multiple matches exist, serve the next one; only show "no match" if all candidates are exhausted. |
+*None — all known bugs resolved.*
 
 ---
 
@@ -192,17 +194,12 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 11 — Stripe Connect Payouts
+## What's Next: Phase 12 — Ideas
 
-Right now tips are collected by Stripe but sit in LOFO's Stripe balance. Finders never see the money. Phase 11 wires Stripe Connect so tips route directly to the finder's bank account.
-
-**What to build:**
-- Stripe Connect account onboarding for finders (Express or Standard)
-- `POST /connect/onboard` — creates a Stripe Connect account + returns onboarding link
-- `POST /connect/return` — handles post-onboarding redirect, marks finder as payout-enabled
-- Store `stripe_connect_account_id` on finder items (or a separate `finders` table)
-- Update `POST /tip/create-payment-intent` to route payment to finder's Connect account via `transfer_data` or `on_behalf_of`
-- UI: Add "Set up payouts" step in finder flow after OTP verify (or prompt from allset screen)
+- **Photo storage:** store finder's photo in Supabase Storage; display on confirmed screen instead of attribute text
+- **Stripe Connect application fee:** add `application_fee_amount` to `POST /tip/create-payment-intent` for a LOFO platform cut
+- **Payout status:** `GET /connect/status` to check whether finder's account has completed onboarding (capabilities ready), update allset button to "✓ Connected" on re-entry if already linked
+- **Web push notifications:** replace SMS-only with web push on desktop/PWA so finders get notified without leaving a tab open
 
 ---
 
@@ -212,25 +209,47 @@ Paste this to start the next agent session:
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–10d):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop: finder snaps photo → Claude Vision → Voyage embedding → phone OTP via Twilio Verify → allset. Loser describes item → cosine similarity + proximity match → if no match, waits 10s then captures phone for SMS notification → polling auto-navigates on match → "hang tight" screen. When finder posts, backend SMSes any waiting losers whose item matches. When loser posts and matches instantly, backend SMSes the finder. Match screen shows confidence + when/where found → ownership verify (Claude fuzzy-match) → confirmed screen captures loser phone → `POST /handoff/coordinate` fires intro SMS to both parties → Stripe inline tip → thanks.
+> **What's complete and deployed (Phases 1–11):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop including Stripe Connect payouts: finder snaps photo → Claude Vision → Voyage embedding → phone OTP → allset screen with "Get paid for returns" bank-link CTA. Tips route directly to finder's bank via `transfer_data` when a Connect account is linked. Loser flow: describe item → cosine similarity + proximity match → if no match, polls and captures phone for SMS → match screen → ownership verify (Claude fuzzy-match) → confirmed screen → broker SMS → Stripe tip → thanks. Rejected matches are tracked in `state.rejectedMatchIds` to prevent loop.
 >
-> **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, Twilio, `security.py`. Deployed on Railway. All env vars set: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `TWILIO_VERIFY_SID`.
+> **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe Connect, Twilio, `security.py`. Deployed on Railway. All env vars set.
 >
-> **Frontend:** `LOFO_MVP.html` — 16 screens, all live. Key JS: `state` object (`finderItemId`, `loserItemId`, `matchedItem`, `phone`, `loserPhone`, `loserItemType`, `latitude`, `longitude`), `go()` + `onScreenEnter()` navigation lifecycle, `submitLost()`, `submitOwnershipVerify()`, `coordinateHandoff()`, `sendTip()`, `confirmTip()`, `finderDoneContinue()`, `sendCode()`, `verifyCode()`, `saveLoserPhone()`, `startPolling()`, `rejectMatch()`, `timeAgo()`.
+> **Frontend:** `LOFO_MVP.html` — 16 screens. Key JS: `state` object (`finderItemId`, `loserItemId`, `matchedItem`, `phone`, `loserPhone`, `loserItemType`, `latitude`, `longitude`, `rejectedMatchIds`), `go()` + `onScreenEnter()` navigation lifecycle, `startConnectOnboarding()`, `submitLost()`, `submitOwnershipVerify()`, `coordinateHandoff()`, `sendTip()`, `confirmTip()`, `finderDoneContinue()`, `sendCode()`, `verifyCode()`, `saveLoserPhone()`, `startPolling()`, `rejectMatch()`.
 >
-> **DB schema:** `items` table has `phone VARCHAR`, `finder_email`, `secret_detail`, GPS coords, `embedding vector(1024)`, `created_at`. `tips` table tracks Stripe payments.
+> **DB schema:** `items` table has `phone VARCHAR`, `finder_email`, `secret_detail`, `stripe_connect_account_id`, GPS coords, `embedding vector(1024)`, `created_at`. `tips` table tracks Stripe payments.
 >
-> **Known bug to fix first:** When loser taps "Not my item" and there's only one potential match, polling finds the same match again immediately — creating a loop. Fix: track rejected match IDs in `state.rejectedMatchIds = []`, filter them out of `/match` results client-side (or add `exclude_ids` param to backend). If all candidates are exhausted, go to waiting screen normally.
->
-> **Next after that — Phase 11: Stripe Connect Payouts**
-> Wire Stripe Connect so tips route directly to finders. Build onboarding flow: after OTP verify on allset screen, prompt finder to connect their bank. Backend: `POST /connect/onboard` creates Stripe Connect Express account + returns onboarding URL. Store `stripe_connect_account_id` on finder items. Update `POST /tip/create-payment-intent` to use `transfer_data` to route funds to the finder's Connect account.
+> **No known bugs.** See `LOFO_AI_Progress.md` for Phase 12 ideas.
 >
 > Start by reading `main.py` and `LOFO_MVP.html`, then begin implementation."
 
 ---
 
 ## Session History
+
+### Phase 11 — March 6, 2026
+
+**What changed:** Bug fix for rejected match loop + full Stripe Connect payout wiring.
+
+**Bug fix (rejected match loop):**
+`state.rejectedMatchIds = []` added to app state. `rejectMatch()` pushes the current `matchedItem.id` before clearing. Both `pollForMatch()` and `submitLost()` filter `/match` results against `rejectedMatchIds` so a rejected item is never surfaced again in the same session. If all candidates are rejected, polling continues and eventually goes to the waiting screen normally.
+
+**Phase 11 — Stripe Connect:**
+
+*Database:* `ALTER TABLE items ADD COLUMN IF NOT EXISTS stripe_connect_account_id VARCHAR` migration applied.
+
+*Backend:*
+- `POST /connect/onboard`: Accepts `item_id` (finder). Creates a Stripe Connect Express account if none exists, stores `stripe_connect_account_id` on the item, creates an `AccountLink` with `return_url` / `refresh_url` pointing to Railway, returns `{url, account_id}`.
+- `GET /connect/return`: Stripe redirects here after onboarding completes. Redirects to frontend with `?connected=true`.
+- `GET /connect/refresh`: Stripe redirects here if the onboarding link expires. Re-generates a fresh `AccountLink` and redirects.
+- `POST /tip/create-payment-intent` updated: fetches `stripe_connect_account_id` from the finder item; if set, adds `transfer_data: {destination: account_id}` to the PaymentIntent so tips route directly to the finder's bank. Graceful fallback to platform-held payment if the Connect account isn't ready yet.
+
+*Frontend (`LOFO_MVP.html`):*
+- New "Get paid for returns" card on `screen-allset` (navy background, `💸` icon, "Set up →" button). Styled with `.allset-payout-*` classes.
+- `startConnectOnboarding()`: calls `POST /connect/onboard` with `state.finderItemId`, gets onboarding URL, opens in new tab.
+- `showSuccess()`: reusable success toast (dark green background) for positive confirmations.
+- On page load: detects `?connected=true` query param (set by `GET /connect/return`), strips it from URL, shows success toast — "Payouts connected! Tips will go directly to your bank."
+
+---
 
 ### Phase 10d — March 6, 2026
 
