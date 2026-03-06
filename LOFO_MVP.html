@@ -1905,6 +1905,8 @@
         <input class="otp-box" type="text" inputmode="numeric" maxlength="1" id="otp-1" />
         <input class="otp-box" type="text" inputmode="numeric" maxlength="1" id="otp-2" />
         <input class="otp-box" type="text" inputmode="numeric" maxlength="1" id="otp-3" />
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" id="otp-4" />
+        <input class="otp-box" type="text" inputmode="numeric" maxlength="1" id="otp-5" />
       </div>
       <div class="otp-error s-item" id="otp-error" style="display:none; text-align:center; color:#c0392b; font-size:13px; margin-top:-16px; margin-bottom:16px;"></div>
       <div class="resend-row s-item" data-delay="260">Didn't get it? <span onclick="resendCode()">Resend code</span></div>
@@ -2668,7 +2670,7 @@
       go('verify');
       // Clear any stale OTP input, focus first box after animation
       setTimeout(() => {
-        [0, 1, 2, 3].forEach(i => {
+        [0, 1, 2, 3, 4, 5].forEach(i => {
           const el = document.getElementById(`otp-${i}`);
           if (el) { el.value = ''; el.classList.remove('filled'); }
         });
@@ -2694,7 +2696,7 @@
       });
       if (!res.ok) throw new Error('Failed to resend');
       hideLoading();
-      [0, 1, 2, 3].forEach(i => {
+      [0, 1, 2, 3, 4, 5].forEach(i => {
         const el = document.getElementById(`otp-${i}`);
         if (el) { el.value = ''; el.classList.remove('filled'); }
       });
@@ -2709,8 +2711,8 @@
 
   // ── Submit OTP for verification ──
   async function verifyCode() {
-    const digits = [0, 1, 2, 3].map(i => (document.getElementById(`otp-${i}`)?.value || '')).join('');
-    if (digits.length < 4) return;
+    const digits = [0, 1, 2, 3, 4, 5].map(i => (document.getElementById(`otp-${i}`)?.value || '')).join('');
+    if (digits.length < 6) return;
 
     showLoading('Verifying…');
     try {
@@ -2730,7 +2732,7 @@
           errEl.textContent = data.reason || 'Incorrect code. Try again.';
           errEl.style.display = 'block';
         }
-        [0, 1, 2, 3].forEach(i => {
+        [0, 1, 2, 3, 4, 5].forEach(i => {
           const el = document.getElementById(`otp-${i}`);
           if (el) { el.value = ''; el.classList.remove('filled'); }
         });
@@ -2744,7 +2746,7 @@
 
   // ── OTP input wiring: auto-advance, backspace, auto-submit ──
   function initOtpInputs() {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 6; i++) {
       const el = document.getElementById(`otp-${i}`);
       if (!el || el._otpInited) continue;
       el._otpInited = true;
@@ -2754,7 +2756,7 @@
         e.target.value = digit.slice(-1);
         if (digit) {
           e.target.classList.add('filled');
-          if (i < 3) document.getElementById(`otp-${i + 1}`)?.focus();
+          if (i < 5) document.getElementById(`otp-${i + 1}`)?.focus();
           else verifyCode();
         } else {
           e.target.classList.remove('filled');
