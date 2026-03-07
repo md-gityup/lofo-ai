@@ -1607,7 +1607,7 @@
     border: 1.5px solid var(--border);
     border-radius: 18px;
     padding: 18px;
-    margin-top: 12px;
+    margin-top: 16px;
   }
   .payout-eyebrow {
     font-size: 10px;
@@ -1615,28 +1615,22 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--rust);
-    margin-bottom: 8px;
+    margin-top: 22px;
+    margin-bottom: 10px;
   }
   .payout-intro-title {
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 500;
     color: var(--navy);
-    margin-bottom: 7px;
-    line-height: 1.4;
+    margin-bottom: 10px;
+    line-height: 1.35;
   }
   .payout-intro-body {
-    font-size: 12.5px;
+    font-size: 15px;
     color: var(--muted);
     font-weight: 300;
     line-height: 1.65;
-    margin-bottom: 12px;
-    border-left: 2px solid var(--border);
-    padding-left: 10px;
-  }
-  .payout-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 14px 0;
+    margin-bottom: 0;
   }
   .payout-dropdown-label {
     font-size: 12px;
@@ -2196,12 +2190,11 @@
         </div>
       </div>
       <div class="s-item" data-delay="330" id="allset-payout-section">
+        <div class="payout-eyebrow">Optional reward</div>
+        <div class="payout-intro-title">We do this because people are good.</div>
+        <div class="payout-intro-body">LOFO is free — always. If the owner wants to say thanks, we'll give them the option a few hours after reunion. Entirely up to them.</div>
         <div class="payout-section">
-          <div class="payout-eyebrow">Optional reward</div>
-          <div class="payout-intro-title">We do this because people are good.</div>
-          <div class="payout-intro-body">LOFO is completely free. Your item will be returned to its owner no matter what — no payment required, ever. A few hours after the reunion, we give the owner the option to send you a reward as a thank you. It's entirely up to them.</div>
-          <div class="payout-divider"></div>
-          <div class="payout-dropdown-label">If a reward comes your way, how should we send it?</div>
+          <div class="payout-dropdown-label">If rewarded, how should we send it?</div>
           <select class="payout-dropdown" id="payout-dropdown" onchange="selectPayoutApp(this.value)">
             <option value="">Select how to get rewarded</option>
             <option value="venmo">Venmo</option>
