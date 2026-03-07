@@ -1598,44 +1598,81 @@
     line-height: 1.5;
   }
 
-  /* Get paid section on allset screen */
+  /* Allset body scrolls if content overflows */
+  .allset-body { overflow-y: auto; }
+
+  /* ── Reward section on allset screen ── */
   .payout-section {
     background: #fff;
     border: 1.5px solid var(--border);
     border-radius: 18px;
-    padding: 16px 18px;
+    padding: 18px;
     margin-top: 12px;
   }
-  .payout-section-label {
+  .payout-eyebrow {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 8px;
+  }
+  .payout-intro-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--navy);
+    margin-bottom: 7px;
+    line-height: 1.4;
+  }
+  .payout-intro-body {
+    font-size: 12.5px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.65;
+    margin-bottom: 12px;
+    border-left: 2px solid var(--border);
+    padding-left: 10px;
+  }
+  .payout-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 14px 0;
+  }
+  .payout-dropdown-label {
     font-size: 12px;
     font-weight: 500;
     color: var(--navy);
-    letter-spacing: 0.02em;
-    margin-bottom: 11px;
+    margin-bottom: 7px;
+    letter-spacing: 0.01em;
   }
-  .payout-apps {
-    display: flex;
-    gap: 7px;
-    flex-wrap: wrap;
-  }
-  .payout-app-pill {
+  .payout-dropdown {
+    width: 100%;
     background: var(--cream);
     border: 1.5px solid var(--border);
-    border-radius: 20px;
-    padding: 6px 13px;
+    border-radius: 12px;
+    padding: 12px 36px 12px 14px;
     font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    font-weight: 400;
+    font-size: 14px;
     color: var(--navy);
+    font-weight: 400;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
     cursor: pointer;
-    transition: all 0.15s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239A9488' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    transition: border-color 0.15s;
   }
-  .payout-app-pill.selected {
-    background: var(--navy);
-    border-color: var(--navy);
-    color: #fff;
+  .payout-dropdown:focus { border-color: var(--navy); }
+  .payout-handle-fields { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .payout-handle-field-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-bottom: 4px;
+    letter-spacing: 0.02em;
   }
-  .payout-app-pill:active { opacity: 0.75; transform: scale(0.95); }
   .payout-handle-input {
     width: 100%;
     background: var(--cream);
@@ -1643,15 +1680,16 @@
     border-radius: 12px;
     padding: 12px 14px;
     font-family: 'DM Sans', sans-serif;
-    font-size: 15px;
+    font-size: 14px;
     color: var(--navy);
     font-weight: 300;
     outline: none;
     transition: border-color 0.15s;
-    margin-top: 11px;
+    display: block;
   }
   .payout-handle-input:focus { border-color: var(--navy); }
   .payout-handle-input::placeholder { color: #C5C2BA; }
+  .payout-handle-input.mismatch { border-color: #C0392B; }
   .payout-handle-error {
     font-size: 12px;
     color: #C0392B;
@@ -2159,15 +2197,29 @@
       </div>
       <div class="s-item" data-delay="330" id="allset-payout-section">
         <div class="payout-section">
-          <div class="payout-section-label">Get paid when it's returned</div>
-          <div class="payout-apps">
-            <button class="payout-app-pill" data-app="venmo"   onclick="selectPayoutApp('venmo')">Venmo</button>
-            <button class="payout-app-pill" data-app="paypal"  onclick="selectPayoutApp('paypal')">PayPal</button>
-            <button class="payout-app-pill" data-app="cashapp" onclick="selectPayoutApp('cashapp')">Cash App</button>
-            <button class="payout-app-pill" data-app="zelle"   onclick="selectPayoutApp('zelle')">Zelle</button>
-          </div>
+          <div class="payout-eyebrow">Optional reward</div>
+          <div class="payout-intro-title">We do this because people are good.</div>
+          <div class="payout-intro-body">LOFO is completely free. Your item will be returned to its owner no matter what — no payment required, ever. A few hours after the reunion, we give the owner the option to send you a reward as a thank you. It's entirely up to them.</div>
+          <div class="payout-divider"></div>
+          <div class="payout-dropdown-label">If a reward comes your way, how should we send it?</div>
+          <select class="payout-dropdown" id="payout-dropdown" onchange="selectPayoutApp(this.value)">
+            <option value="">Select how to get rewarded</option>
+            <option value="venmo">Venmo</option>
+            <option value="paypal">PayPal</option>
+            <option value="cashapp">Cash App</option>
+            <option value="zelle">Zelle</option>
+          </select>
           <div id="payout-handle-wrap" style="display:none;">
-            <input class="payout-handle-input" id="payout-handle-input" type="text" placeholder="@username" autocorrect="off" autocapitalize="none" />
+            <div class="payout-handle-fields">
+              <div>
+                <div class="payout-handle-field-label">Your handle</div>
+                <input class="payout-handle-input" id="payout-handle-input" type="text" placeholder="@username" autocorrect="off" autocapitalize="none" />
+              </div>
+              <div>
+                <div class="payout-handle-field-label">Confirm handle</div>
+                <input class="payout-handle-input" id="payout-handle-confirm" type="text" placeholder="@username again" autocorrect="off" autocapitalize="none" />
+              </div>
+            </div>
             <div class="payout-handle-error" id="payout-handle-error" style="display:none;"></div>
             <button class="payout-save-btn" id="payout-save-btn" onclick="savePayoutHandle()">Save →</button>
           </div>
@@ -2682,15 +2734,18 @@
     if (name === 'allset') {
       // Reset payout section so it's fresh each time
       _selectedPayoutApp = null;
-      document.querySelectorAll('.payout-app-pill').forEach(p => p.classList.remove('selected'));
-      const hw = document.getElementById('payout-handle-wrap');
-      const cr = document.getElementById('payout-confirmed-row');
-      const inp = document.getElementById('payout-handle-input');
-      const err = document.getElementById('payout-handle-error');
-      if (hw)  hw.style.display  = 'none';
-      if (cr)  cr.style.display  = 'none';
-      if (inp) inp.value          = '';
-      if (err) err.style.display  = 'none';
+      const dd   = document.getElementById('payout-dropdown');
+      const hw   = document.getElementById('payout-handle-wrap');
+      const cr   = document.getElementById('payout-confirmed-row');
+      const inp  = document.getElementById('payout-handle-input');
+      const conf = document.getElementById('payout-handle-confirm');
+      const err  = document.getElementById('payout-handle-error');
+      if (dd)   dd.value          = '';
+      if (hw)   hw.style.display  = 'none';
+      if (cr)   cr.style.display  = 'none';
+      if (inp)  { inp.value = ''; inp.classList.remove('mismatch'); }
+      if (conf) { conf.value = ''; conf.classList.remove('mismatch'); }
+      if (err)  err.style.display  = 'none';
     }
     if (name === 'loser-wait') {
       const sub = document.getElementById('loser-wait-sub');
@@ -3361,18 +3416,24 @@
   let _selectedPayoutApp = null;
 
   function selectPayoutApp(app) {
-    _selectedPayoutApp = app;
-    document.querySelectorAll('.payout-app-pill').forEach(p => p.classList.remove('selected'));
-    document.querySelector(`.payout-app-pill[data-app="${app}"]`)?.classList.add('selected');
-
-    const placeholders = { venmo: '@username', paypal: 'email or @username', cashapp: '$cashtag', zelle: 'phone or email' };
-    const input = document.getElementById('payout-handle-input');
-    if (input) input.placeholder = placeholders[app] || '@handle';
-
+    _selectedPayoutApp = app || null;
+    const hw = document.getElementById('payout-handle-wrap');
     const errEl = document.getElementById('payout-handle-error');
     if (errEl) errEl.style.display = 'none';
 
-    document.getElementById('payout-handle-wrap').style.display = 'block';
+    if (!app) {
+      if (hw) hw.style.display = 'none';
+      return;
+    }
+
+    const placeholders = { venmo: '@username', paypal: 'email or @username', cashapp: '$cashtag', zelle: 'phone or email' };
+    const ph = placeholders[app] || '@handle';
+    const input   = document.getElementById('payout-handle-input');
+    const confirm = document.getElementById('payout-handle-confirm');
+    if (input)   { input.placeholder   = ph;                 input.value = '';   input.classList.remove('mismatch'); }
+    if (confirm) { confirm.placeholder = `Confirm ${ph}`;   confirm.value = ''; confirm.classList.remove('mismatch'); }
+
+    if (hw) hw.style.display = 'block';
     setTimeout(() => input?.focus(), 80);
   }
 
@@ -3417,20 +3478,37 @@
   }
 
   async function savePayoutHandle() {
-    if (!_selectedPayoutApp) { showError('Pick an app first.'); return; }
-    const input  = document.getElementById('payout-handle-input');
-    const errEl  = document.getElementById('payout-handle-error');
-    const raw    = input?.value || '';
-    const valErr = _validatePayoutHandle(_selectedPayoutApp, raw);
+    if (!_selectedPayoutApp) { showError('Select an app first.'); return; }
+    const input   = document.getElementById('payout-handle-input');
+    const confirm = document.getElementById('payout-handle-confirm');
+    const errEl   = document.getElementById('payout-handle-error');
+    const raw     = input?.value || '';
+    const rawConf = confirm?.value || '';
 
+    // Clear mismatch state
+    input?.classList.remove('mismatch');
+    confirm?.classList.remove('mismatch');
+    if (errEl) errEl.style.display = 'none';
+
+    // Validate primary handle
+    const valErr = _validatePayoutHandle(_selectedPayoutApp, raw);
     if (valErr) {
       if (errEl) { errEl.textContent = valErr; errEl.style.display = 'block'; }
       input?.focus();
       return;
     }
-    if (errEl) errEl.style.display = 'none';
 
-    const handle = _normalizePayoutHandle(_selectedPayoutApp, raw);
+    const handle     = _normalizePayoutHandle(_selectedPayoutApp, raw);
+    const handleConf = _normalizePayoutHandle(_selectedPayoutApp, rawConf);
+
+    // Both fields must match (case-insensitive)
+    if (handle.toLowerCase() !== handleConf.toLowerCase()) {
+      input?.classList.add('mismatch');
+      confirm?.classList.add('mismatch');
+      if (errEl) { errEl.textContent = "Handles don't match — check both fields and try again."; errEl.style.display = 'block'; }
+      confirm?.focus();
+      return;
+    }
 
     if (!state.finderItemId) {
       showError('Item not saved — please restart the finder flow.');
@@ -3461,7 +3539,12 @@
 
   function editPayoutHandle() {
     document.getElementById('payout-confirmed-row').style.display = 'none';
-    document.getElementById('payout-handle-wrap').style.display   = 'block';
+    const hw = document.getElementById('payout-handle-wrap');
+    if (hw) hw.style.display = 'block';
+    const confirm = document.getElementById('payout-handle-confirm');
+    if (confirm) { confirm.value = ''; confirm.classList.remove('mismatch'); }
+    const inp = document.getElementById('payout-handle-input');
+    if (inp) inp.classList.remove('mismatch');
     document.getElementById('payout-handle-input')?.focus();
   }
 
