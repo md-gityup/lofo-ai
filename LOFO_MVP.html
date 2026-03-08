@@ -2380,7 +2380,7 @@
       <div class="confirmed-icon s-pop" data-delay="0">✓</div>
       <div class="done-title s-item" data-delay="80">It's yours.<br><em>Confirmed.</em></div>
       <div class="done-rule s-item" data-delay="130"></div>
-      <div class="done-sub s-item" data-delay="160">Ownership verified. Enter your number and we'll connect you with the finder to arrange pickup.</div>
+      <div class="done-sub s-item" data-delay="160">Ownership verified. Enter your number and we'll notify you both — you can text each other through LOFO without sharing your real number.</div>
 
       <div class="item-card s-item" data-delay="220">
         <div class="item-thumb" id="confirmed-item-thumb">📦</div>
@@ -2396,11 +2396,11 @@
           <div class="phone-flag">🇺🇸</div>
           <input class="phone-input" id="confirmed-phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
         </div>
-        <div class="confirmed-phone-hint">We'll introduce you and the finder over SMS — one text each, then it's all you.</div>
+        <div class="confirmed-phone-hint">Both parties get a text. Reply to LOFO's number to message each other — your real numbers stay private.</div>
       </div>
 
-      <button class="btn-full s-item" data-delay="360" style="margin-top:28px" onclick="coordinateHandoff()">Connect us →</button>
-      <button class="ghost-btn s-item" data-delay="420" onclick="go('reunion')" style="margin-top:4px;">I'll sort it out myself</button>
+      <button class="btn-full s-item" data-delay="360" style="margin-top:28px" onclick="coordinateHandoff()">Notify us both →</button>
+      <button class="ghost-btn s-item" data-delay="420" onclick="coordinateHandoff()" style="margin-top:4px;">I'll reach out — just notify the finder</button>
     </div>
   </div>
 
@@ -3384,7 +3384,7 @@
       return;
     }
 
-    showLoading('Connecting you with the finder…');
+    showLoading('Notifying both parties…');
     try {
       const res = await fetch(`${API}/handoff/coordinate`, {
         method: 'POST',

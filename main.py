@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Form, HTTPException, File, UploadFile, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from pydantic import BaseModel, field_validator
 import os
 from typing import Optional
@@ -711,9 +711,10 @@ def update_loser_info(item_id: uuid.UUID, body: LoserInfoUpdate):
 @app.post("/handoff/coordinate", status_code=200)
 def coordinate_handoff(body: CoordinateRequest):
     """
-    Called after loser confirms ownership.
-    Saves the loser's phone and fires intro SMS to both parties so they can
-    coordinate pickup directly — LOFO never needs to be in the loop again.
+    Called after loser confirms ownership (both "Connect us" and "I'll reach out" paths).
+    Saves the loser's phone, creates a reunion relay record, and fires confirmation
+    SMS to both parties. Neither party's real number is shared — they reply to
+    LOFO's number and POST /sms/inbound relays the messages between them.
     """
     loser_phone = _normalize_phone(body.loser_phone)
 
@@ -739,27 +740,103 @@ def coordinate_handoff(body: CoordinateRequest):
         raise HTTPException(status_code=404, detail="Finder item not found")
 
     label = finder["item_type"] or "item"
-    finder_phone = finder["phone"]
+    raw_finder_phone = finder["phone"]
+
+    # Normalize the finder's stored phone (stored from OTP flow, may not be E.164 yet)
+    finder_phone: str | None = None
+    if raw_finder_phone:
+        try:
+            finder_phone = _normalize_phone(raw_finder_phone)
+        except HTTPException:
+            finder_phone = raw_finder_phone  # use as-is if already normalized
 
     if finder_phone:
+        # Create a reunion relay record so /sms/inbound can forward messages
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO reunions (finder_item_id, loser_item_id, finder_phone, loser_phone)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (str(body.finder_item_id), str(body.loser_item_id), finder_phone, loser_phone),
+                )
+            conn.commit()
+
+        # Notify both parties — no raw numbers shared, relay via LOFO's number
         _sms(
             loser_phone,
-            f"LOFO: Ownership confirmed! Your {label} is waiting for you. "
-            f"The finder's number: {finder_phone}. Reach out to arrange pickup!"
+            f"LOFO: Your {label} is confirmed! "
+            f"Reply to this number to message the finder — we'll pass it along securely. "
+            f"No need to share your number."
         )
         _sms(
             finder_phone,
-            f"LOFO: The owner of the {label} you found has been verified! "
-            f"They'd like to arrange pickup — reach them at {loser_phone}."
+            f"LOFO: Great news — the owner of the {label} you found has been verified and is ready to connect! "
+            f"Reply to this number to message them — we'll relay it securely."
         )
     else:
+        # Finder has no phone on file — notify loser only
         _sms(
             loser_phone,
-            f"LOFO: Ownership confirmed! Your {label} is waiting for you. "
-            f"The finder will be in touch shortly to arrange the return."
+            f"LOFO: Your {label} is confirmed! "
+            f"We've notified the finder. They'll be in touch to arrange pickup."
         )
 
     return {"ok": True}
+
+
+@app.post("/sms/inbound", include_in_schema=False)
+async def sms_inbound(request: Request):
+    """
+    Twilio inbound SMS webhook.
+    When either party in an active reunion replies to LOFO's number, this endpoint
+    forwards the message to the other party — acting as a secure relay so neither
+    person ever sees the other's real phone number.
+
+    Configure in Twilio console:
+      Phone Numbers → your number → Messaging → Webhook URL:
+      https://lofo-ai-production.up.railway.app/sms/inbound  (HTTP POST)
+    """
+    form        = await request.form()
+    from_number = (form.get("From") or "").strip()
+    body_text   = (form.get("Body") or "").strip()
+
+    _EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response/>'
+
+    if not (from_number and body_text):
+        return Response(content=_EMPTY_TWIML, media_type="text/xml")
+
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT finder_phone, loser_phone
+                    FROM reunions
+                    WHERE status = 'active'
+                      AND expires_at > NOW()
+                      AND (finder_phone = %s OR loser_phone = %s)
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """,
+                    (from_number, from_number),
+                )
+                row = cur.fetchone()
+
+        if row:
+            if from_number == row["loser_phone"]:
+                _sms(row["finder_phone"], f"[Owner via LOFO] {body_text}\n\nReply to respond.")
+            elif from_number == row["finder_phone"]:
+                _sms(row["loser_phone"], f"[Finder via LOFO] {body_text}\n\nReply to respond.")
+        else:
+            # No active reunion found — send a gentle nudge
+            _sms(from_number, "LOFO: No active reunion found for your number. Open the app to get started.")
+
+    except Exception as exc:
+        print(f"[LOFO inbound relay error] {exc}")
+
+    return Response(content=_EMPTY_TWIML, media_type="text/xml")
 
 
 # Keep old URL alive so existing deployed HTML still works during transition
