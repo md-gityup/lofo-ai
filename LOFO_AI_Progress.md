@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 6, 2026 — Phases 1–11b complete and deployed*
+*Last updated: March 6, 2026 — Phases 1–11c complete and deployed*
 
 ---
 
@@ -29,6 +29,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 10c — Match Flow Redesign | ✅ Complete | Realistic loser flow: potential match → ownership verify → confirmed screen → broker SMS → tip |
 | 10d — Flow Bug Fixes | ✅ Complete | Loser-wait screen, "Not my item" routing, finder phone save bug, CSS animation fix |
 | 11 — Finder Payouts | ✅ Complete | Payout handle capture (Venmo/PayPal/Cash App/Zelle); tips collected via Stripe, distributed to stored handle |
+| 11c — Allset Screen Polish | ✅ Complete | Reward section redesigned: messaging on cream bg (no card), dropdown replaces pills, dual-entry confirm, larger type |
 
 ---
 
@@ -211,8 +212,8 @@ Paste this to start the next agent session:
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–11b):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop: finder snaps photo → Claude Vision → Voyage embedding → phone OTP → allset screen with payout handle capture (Venmo/PayPal/Cash App/Zelle pill selector, format validation, stored to DB). Loser flow: describe item → cosine similarity + proximity match → if no match, polls and captures phone for SMS → match screen → ownership verify (Claude fuzzy-match) → confirmed screen → broker SMS → Stripe tip → thanks. Rejected matches tracked in `state.rejectedMatchIds` to prevent loop. Tips collected via Stripe to LOFO balance; payout to finder's stored handle is currently manual.
+> **What's complete and deployed (Phases 1–11c):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop: finder snaps photo → Claude Vision → Voyage embedding → phone OTP → allset screen with payout handle capture (Venmo/PayPal/Cash App/Zelle dropdown, dual-entry confirm, format validation, stored to DB). Loser flow: describe item → cosine similarity + proximity match → if no match, polls and captures phone for SMS → match screen → ownership verify (Claude fuzzy-match) → confirmed screen → broker SMS → Stripe tip → thanks. Rejected matches tracked in `state.rejectedMatchIds` to prevent loop. Tips collected via Stripe to LOFO balance; payout to finder's stored handle is currently manual.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, Twilio, `security.py`. Deployed on Railway. All env vars set.
 >
@@ -227,6 +228,24 @@ Paste this to start the next agent session:
 ---
 
 ## Session History
+
+### Phase 11c — March 6, 2026
+
+**What changed:** Allset screen reward section polish.
+
+**Messaging lifted out of card:** The "Optional reward" eyebrow, title, and body text now live directly on the cream background — no white card wrapper. The white card only contains the interactive dropdown + handle fields. This separates the communication layer from the action layer visually.
+
+**Text sizes increased:** `payout-intro-title` 14px → 18px; `payout-intro-body` 12.5px → 15px. Both noticeably more readable without competing with the main allset headline.
+
+**Copy trimmed:** Body copy cut from ~50 words to 28: *"LOFO is free — always. If the owner wants to say thanks, we'll give them the option a few hours after reunion. Entirely up to them."* Same meaning, half the length.
+
+**Dropdown replaces pill selectors:** Four pill buttons replaced with a native `<select>` ("Select how to get rewarded") with a custom chevron. Cleaner, less cluttered, more intentional.
+
+**Dual-entry confirm field:** After selecting an app, two labeled inputs appear — "Your handle" and "Confirm handle". On save, both are normalized and compared (case-insensitive). If they don't match, both fields highlight red with an inline error. Prevents typo on a field that can't be verified any other way.
+
+**CSS removed:** `.payout-apps`, `.payout-app-pill`, `.payout-section-label`, `.payout-divider` — all deleted. New classes: `.payout-dropdown`, `.payout-dropdown-label`, `.payout-handle-fields`, `.payout-handle-field-label`, `.payout-handle-input.mismatch`.
+
+---
 
 ### Phase 11 — March 6, 2026
 
