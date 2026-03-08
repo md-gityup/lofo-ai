@@ -257,6 +257,7 @@ class CoordinateRequest(BaseModel):
     finder_item_id: uuid.UUID
     loser_item_id: uuid.UUID
     loser_phone: str
+    self_outreach: bool = False  # true = loser will reach out themselves; finder still notified
 
 
 class TipCreateRequest(BaseModel):
@@ -671,7 +672,10 @@ def update_finder_info(item_id: uuid.UUID, body: FinderInfoUpdate):
     if body.secret_detail is not None:
         updates["secret_detail"] = body.secret_detail
     if body.phone is not None:
-        updates["phone"] = body.phone
+        try:
+            updates["phone"] = _normalize_phone(body.phone)
+        except HTTPException:
+            updates["phone"] = body.phone  # store as-is if already E.164
     if body.finder_payout_app is not None:
         updates["finder_payout_app"] = body.finder_payout_app
     if body.finder_payout_handle is not None:
@@ -751,36 +755,66 @@ def coordinate_handoff(body: CoordinateRequest):
             finder_phone = raw_finder_phone  # use as-is if already normalized
 
     if finder_phone:
-        # Create a reunion relay record so /sms/inbound can forward messages
+        # Duplicate guard — skip INSERT if an active reunion for this pair already exists
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO reunions (finder_item_id, loser_item_id, finder_phone, loser_phone)
-                    VALUES (%s, %s, %s, %s)
+                    SELECT id FROM reunions
+                    WHERE finder_item_id = %s
+                      AND loser_item_id  = %s
+                      AND status = 'active'
+                      AND expires_at > NOW()
+                    LIMIT 1
                     """,
-                    (str(body.finder_item_id), str(body.loser_item_id), finder_phone, loser_phone),
+                    (str(body.finder_item_id), str(body.loser_item_id)),
                 )
-            conn.commit()
+                existing = cur.fetchone()
 
-        # Notify both parties — no raw numbers shared, relay via LOFO's number
-        _sms(
-            loser_phone,
-            f"LOFO: Your {label} is confirmed! "
-            f"Reply to this number to message the finder — we'll pass it along securely. "
-            f"No need to share your number."
-        )
-        _sms(
-            finder_phone,
-            f"LOFO: Great news — the owner of the {label} you found has been verified and is ready to connect! "
-            f"Reply to this number to message them — we'll relay it securely."
-        )
+        if not existing:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO reunions (finder_item_id, loser_item_id, finder_phone, loser_phone)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (str(body.finder_item_id), str(body.loser_item_id), finder_phone, loser_phone),
+                    )
+                conn.commit()
+
+            # Notify both parties — no raw numbers shared, relay via LOFO's number
+            if body.self_outreach:
+                _sms(
+                    loser_phone,
+                    f"LOFO: Your {label} is confirmed! "
+                    f"The finder has been notified and is expecting your message. "
+                    f"Reply here to reach them — we'll relay it securely."
+                )
+                _sms(
+                    finder_phone,
+                    f"LOFO: The owner of the {label} you found has been verified! "
+                    f"They'll be reaching out directly to arrange pickup."
+                )
+            else:
+                _sms(
+                    loser_phone,
+                    f"LOFO: Your {label} is confirmed! "
+                    f"Reply to this number to message the finder — we'll pass it along securely. "
+                    f"No need to share your number."
+                )
+                _sms(
+                    finder_phone,
+                    f"LOFO: Great news — the owner of the {label} you found has been verified and is ready to connect! "
+                    f"Reply to this number to message them — we'll relay it securely."
+                )
     else:
-        # Finder has no phone on file — notify loser only
+        # Finder has no phone on file — be honest with the loser
         _sms(
             loser_phone,
             f"LOFO: Your {label} is confirmed! "
-            f"We've notified the finder. They'll be in touch to arrange pickup."
+            f"The finder didn't leave a number, but they may still have the item. "
+            f"Check back in the app — we'll notify you if they make contact."
         )
 
     return {"ok": True}

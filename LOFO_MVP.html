@@ -2396,11 +2396,11 @@
           <div class="phone-flag">🇺🇸</div>
           <input class="phone-input" id="confirmed-phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
         </div>
-        <div class="confirmed-phone-hint">Both parties get a text. Reply to LOFO's number to message each other — your real numbers stay private.</div>
+        <div class="confirmed-phone-hint" id="confirmed-phone-hint">Both parties get a text. Reply to LOFO's number to message each other — your real numbers stay private.</div>
       </div>
 
-      <button class="btn-full s-item" data-delay="360" style="margin-top:28px" onclick="coordinateHandoff()">Notify us both →</button>
-      <button class="ghost-btn s-item" data-delay="420" onclick="coordinateHandoff()" style="margin-top:4px;">I'll reach out — just notify the finder</button>
+      <button class="btn-full s-item" data-delay="360" style="margin-top:28px" onclick="coordinateHandoff(false)">Notify us both →</button>
+      <button class="ghost-btn s-item" data-delay="420" onclick="coordinateHandoff(true)" style="margin-top:4px;">I'll reach out — just notify the finder</button>
     </div>
   </div>
 
@@ -3231,13 +3231,17 @@
       hideLoading();
 
       if (data.verified) {
-        // Save finder's verified phone to their item so they can receive match notifications
+        // Save finder's verified phone — awaited so failures aren't silent
         if (state.finderItemId && state.phone) {
-          fetch(`${API}/items/${state.finderItemId}/finder-info`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: state.phone }),
-          }).catch(() => {});
+          try {
+            await fetch(`${API}/items/${state.finderItemId}/finder-info`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phone: state.phone }),
+            });
+          } catch (phoneErr) {
+            console.warn('[LOFO] phone save failed:', phoneErr);
+          }
         }
         go('allset');
       } else {
@@ -3376,7 +3380,10 @@
   }
 
   // Called from confirmed screen — saves loser phone + fires intro SMS to both parties
-  async function coordinateHandoff() {
+  let _coordinatingHandoff = false;
+
+  async function coordinateHandoff(selfOutreach = false) {
+    if (_coordinatingHandoff) return;
     const phone = (document.getElementById('confirmed-phone-input')?.value || '').trim();
     if (!phone) { showError('Please enter your phone number.'); return; }
     if (!state.matchedItem?.id || !state.loserItemId) {
@@ -3384,15 +3391,18 @@
       return;
     }
 
-    showLoading('Notifying both parties…');
+    _coordinatingHandoff = true;
+    const loadingMsg = selfOutreach ? 'Notifying the finder…' : 'Notifying both parties…';
+    showLoading(loadingMsg);
     try {
       const res = await fetch(`${API}/handoff/coordinate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          finder_item_id: state.matchedItem.id,
-          loser_item_id:  state.loserItemId,
-          loser_phone:    phone,
+          finder_item_id:  state.matchedItem.id,
+          loser_item_id:   state.loserItemId,
+          loser_phone:     phone,
+          self_outreach:   selfOutreach,
         }),
       });
       if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
@@ -3402,6 +3412,8 @@
     } catch (err) {
       hideLoading();
       showError(err.message || 'Something went wrong. Try again.');
+    } finally {
+      _coordinatingHandoff = false;
     }
   }
 
