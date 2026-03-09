@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — LOFO.AI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #19192D;
+    --cream: #F8F7F4;
+    --muted: #8A8A9A;
+    --rust: #C17A4A;
+    --border: #E4E3DF;
+  }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--navy);
+    line-height: 1.7;
+  }
+  header {
+    background: var(--navy);
+    padding: 28px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .wordmark {
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    color: #fff;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+  .header-date {
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    font-weight: 300;
+  }
+  .hero {
+    background: var(--navy);
+    padding: 48px 48px 56px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .hero h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 48px;
+    color: #fff;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .hero h1 em { color: rgba(255,255,255,0.45); font-style: italic; }
+  .hero p {
+    font-size: 15px;
+    color: rgba(255,255,255,0.45);
+    font-weight: 300;
+    max-width: 520px;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 64px 48px 96px;
+  }
+  .rule {
+    width: 32px;
+    height: 1.5px;
+    background: var(--rust);
+    opacity: 0.5;
+    margin-bottom: 40px;
+  }
+  section {
+    margin-bottom: 48px;
+  }
+  h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--navy);
+    margin-bottom: 14px;
+    line-height: 1.2;
+  }
+  p {
+    font-size: 15px;
+    color: #4A4A5A;
+    font-weight: 300;
+    margin-bottom: 14px;
+  }
+  ul {
+    list-style: none;
+    margin-bottom: 14px;
+  }
+  ul li {
+    font-size: 15px;
+    color: #4A4A5A;
+    font-weight: 300;
+    padding: 6px 0 6px 20px;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+  ul li:last-child { border-bottom: none; }
+  ul li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--rust);
+    opacity: 0.6;
+  }
+  .contact-box {
+    background: var(--navy);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-top: 48px;
+  }
+  .contact-box p {
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 8px;
+  }
+  .contact-box a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 400;
+  }
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 24px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  footer span {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+  footer a {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+    text-decoration: none;
+  }
+  footer a:hover { color: var(--navy); }
+  @media (max-width: 600px) {
+    header, .hero { padding: 24px; }
+    .hero h1 { font-size: 34px; }
+    .container { padding: 40px 24px 64px; }
+    footer { padding: 20px 24px; flex-direction: column; gap: 8px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="LOFO_MVP.html" class="wordmark">LOFO.AI</a>
+  <span class="header-date">Last updated: March 2026</span>
+</header>
+
+<div class="hero">
+  <h1>Privacy <em>Policy</em></h1>
+  <p>We collect the minimum information needed to return lost items. Nothing more.</p>
+</div>
+
+<div class="container">
+  <div class="rule"></div>
+
+  <section>
+    <h2>Who we are</h2>
+    <p>LOFO.AI is a lost and found matching service. When someone finds an object, they photograph it. When someone loses an object, they describe it. Our AI matches them and coordinates the return. That's the entire product.</p>
+  </section>
+
+  <section>
+    <h2>What we collect</h2>
+    <p>We collect only what's necessary to make a return possible:</p>
+    <ul>
+      <li>Phone number — used to verify identity and send match notifications. Stored as a one-way hash after verification. The plaintext number is never retained.</li>
+      <li>Item description — text or photo describing the found or lost object. Used solely for matching.</li>
+      <li>Approximate location — grid-snapped GPS coordinates, sufficient for proximity matching but not precise enough to identify a specific address.</li>
+      <li>Secret detail — a detail only the true owner would know, used to verify ownership. Hashed immediately with Argon2id. We never see the plaintext.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What we don't collect</h2>
+    <ul>
+      <li>No name, email, or account profile</li>
+      <li>No payment card details (processed entirely by Stripe)</li>
+      <li>No precise GPS coordinates stored beyond the moment of submission</li>
+      <li>No browsing history or tracking pixels</li>
+      <li>No data sold or shared with advertisers — ever</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>How we use your information</h2>
+    <p>Information is used exclusively to match lost and found items and coordinate their return. We do not use your data for marketing, profiling, or any purpose unrelated to your specific submission.</p>
+  </section>
+
+  <section>
+    <h2>SMS notifications</h2>
+    <p>By submitting your phone number in the LOFO.AI app, you consent to receive SMS messages from LOFO.AI. These messages include:</p>
+    <ul>
+      <li>One-time verification codes when you submit an item</li>
+      <li>A single notification if a match is found for your item</li>
+    </ul>
+    <p>Message and data rates may apply. You can opt out at any time by replying STOP to any message.</p>
+  </section>
+
+  <section>
+    <h2>Data retention</h2>
+    <p>Unmatched item submissions are automatically deleted after 30 days. Precise location data is deleted immediately upon successful handoff. Secret detail hashes are deleted upon handoff confirmation. We do not archive personal data.</p>
+  </section>
+
+  <section>
+    <h2>Third parties</h2>
+    <p>We use a small number of third-party services to operate:</p>
+    <ul>
+      <li>Supabase — database hosting</li>
+      <li>Anthropic — AI image and text analysis</li>
+      <li>Stripe — payment processing (we never see card details)</li>
+      <li>Twilio — SMS delivery</li>
+    </ul>
+    <p>Each provider processes only the minimum data required for their function. We do not share data across providers for any secondary purpose.</p>
+  </section>
+
+  <section>
+    <h2>Your rights</h2>
+    <p>You can request deletion of any data associated with your submission at any time by contacting us. Because we store phone numbers only as hashes, we may ask you to verify ownership of the submission before deletion.</p>
+  </section>
+
+  <div class="contact-box">
+    <p>Questions about this policy?</p>
+    <a href="mailto:privacy@lofo.ai">privacy@lofo.ai</a>
+  </div>
+</div>
+
+<footer>
+  <span>© 2026 LOFO.AI</span>
+  <a href="terms.html">Terms of Service →</a>
+</footer>
+
+</body>
+</html>

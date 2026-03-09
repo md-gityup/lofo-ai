@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 6, 2026 — Phases 1–11c complete and deployed*
+*Last updated: March 7, 2026 — Phases 1–12a complete and deployed*
 
 ---
 
@@ -30,6 +30,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 10d — Flow Bug Fixes | ✅ Complete | Loser-wait screen, "Not my item" routing, finder phone save bug, CSS animation fix |
 | 11 — Finder Payouts | ✅ Complete | Payout handle capture (Venmo/PayPal/Cash App/Zelle); tips collected via Stripe, distributed to stored handle |
 | 11c — Allset Screen Polish | ✅ Complete | Reward section redesigned: messaging on cream bg (no card), dropdown replaces pills, dual-entry confirm, larger type |
+| 12a — SMS Relay & Both-Path Notify | ✅ Complete | "I'll sort it out myself" fixed — both buttons call coordinateHandoff; reunions table; POST /sms/inbound relay; no raw numbers shared |
 
 ---
 
@@ -65,7 +66,8 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `POST /stripe/webhook` | Mark tip `completed` on `payment_intent.succeeded` |
 | `POST /sms/send-otp` | Send 6-digit OTP via Twilio Verify |
 | `POST /sms/verify-otp` | Validate submitted OTP; returns `{verified: bool}` |
-| `POST /handoff/coordinate` | Save loser phone + fire intro SMS to both parties with each other's numbers |
+| `POST /handoff/coordinate` | Save loser phone + create reunion record + fire relay-style SMS to both parties (no raw numbers shared) |
+| `POST /sms/inbound` | Twilio inbound webhook — relays messages between finder/loser via LOFO's number; config in Twilio console |
 | `POST /connect/onboard` | Create Stripe Connect Express account for finder; return onboarding URL *(dormant — not used in UI)* |
 | `GET /connect/return` | Post-onboarding redirect → back to frontend *(dormant)* |
 | `GET /connect/refresh` | Re-generate expired onboarding link *(dormant)* |
@@ -106,6 +108,18 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | item_id | UUID | References items(id) |
 | used_at | timestamptz | When token was first used |
 | expires_at | timestamptz | Token expiry |
+
+**Table: `reunions`** *(Phase 12a)*
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID | Auto-generated |
+| finder_item_id | UUID | References items(id) |
+| loser_item_id | UUID | References items(id) |
+| finder_phone | varchar | E.164 — for relay lookup |
+| loser_phone | varchar | E.164 — for relay lookup |
+| status | varchar | Default `'active'` |
+| created_at | timestamptz | Auto-set |
+| expires_at | timestamptz | 7 days from creation — relay stops after |
 
 **Table: `tips`**
 | Column | Type | Notes |
@@ -158,6 +172,12 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 
 *None — all known bugs resolved.*
 
+## Manual Setup (Phase 12a)
+
+**Twilio inbound webhook** — required for SMS relay to work:
+- Go to [console.twilio.com](https://console.twilio.com) → Phone Numbers → your LOFO number
+- Messaging → "A message comes in" → set to `https://lofo-ai-production.up.railway.app/sms/inbound` (HTTP POST)
+
 ---
 
 ## How to Run Locally
@@ -199,6 +219,7 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ## What's Next: Phase 12 — Ideas
 
+- **Phase 12a polish:** Fix misleading copy when finder has no phone ("We've notified the finder" → honest message); ghost button copy ("just notify the finder" → "notify us both"); duplicate reunion guard (UNIQUE or check before INSERT)
 - **Photo storage:** store finder's photo in Supabase Storage; display on confirmed screen instead of attribute text
 - **Stripe Connect application fee:** add `application_fee_amount` to `POST /tip/create-payment-intent` for a LOFO platform cut
 - **Payout status:** `GET /connect/status` to check whether finder's account has completed onboarding (capabilities ready), update allset button to "✓ Connected" on re-entry if already linked
@@ -212,22 +233,46 @@ Paste this to start the next agent session:
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–11c):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop: finder snaps photo → Claude Vision → Voyage embedding → phone OTP → allset screen with payout handle capture (Venmo/PayPal/Cash App/Zelle dropdown, dual-entry confirm, format validation, stored to DB). Loser flow: describe item → cosine similarity + proximity match → if no match, polls and captures phone for SMS → match screen → ownership verify (Claude fuzzy-match) → confirmed screen → broker SMS → Stripe tip → thanks. Rejected matches tracked in `state.rejectedMatchIds` to prevent loop. Tips collected via Stripe to LOFO balance; payout to finder's stored handle is currently manual.
+> **What's complete and deployed (Phases 1–12a):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop: finder snaps photo → Claude Vision → Voyage embedding → phone OTP → allset screen with payout handle capture (Venmo/PayPal/Cash App/Zelle dropdown, dual-entry confirm, format validation, stored to DB). Loser flow: describe item → cosine similarity + proximity match → if no match, polls and captures phone for SMS → match screen → ownership verify (Claude fuzzy-match) → confirmed screen → **both buttons** call `coordinateHandoff()` (Notify us both / I'll reach out — just notify the finder) → reunion relay SMS to both parties (no raw numbers shared) → Stripe tip → thanks. Rejected matches tracked in `state.rejectedMatchIds`. Tips collected via Stripe to LOFO balance; payout to finder's stored handle is manual.
+>
+> **Phase 12a (SMS relay):** `reunions` table stores finder_phone, loser_phone for relay. `POST /handoff/coordinate` creates reunion + fires relay-style SMS. `POST /sms/inbound` (Twilio webhook) forwards messages between parties. Twilio inbound URL must be set in console. Known polish items: misleading copy when finder has no phone; ghost button says 'just notify the finder' but both are notified; duplicate reunion guard.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, Twilio, `security.py`. Deployed on Railway. All env vars set.
 >
-> **Frontend:** `LOFO_MVP.html` — 16 screens. Key JS: `state` object (`finderItemId`, `loserItemId`, `matchedItem`, `phone`, `loserPhone`, `loserItemType`, `latitude`, `longitude`, `rejectedMatchIds`), `go()` + `onScreenEnter()` navigation lifecycle, `selectPayoutApp()`, `savePayoutHandle()`, `submitLost()`, `submitOwnershipVerify()`, `coordinateHandoff()`, `sendTip()`, `confirmTip()`, `finderDoneContinue()`, `sendCode()`, `verifyCode()`, `saveLoserPhone()`, `startPolling()`, `rejectMatch()`.
+> **Frontend:** `LOFO_MVP.html` — 16 screens. Key JS: `state`, `go()`, `onScreenEnter()`, `coordinateHandoff()`, `submitOwnershipVerify()`, `sendTip()`, `confirmTip()`, `startPolling()`, `rejectMatch()`, etc.
 >
-> **DB schema:** `items` table has `phone VARCHAR`, `finder_email`, `secret_detail`, `finder_payout_app`, `finder_payout_handle`, `stripe_connect_account_id` (dormant), GPS coords, `embedding vector(1024)`, `created_at`. `tips` table tracks Stripe payments.
+> **DB schema:** `items`, `tips`, `reunions` (finder_item_id, loser_item_id, finder_phone, loser_phone, status, expires_at).
 >
-> **No known bugs.** See `LOFO_AI_Progress.md` for Phase 12 ideas.
+> See `LOFO_AI_Progress.md` for Phase 12 polish ideas and next steps.
 >
-> Start by reading `main.py` and `LOFO_MVP.html`, then begin implementation."
+> Start by reading `main.py` and `LOFO_MVP.html`, then begin."
 
 ---
 
 ## Session History
+
+### Phase 12a — March 7, 2026
+
+**What changed:** Fixed "I'll sort it out myself" gap + SMS relay so both parties are always notified.
+
+**The problem:** The ghost button on `screen-confirmed` called `go('reunion')` directly, skipping `coordinateHandoff()`. The finder was never notified; the loser could tip and the finder had no idea their item was claimed.
+
+**Fix — both paths notify:**
+- Both buttons ("Notify us both →" and "I'll reach out — just notify the finder") now call `coordinateHandoff()`.
+- Phone is required before either action; both parties get SMS.
+
+**SMS relay (no raw numbers):**
+- `reunions` table: `finder_item_id`, `loser_item_id`, `finder_phone`, `loser_phone`, `status`, `expires_at` (7 days).
+- `POST /handoff/coordinate` creates reunion record and sends relay-style SMS to both parties: "Reply to this number to message [finder/owner] — we'll pass it along securely."
+- `POST /sms/inbound` — Twilio webhook. When either party replies to LOFO's number, the endpoint looks up the active reunion and forwards the message to the other party with `[Finder via LOFO]` or `[Owner via LOFO]` prefix. Returns empty TwiML.
+- If finder has no phone on file: loser gets "We've notified the finder" (copy is misleading — see Phase 12 polish).
+
+**Manual step:** Configure Twilio Phone Numbers → Messaging → Webhook URL: `https://lofo-ai-production.up.railway.app/sms/inbound` (HTTP POST).
+
+**Known polish:** (1) Fix copy when finder has no phone. (2) Ghost button says "just notify the finder" but both are notified. (3) Add duplicate reunion guard.
+
+---
 
 ### Phase 11c — March 6, 2026
 
@@ -306,8 +351,8 @@ Ghost button on match screen had hardcoded `onclick="go('home')"`. Added `reject
 **New loser flow:**
 1. **Match screen** — eyebrow changed to "Good news", headline to "We may have found your [item]" (tentative, honest). Meta now shows "Found X min/hrs ago · X mi away" using `created_at` from the match response. Haptic fires on both immediate match and polling match.
 2. **Ownership verify** — unchanged mechanically; skipped if no `secret_detail`.
-3. **Confirmed screen** (new `screen-confirmed`) — post-verification payoff. Strong triple-pulse haptic. Shows item card (emoji + attributes). Requires loser's phone number. "Connect us →" calls `POST /handoff/coordinate`. "I'll sort it out myself" skips to tip.
-4. **Broker SMS** — `POST /handoff/coordinate` saves loser phone, fetches finder phone, fires intro SMS to both parties. Loser gets finder's number; finder gets loser's number. LOFO exits the loop.
+3. **Confirmed screen** (new `screen-confirmed`) — post-verification payoff. Strong triple-pulse haptic. Shows item card (emoji + attributes). Requires loser's phone number. Both buttons call `POST /handoff/coordinate` (Phase 12a: "Notify us both" and "I'll reach out — just notify the finder").
+4. **Relay SMS** — `POST /handoff/coordinate` saves loser phone, creates reunion record, fires relay-style SMS to both parties. Neither sees the other's number; they reply to LOFO's number and `POST /sms/inbound` relays messages. *(Phase 10c originally shared raw numbers; Phase 12a changed to relay.)*
 5. **Tip screen** — reached after coordination, not before. Loser is now in peak grateful state.
 
 **Backend:** `POST /handoff/coordinate` endpoint added. `MatchResponse` now includes `created_at`. `_MATCH_SQL` updated to return `f.created_at::text`. Fixed missing `_TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")` (was referenced but never defined — silent SMS failures now fixed). `CoordinateRequest` schema added.
@@ -376,4 +421,4 @@ Foundation → AI ingestion → matching engine → security → UI → API wiri
 
 ---
 
-*Built with Cursor + Claude. Zero prior coding experience. March 5–6, 2026.*
+*Built with Cursor + Claude. Zero prior coding experience. March 5–7, 2026.*
