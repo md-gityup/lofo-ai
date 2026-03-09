@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 7, 2026 — Phases 1–12a complete and deployed*
+*Last updated: March 9, 2026 — Phase 12b complete and deployed*
 
 ---
 
@@ -31,6 +31,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 11 — Finder Payouts | ✅ Complete | Payout handle capture (Venmo/PayPal/Cash App/Zelle); tips collected via Stripe, distributed to stored handle |
 | 11c — Allset Screen Polish | ✅ Complete | Reward section redesigned: messaging on cream bg (no card), dropdown replaces pills, dual-entry confirm, larger type |
 | 12a — SMS Relay & Both-Path Notify | ✅ Complete | "I'll sort it out myself" fixed — both buttons call coordinateHandoff; reunions table; POST /sms/inbound relay; no raw numbers shared |
+| 12b — Phone Save Fix & SMS Polish | ✅ Complete | Finder phone now saved reliably (awaited, was fire-and-forget); E.164 normalization on PATCH; honest copy when finder has no phone; self_outreach flag differentiates button paths; duplicate reunion guard |
 
 ---
 
@@ -217,36 +218,55 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 12 — Ideas
+## What's Next: Phase 13 — Ideas
 
-- **Phase 12a polish:** Fix misleading copy when finder has no phone ("We've notified the finder" → honest message); ghost button copy ("just notify the finder" → "notify us both"); duplicate reunion guard (UNIQUE or check before INSERT)
+- **Match found screen polish:** improve layout, copy, and visual design of the match screen
+- **Geolocation UX:** how/when GPS location is captured and displayed across the finder and loser flows
 - **Photo storage:** store finder's photo in Supabase Storage; display on confirmed screen instead of attribute text
 - **Stripe Connect application fee:** add `application_fee_amount` to `POST /tip/create-payment-intent` for a LOFO platform cut
-- **Payout status:** `GET /connect/status` to check whether finder's account has completed onboarding (capabilities ready), update allset button to "✓ Connected" on re-entry if already linked
 - **Web push notifications:** replace SMS-only with web push on desktop/PWA so finders get notified without leaving a tab open
+
+## Pre-Launch Requirements
+
+- **Twilio A2P 10DLC registration:** Campaign submitted and under review (submitted March 9, 2026). Must be approved before SMS relay/notifications work for real users. Status: *In progress — 2–3 weeks*. Once approved, `+15175136672` will send to any US number without carrier filtering. No code changes needed.
 
 ---
 
 ## Cursor Prompt for Next Session
 
-Paste this to start the next agent session:
-
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–12a):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop: finder snaps photo → Claude Vision → Voyage embedding → phone OTP → allset screen with payout handle capture (Venmo/PayPal/Cash App/Zelle dropdown, dual-entry confirm, format validation, stored to DB). Loser flow: describe item → cosine similarity + proximity match → if no match, polls and captures phone for SMS → match screen → ownership verify (Claude fuzzy-match) → confirmed screen → **both buttons** call `coordinateHandoff()` (Notify us both / I'll reach out — just notify the finder) → reunion relay SMS to both parties (no raw numbers shared) → Stripe tip → thanks. Rejected matches tracked in `state.rejectedMatchIds`. Tips collected via Stripe to LOFO balance; payout to finder's stored handle is manual.
+> **What's complete and deployed (Phases 1–12b):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Finder phone is now stored reliably in E.164 format after OTP. SMS relay is built and code-complete but pending Twilio A2P 10DLC carrier approval (submitted, 2–3 weeks). Both coordinator buttons (`Notify us both` / `I'll reach out — just notify the finder`) call `coordinateHandoff()` with a `self_outreach` flag. Duplicate reunion guard in place.
 >
-> **Phase 12a (SMS relay):** `reunions` table stores finder_phone, loser_phone for relay. `POST /handoff/coordinate` creates reunion + fires relay-style SMS. `POST /sms/inbound` (Twilio webhook) forwards messages between parties. Twilio inbound URL must be set in console. Known polish items: misleading copy when finder has no phone; ghost button says 'just notify the finder' but both are notified; duplicate reunion guard.
+> **Next session goals:** (1) Polish the match found screen — layout, copy, visuals. (2) Improve how geolocation is captured and displayed across finder and loser flows.
 >
-> **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, Twilio, `security.py`. Deployed on Railway. All env vars set.
+> **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, Twilio, `security.py`. Deployed on Railway.
 >
-> **Frontend:** `LOFO_MVP.html` — 16 screens. Key JS: `state`, `go()`, `onScreenEnter()`, `coordinateHandoff()`, `submitOwnershipVerify()`, `sendTip()`, `confirmTip()`, `startPolling()`, `rejectMatch()`, etc.
+> **Frontend:** `LOFO_MVP.html` — 16 screens.
 >
-> **DB schema:** `items`, `tips`, `reunions` (finder_item_id, loser_item_id, finder_phone, loser_phone, status, expires_at).
->
-> See `LOFO_AI_Progress.md` for Phase 12 polish ideas and next steps.
+> **DB schema:** `items`, `tips`, `reunions`.
 >
 > Start by reading `main.py` and `LOFO_MVP.html`, then begin."
+
+---
+
+## Session History
+
+### Phase 12b — March 9, 2026
+
+**What changed:** Finder phone save reliability fix + SMS relay polish.
+
+**Root cause of missing phones:** `verifyCode()` saved the finder's phone via fire-and-forget `fetch().catch(() => {})`. Any failure (network blip, null `state.finderItemId`, anything) was silently swallowed. Result: every finder item in the DB had `phone = NULL`, so `coordinateHandoff` always took the no-phone branch.
+
+**Fixes:**
+- `verifyCode()` phone save is now `await`ed with a `console.warn` if it fails — no longer silent
+- `PATCH /items/{id}/finder-info` now normalizes phone to E.164 (`+1XXXXXXXXXX`) on write, so DB always stores a consistent format regardless of what the user typed
+- Honest SMS copy when finder has no phone: "The finder didn't leave a number, but they may still have the item" instead of the false "We've notified the finder"
+- `coordinateHandoff(selfOutreach)` now takes a boolean flag: primary button passes `false` ("Notify us both"), ghost button passes `true` ("I'll reach out"). Loading spinner and SMS copy differ accordingly
+- Duplicate reunion guard: checks for active reunion before INSERT so double-tapping doesn't create duplicate rows
+
+**SMS debugging:** Traced the full SMS failure path. Twilio `messages.create()` was reaching the API but carriers were blocking delivery with error `30034` (A2P 10DLC compliance). OTP works because Twilio Verify bypasses carrier registration requirements. Regular messaging (`_sms()`) requires A2P registration. User submitted A2P 10DLC campaign registration (Brand: LOFO AI, Sole Proprietor) — pending carrier approval (2–3 weeks). No code changes needed once approved.
 
 ---
 
