@@ -51,7 +51,7 @@ _NOTIFY_LOSER_SQL = """
       AND l.phone IS NOT NULL
       AND l.embedding IS NOT NULL
       AND f.embedding IS NOT NULL
-      AND 1 - (l.embedding <=> f.embedding) >= 0.7
+      AND 1 - (l.embedding <=> f.embedding) >= 0.78
       AND (
           f.latitude IS NULL OR l.latitude IS NULL
           OR 3958.8 * 2 * ASIN(SQRT(
@@ -73,7 +73,7 @@ _NOTIFY_FINDER_SQL = """
       AND f.phone IS NOT NULL
       AND f.embedding IS NOT NULL
       AND l.embedding IS NOT NULL
-      AND 1 - (f.embedding <=> l.embedding) >= 0.7
+      AND 1 - (f.embedding <=> l.embedding) >= 0.78
       AND (
           f.latitude IS NULL OR l.latitude IS NULL
           OR 3958.8 * 2 * ASIN(SQRT(
@@ -607,7 +607,69 @@ def match_item(body: MatchRequest):
             cur.execute(_MATCH_SQL, (str(body.item_id),))
             rows = cur.fetchall()
 
-    return [dict(r) for r in rows if r["similarity_score"] >= 0.7]
+    # Fetch the loser item's colors for post-match color compatibility check
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT color FROM items WHERE id = %s", (str(body.item_id),))
+            loser_meta = cur.fetchone()
+    loser_colors = [c.lower() for c in (loser_meta["color"] or [])] if loser_meta else []
+
+    results = []
+    for r in rows:
+        if r["similarity_score"] < 0.78:
+            continue
+        # Color compatibility: if both items have colors and they share no common
+        # color group, and neither side is only neutral colors, skip the match.
+        finder_colors = [c.lower() for c in (r["color"] or [])]
+        if loser_colors and finder_colors and not _colors_compatible(loser_colors, finder_colors):
+            continue
+        results.append(dict(r))
+    return results
+
+
+_COLOR_GROUPS: list[set[str]] = [
+    {"red", "crimson", "scarlet", "maroon", "burgundy", "rose", "pink", "coral", "salmon", "magenta"},
+    {"orange", "amber", "rust", "peach", "apricot", "copper", "bronze", "terracotta"},
+    {"yellow", "gold", "lemon", "cream", "beige", "tan", "khaki", "mustard"},
+    {"green", "olive", "lime", "sage", "mint", "teal", "emerald", "forest", "hunter", "chartreuse"},
+    {"blue", "navy", "cobalt", "sky", "azure", "cerulean", "royal", "indigo", "denim", "midnight", "dark blue", "slate blue"},
+    {"purple", "violet", "lavender", "plum", "mauve", "lilac"},
+    {"brown", "chocolate", "espresso", "mocha", "chestnut", "caramel", "leather", "walnut"},
+    {"white", "ivory", "cream", "off-white", "eggshell"},
+    {"black", "jet", "ebony", "onyx", "charcoal"},
+    {"gray", "grey", "silver", "graphite", "stone", "ash"},
+]
+_NEUTRAL_GROUPS: set[int] = {7, 8, 9}  # white/black/gray groups — neutrals can pair with anything
+
+
+def _color_group(color: str) -> int | None:
+    """Return the index of the color group this color belongs to, or None."""
+    c = color.lower().strip()
+    for i, group in enumerate(_COLOR_GROUPS):
+        if c in group or any(g in c or c in g for g in group):
+            return i
+    return None
+
+
+def _colors_compatible(loser_colors: list[str], finder_colors: list[str]) -> bool:
+    """
+    Returns True if the color sets are compatible — i.e., at least one color on each
+    side maps to the same color group, OR at least one side consists entirely of
+    neutral colors (black/white/gray/silver) which pair with anything.
+    """
+    loser_groups  = {g for c in loser_colors  if (g := _color_group(c)) is not None}
+    finder_groups = {g for c in finder_colors if (g := _color_group(c)) is not None}
+
+    # If either side has no recognized colors, allow the match (don't penalise unknown colors)
+    if not loser_groups or not finder_groups:
+        return True
+
+    # If either side is entirely neutral colors, allow the match
+    if loser_groups <= _NEUTRAL_GROUPS or finder_groups <= _NEUTRAL_GROUPS:
+        return True
+
+    # Otherwise require at least one group in common
+    return bool(loser_groups & finder_groups)
 
 
 _VERIFY_SYSTEM_PROMPT = (
