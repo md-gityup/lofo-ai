@@ -2832,6 +2832,15 @@
           }
 
           const reasons = [];
+
+          // Location is always a match criterion when present — GPS proximity
+          // is actively filtered in the backend (10-mile radius), so if
+          // distance_miles is present it means both items were in the same area.
+          if (m.distance_miles != null) {
+            const distLabel = m.distance_miles < 0.1 ? 'Same area' : `${m.distance_miles} mi away`;
+            reasons.push(`Nearby — ${distLabel}`);
+          }
+
           if (m.color?.length && _mentionedVals(m.color))
             reasons.push(`Color — ${m.color.join(', ')}`);
           if (m.material && _mentionedStr(m.material))
