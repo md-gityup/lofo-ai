@@ -937,9 +937,16 @@
   ───────────────────────────────────────── */
   .match-banner {
     background: var(--navy);
-    padding: 56px 28px 24px;
+    padding: 0 28px 24px;
     flex-shrink: 0;
   }
+  .match-banner .status {
+    background: transparent;
+    padding: 18px 0 0;
+    height: 52px;
+  }
+  .match-banner .status-time { color: rgba(255,255,255,0.35); }
+  .match-banner .status-icons span { color: rgba(255,255,255,0.35); }
   .match-banner .eyebrow {
     font-size: 11px;
     letter-spacing: 0.12em;
@@ -980,18 +987,29 @@
   }
   .bar-label { font-size: 12px; color: rgba(255,255,255,0.35); white-space: nowrap; }
 
+  #screen-match { background: var(--cream); }
   #screen-match .content { padding-top: 0; overflow-y: auto; }
   .match-card {
-    background: var(--cream);
+    background: #fff;
+    border: 1.5px solid var(--border);
     border-radius: 18px;
-    padding: 16px;
-    margin-top: 20px;
+    padding: 16px 18px;
+    margin-top: 16px;
     display: flex;
     gap: 14px;
     align-items: center;
   }
+  .match-location-row {
+    margin-top: 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--navy);
+    background: rgba(26,26,46,0.06);
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
   .match-reasons {
-    margin-top: 16px;
+    margin-top: 14px;
     display: flex;
     flex-direction: column;
     gap: 9px;
@@ -2314,26 +2332,31 @@
        SCREEN 6: MATCH FOUND
   ═══════════════════════════════════════ -->
   <div class="screen" id="screen-match">
-    <div class="match-banner s-item" data-delay="0">
-      <div class="eyebrow" id="match-eyebrow">Match found</div>
-      <h2 id="match-headline">We found<br><em>your bag.</em></h2>
-      <div class="confidence-bar">
+    <div class="match-banner">
+      <div class="status">
+        <span class="status-time">9:41</span>
+        <div class="status-icons"><span>●●●</span></div>
+      </div>
+      <div class="eyebrow s-item" id="match-eyebrow" data-delay="0">Good news</div>
+      <h2 class="s-item" id="match-headline" data-delay="60">We found<br><em>your bag.</em></h2>
+      <div class="confidence-bar s-item" data-delay="140">
         <div class="bar-track"><div class="bar-fill" id="conf-bar"></div></div>
         <span class="bar-label">91% confidence</span>
       </div>
     </div>
     <div class="content">
-      <div class="match-card s-item" data-delay="180">
+      <div class="match-location-row s-item" id="match-location-row" data-delay="200" style="display:none"></div>
+      <div class="match-card s-item" data-delay="260">
         <div class="item-thumb">👜</div>
         <div>
           <div class="item-name">Brown leather handbag</div>
-          <div class="item-meta" id="match-item-meta">Found at Lincoln Park · 0.3 mi away · 14 min ago</div>
+          <div class="item-meta" id="match-item-meta">Brown · leather · medium</div>
         </div>
       </div>
       <div class="match-reasons" id="match-reasons"></div>
       <div class="match-actions">
-        <button class="btn-full s-item" id="match-cta" data-delay="540" style="margin-top:0" onclick="go('handoff')">This is mine — get it back →</button>
-        <button class="ghost-btn s-item" id="match-ghost" data-delay="600" onclick="rejectMatch()">Not my item</button>
+        <button class="btn-full s-item" id="match-cta" data-delay="480" style="margin-top:0" onclick="go('handoff')">This is mine — get it back →</button>
+        <button class="ghost-btn s-item" id="match-ghost" data-delay="540" onclick="rejectMatch()">Not my item</button>
       </div>
     </div>
   </div>
@@ -2541,6 +2564,7 @@
     loserPhone:       null,
     loserItemType:    null,
     rejectedMatchIds: [],
+    loserDescription: null,
   };
 
   // ── Screen flow order (determines push/pop direction) ──
@@ -2769,22 +2793,63 @@
           const label   = cleanType(m.item_type || 'item');
           document.querySelector('#screen-match .item-thumb').textContent = itemEmoji(m.item_type);
           document.querySelector('#screen-match .item-name').textContent  = label + ((m.color||[]).length ? ' — ' + m.color.join(', ') : '');
-          const timeStr  = timeAgo(m.created_at);
-          const distPart = (m.distance_miles != null) ? ` · ${m.distance_miles} mi away` : '';
-          meta.textContent = timeStr + distPart;
 
-          // Build reason checklist from real fields
+          // Physical attributes in the card meta (not time/distance — those get the location row)
+          const attrParts = [m.material ? cap(m.material) : null, m.size || null].filter(Boolean);
+          meta.textContent = attrParts.length ? attrParts.join(' · ') : 'Found nearby';
+
+          // ── Location row: prominent distance + time display ──
+          const locRow = document.getElementById('match-location-row');
+          if (locRow) {
+            const distText = m.distance_miles != null
+              ? (m.distance_miles < 0.1 ? 'Same area' : `${m.distance_miles} mi away`)
+              : null;
+            const timeText = m.created_at ? timeAgo(m.created_at) : null;
+            const locParts = [distText, timeText ? `found ${timeText}` : null].filter(Boolean);
+            if (locParts.length) {
+              locRow.textContent = '📍 ' + locParts.join(' · ');
+              locRow.style.display = '';
+            } else {
+              locRow.style.display = 'none';
+            }
+          }
+
+          // ── Smart match reasons ──
+          // For loser context: only show attribute if the loser's original description mentioned it.
+          // For finder context: show all attributes present on the finder's item.
+          const loserDesc = (state.loserDescription || '').toLowerCase();
+          const isLoserCtx = matchContext !== 'finder';
+          function _mentionedVals(vals) {
+            if (!vals || !vals.length) return false;
+            if (!isLoserCtx || !loserDesc) return true;
+            return vals.some(v => loserDesc.includes(v.toLowerCase()));
+          }
+          function _mentionedStr(str) {
+            if (!str) return false;
+            if (!isLoserCtx || !loserDesc) return true;
+            return loserDesc.includes(str.toLowerCase());
+          }
+
           const reasons = [];
-          if (m.item_type) reasons.push(`Item type matches — ${label}`);
-          if ((m.color||[]).length) reasons.push(`Color matches — ${m.color.join(', ')}`);
-          if (m.material) reasons.push(`Material matches — ${cap(m.material)}`);
-          if (m.size) reasons.push(`Size matches — ${m.size}`);
-          if (reasons.length === 0) reasons.push('High similarity score');
+          if (m.color?.length && _mentionedVals(m.color))
+            reasons.push(`Color — ${m.color.join(', ')}`);
+          if (m.material && _mentionedStr(m.material))
+            reasons.push(`Material — ${cap(m.material)}`);
+          if (m.size && _mentionedStr(m.size))
+            reasons.push(`Size — ${m.size}`);
+          if ((m.features || []).length) {
+            const feats = isLoserCtx && loserDesc
+              ? m.features.filter(f => f.toLowerCase().split(/\s+/).some(w => w.length > 3 && loserDesc.includes(w)))
+              : m.features;
+            feats.slice(0, 2).forEach(f => reasons.push(cap(f)));
+          }
+          if (reasons.length === 0 && m.similarity_score)
+            reasons.push(`${Math.round(m.similarity_score * 100)}% AI match score`);
 
           const reasonsEl = document.getElementById('match-reasons');
           if (reasonsEl) {
             reasonsEl.innerHTML = reasons.map((r, i) =>
-              `<div class="reason s-check" data-delay="${280 + i * 60}"><div class="check-dot">✓</div>${r}</div>`
+              `<div class="reason s-check" data-delay="${340 + i * 60}"><div class="check-dot">✓</div>${r}</div>`
             ).join('');
             triggerStagger(reasonsEl);
           }
@@ -2940,6 +3005,7 @@
   async function submitLost() {
     const desc = (document.getElementById('lost-description')?.value || '').trim();
     if (!desc) { showError('Please describe what you lost.'); return; }
+    state.loserDescription = desc;
 
     showLoading('Describing your item…');
     try {
