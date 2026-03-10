@@ -225,67 +225,15 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ## What's Next: Phase 15
 
-**Phase 14b is complete.** Both features shipped with zero new screens.
+**Phase 14b + location enrichment complete.**
 
 ### Candidates for Phase 15
 
-- **Loser attribute correction** — losers currently never see what Claude extracted from their description. Could show a brief "We found: [wallet] — [brown, leather]" confirmation line on the waiting screen with a small "wrong?" edit option. Lower priority since loser embeddings auto-correct via `/attributes`.
-- **Location map pin** (future) — the Nominatim text geocoding is the fast version. If the text field proves insufficient (e.g. "somewhere near downtown"), a Leaflet map pin screen could be added as a Phase 15 enhancement.
-- **Loser location correction** — extend `PATCH /items/{id}/attributes` or add `PATCH /items/{id}/location` to let the loser update where they lost the item after submission.
-- **Match expiry / item lifecycle** — items expire at 30 days but there's no UI to extend or close a report manually.
-
-## What Was Phase 14b — Two Priority Features (DONE)
-
-### Priority 1 — Item Attribute Correction Flow
-
-**The problem:** Claude sometimes mis-identifies items from photos or vague descriptions. A finder who photographed a tennis racket that Claude called "sports equipment" has no way to fix it — the bad tag degrades matching quality permanently.
-
-**What we want:** After the AI tags an item (finder or loser), the user can review the extracted attributes and fix anything wrong — item type, colors, material, size, features. Full override if needed.
-
-**Proposed flow:**
-- After `POST /items/from-photo` or `POST /items/from-text` returns, show a new `screen-review-item` that displays the extracted attributes as editable chips/fields
-- User can tap any field to edit (item type → free text; color → multi-select chips; material/size → free text; features → editable list)
-- "Looks right →" skips (existing behavior); "Edit →" opens the edit view
-- On save: `PATCH /items/{id}` updates all attributes + triggers a re-embed (`_store_embedding()`) so the corrected profile is used for matching
-
-**Backend needed:**
-- New `PATCH /items/{id}/attributes` endpoint (or extend existing PATCH) that accepts `item_type`, `color`, `material`, `size`, `features` and calls `_store_embedding()` after update
-- Must re-embed on save — stale embeddings would still match against the wrong profile
-
-**Frontend needed:**
-- `screen-review-item` — card showing all extracted attributes as tappable/editable fields
-- Inserted into both finder flow (after allset, before phone) and loser flow (after description submit, before waiting)
-- Or as a bottom-sheet overlay after item creation rather than a full new screen
-
----
-
-### Priority 2 — Loser Geolocation Overhaul
-
-**Current architecture (important to understand):**
-
-When a loser submits `submitLost()`:
-1. `getLocation()` captures the user's **current device GPS location** at time of submission
-2. That lat/lng is stored on the loser's item and used in the **Haversine 10-mile proximity filter** in `/match`
-3. The text description (e.g. "I lost it near Central Park") is passed to Claude as context **only for item classification** — it extracts color/type/material, NOT coordinates
-4. There is **no geocoding of text location** — the description location is completely ignored for matching
-
-**The core problem:**
-If someone lost their wallet at the airport on Monday and they're now at home on Tuesday, the matching radius is centered on their **home** — not the airport. A finder who picked up the wallet at the airport will be filtered out as "too far away."
-
-**What we want:**
-- Let the loser **pin where they lost the item** on a map, rather than using their current location
-- Options to consider:
-  - **Simple map pin** — tap to place a single marker ("Where did you lose it?")
-  - **Draw an area** — drag to outline a rough zone (more flexible, handles "somewhere between these two stops")
-  - **Address search / geocode** — type a location name, resolve to lat/lng
-  - **Fallback** — if they skip the map, fall back to current GPS (existing behavior)
-- The pinned location replaces `latitude`/`longitude` on the loser item for proximity matching
-
-**Implementation considerations:**
-- Map library: Leaflet.js (already CDN-available, lightweight) or Google Maps (requires API key + billing)
-- Geocoding: if using address search → need a geocoding API (Google, Mapbox, or free Nominatim/OpenCage)
-- A map pin screen inserted between `screen-lost-prompt` and the waiting/match screen
-- The pin lat/lng replaces `getLocation()` result before `POST /items/from-text`
+- **Loser attribute correction** — losers never see what Claude extracted from their description. A brief "We're looking for: [wallet, brown, leather]" confirmation line on the waiting screen with a small "wrong?" edit option. Low friction, same `/attributes` endpoint already exists.
+- **Map pin (location upgrade)** — Nominatim text geocoding works well for named places. For truly vague locations ("somewhere near downtown"), a Leaflet.js map pin screen between `screen-lost-prompt` and submission would be the upgrade path. No API key needed.
+- **Item lifecycle UI** — items expire at 30 days but there's no way for a user to manually close or extend a report. Simple "Mark as found" or "Still looking — extend 30 days" action on a status screen.
+- **Loser location post-submit correction** — add `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact (in case they remember more precisely later).
+- **Admin / ops view** — a simple internal dashboard to see active items, reunions, tips. Not user-facing; useful for monitoring and manual support.
 
 ## Pre-Launch Requirements
 
@@ -297,8 +245,8 @@ If someone lost their wallet at the airport on Monday and they're now at home on
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–14a):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working including photo storage: finder photos upload to Supabase Storage (`item-photos` bucket), `photo_url` stored on items, displayed as thumbnail on match screen and full-width preview on confirmed screen. Tap-to-expand photo lightbox on match screen with spring animation, location/time eyebrow, and claim/reject CTAs. SMS relay code-complete but pending Twilio A2P 10DLC approval (submitted March 9, 2026, 2–3 weeks).
+> **What's complete and deployed (Phases 1–14b):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Phase 14b added: inline attribute correction on `screen-finder-done` ("AI got it wrong? Fix it →" expands an edit panel, saves via `PATCH /items/{id}/attributes` which re-embeds immediately), loser "Where did you lose it?" optional text input geocoded via Nominatim on the backend, and partial address enrichment on the frontend (reverse geocodes device GPS to auto-append city/state to street-only addresses like "1679 45th Ave").
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
 >
@@ -306,13 +254,11 @@ If someone lost their wallet at the airport on Monday and they're now at home on
 >
 > **DB schema:** `items` (includes `photo_url`), `tips`, `reunions`.
 >
-> **Today's priorities — read the 'What's Next: Phase 14b' section in the progress doc carefully before starting:**
+> **SMS relay:** Code-complete, pending Twilio A2P 10DLC approval (submitted March 9, 2026 — 2–3 weeks).
 >
-> 1. **Item attribute correction flow** — after AI tags an item, let the user review and fix wrong attributes (item type, color, material, size, features). Needs a new review screen + `PATCH /items/{id}/attributes` endpoint that re-embeds on save.
+> **Today's priorities — read the 'What's Next: Phase 15' section in the progress doc before starting.**
 >
-> 2. **Loser geolocation overhaul** — current behavior uses the loser's *current* GPS at time of submission, NOT where they lost the item. Need to let the loser pin where they lost it on a map. Full architecture documented in the progress doc.
->
-> Start by reading `main.py` and `LOFO_MVP.html`, then begin."
+> Start by reading `main.py` and `LOFO_MVP.html`, then discuss before building."
 
 ---
 
@@ -334,6 +280,14 @@ If someone lost their wallet at the airport on Monday and they're now at home on
 - `_geocode(location_text)` helper: synchronous Nominatim (OpenStreetMap, no API key) call via httpx. Returns `(lat, lng)` or None. 4s timeout, exceptions swallowed. User-Agent header set per OSM usage policy.
 - `create_item_from_text`: if `where_description` is provided, geocodes it. If geocoding succeeds, uses those coords instead of device GPS. Device GPS still passed as fallback in case geocoding fails or `where_description` is empty.
 - `screen-lost-prompt`: "📍 Add location" and "🕑 Add time" placeholder chips replaced with a real optional text input: "Where did you lose it?" with placeholder "e.g. JFK Terminal 4, Central Park, 5th & Broadway…". The value is passed as `where_description` in `submitLost()`.
+
+**Partial address enrichment (same session, follow-up):**
+- `_enrichPartialAddress(text, lat, lng)` helper in frontend — runs at submit time.
+- Heuristic: if `where_description` starts with digits AND has no comma AND no trailing 2-letter state code → looks like a street-only address (e.g. `"1679 45th Ave"`).
+- If partial: calls Nominatim reverse geocode on device GPS coords → extracts `city` + `state` from result → appends to text: `"1679 45th Ave, San Francisco, California"`.
+- Updates the input field visually so user sees the resolved address before loading begins.
+- Fully silent fallback: if GPS unavailable, Nominatim fails, or heuristic doesn't fire → original text passes through unchanged.
+- Generic place names (`"Central Park"`, `"JFK Terminal 4"`) bypass enrichment entirely — no leading digit, no change.
 
 ---
 
