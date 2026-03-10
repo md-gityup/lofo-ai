@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 10, 2026 — Phase 14b complete and deployed*
+*Last updated: March 10, 2026 — Phase 15 complete and deployed*
 
 ---
 
@@ -35,6 +35,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 13 — Match Screen Polish & Match Quality | ✅ Complete | Match screen layout, location emphasis, smart reasons, color-aware matching |
 | 14a — Photo Storage & Lightbox | ✅ Complete | Finder photos uploaded to Supabase Storage; `photo_url` on items; match card thumbnail + confirmed screen show real photo; tap-to-expand lightbox with spring animation and claim/reject CTAs |
 | 14b — Attribute Correction + Loser Location | ✅ Complete | Inline attribute editor on finder-done screen; `PATCH /items/{id}/attributes` re-embeds on save; loser "Where?" field geocoded via Nominatim — no new screens, 0 extra taps in happy path |
+| 15 — Loser Attribute Correction | ✅ Complete | "Looking for: wallet · brown · leather" summary line on waiting screen; "Don't like description?" expands inline edit panel; saves via `PATCH /items/{id}/attributes`, re-embeds, updates title, fires immediate re-poll |
 
 ---
 
@@ -223,17 +224,16 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 15
+## What's Next: Phase 16
 
-**Phase 14b + location enrichment complete.**
+**Phase 15 complete.**
 
-### Candidates for Phase 15
+### Candidates for Phase 16
 
-- **Loser attribute correction** — losers never see what Claude extracted from their description. A brief "We're looking for: [wallet, brown, leather]" confirmation line on the waiting screen with a small "wrong?" edit option. Low friction, same `/attributes` endpoint already exists.
-- **Map pin (location upgrade)** — Nominatim text geocoding works well for named places. For truly vague locations ("somewhere near downtown"), a Leaflet.js map pin screen between `screen-lost-prompt` and submission would be the upgrade path. No API key needed.
+- **Admin / ops dashboard** — internal password-protected view to see active items, reunions, tips, and basic stats (total items, match rate, tip volume). Not user-facing; useful for monitoring and manual support. Priority for next session.
+- **Map pin (location upgrade)** — Leaflet.js map pin screen between `screen-lost-prompt` and submission for vague locations ("somewhere near downtown"). No API key needed. Medium effort, medium value.
 - **Item lifecycle UI** — items expire at 30 days but there's no way for a user to manually close or extend a report. Simple "Mark as found" or "Still looking — extend 30 days" action on a status screen.
-- **Loser location post-submit correction** — add `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact (in case they remember more precisely later).
-- **Admin / ops view** — a simple internal dashboard to see active items, reunions, tips. Not user-facing; useful for monitoring and manual support.
+- **Loser location post-submit correction** — add `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact.
 
 ## Pre-Launch Requirements
 
@@ -245,8 +245,8 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–14b):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Phase 14b added: inline attribute correction on `screen-finder-done` ("AI got it wrong? Fix it →" expands an edit panel, saves via `PATCH /items/{id}/attributes` which re-embeds immediately), loser "Where did you lose it?" optional text input geocoded via Nominatim on the backend, and partial address enrichment on the frontend (reverse geocodes device GPS to auto-append city/state to street-only addresses like "1679 45th Ave").
+> **What's complete and deployed (Phases 1–15):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Phase 15 added: loser attribute correction on the waiting screen — "Looking for: wallet · brown · leather" summary line with a "Don't like description?" link that expands an inline edit panel, saves via `PATCH /items/{id}/attributes`, re-embeds immediately, updates the waiting title, and fires an instant re-poll.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
 >
@@ -256,13 +256,27 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 >
 > **SMS relay:** Code-complete, pending Twilio A2P 10DLC approval (submitted March 9, 2026 — 2–3 weeks).
 >
-> **Today's priorities — read the 'What's Next: Phase 15' section in the progress doc before starting.**
+> **Today's priorities — read the 'What's Next: Phase 16' section in the progress doc before starting.**
 >
 > Start by reading `main.py` and `LOFO_MVP.html`, then discuss before building."
 
 ---
 
 ## Session History
+
+### Phase 15 — March 10, 2026
+
+**What changed:** Loser attribute correction on the waiting screen. Zero new screens, zero extra taps in happy path.
+
+- `state.loserItem` added — stores the full item object returned from `/items/from-text`, used as source of truth for the edit panel (mirrors `state.finderItem` from 14b).
+- `submitLost()` now saves `state.loserItem = item` after the POST response.
+- `screen-waiting`: compact `"Looking for: wallet · brown · leather"` summary line added below the status pills. Always visible when a loser item is in state. "Don't like description?" link expands an inline edit panel.
+- Edit panel: same chip/input pattern as finder-done. Item-type text input (pre-filled from Claude), attribute chips with × to remove, add-detail input (Enter or + adds to features), "Update description →" / Cancel.
+- Save calls `PATCH /items/{loserItemId}/attributes` (same endpoint used by finder correction), re-renders the summary row, updates the waiting screen title (`"Looking for your wallet."`), closes the panel, and immediately calls `pollForMatch()` so the corrected embedding is tested right away. Toast: "Updated — re-scanning…"
+- New JS: `_renderWaitingAttrSummary()`, `toggleLoserAttrEdit()`, `_renderLoserEditTagChips()`, `_removeLoserEditChip()`, `addLoserEditTag()`, `saveLoserAttrEdits()`, `_loserEditAttrs` working copy variable.
+- CSS: `.waiting-attr-section`, `.waiting-attr-summary`, `.waiting-attr-summary-label`, `.waiting-attr-tags-inline`, `.waiting-attr-fix`, `.waiting-attr-edit-panel`. Reuses existing `.attr-edit-panel`, `.tag-removable`, `.tag-x`, `.attr-edit-save-btn`, `.attr-cancel-link`.
+
+---
 
 ### Phase 14b — March 10, 2026
 
