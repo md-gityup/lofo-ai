@@ -3556,6 +3556,30 @@
     }
   }
 
+  // ── Location enrichment: appends city/state to street-only addresses ──
+  async function _enrichPartialAddress(text, lat, lng) {
+    // Only enrich if it looks like a street address with no city/state:
+    // starts with digits (house number), contains no comma, no 2-letter state code
+    const looksStreetOnly = /^\d/.test(text) && !text.includes(',') && !/\s[A-Z]{2}$/.test(text.trim());
+    if (!looksStreetOnly) return text;
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+        { headers: { 'User-Agent': 'LOFO-AI/1.0 (lost-and-found-app)' } }
+      );
+      if (!res.ok) return text;
+      const data = await res.json();
+      const addr  = data.address || {};
+      const city  = addr.city || addr.town || addr.village || addr.suburb || '';
+      const state = addr.state || '';
+      if (city || state) {
+        return `${text}, ${[city, state].filter(Boolean).join(', ')}`;
+      }
+    } catch (_) { /* silent fallback */ }
+    return text;
+  }
+
   // ── Lost item flow ──
   async function submitLost() {
     const desc = (document.getElementById('lost-description')?.value || '').trim();
@@ -3567,7 +3591,17 @@
       const loc = await getLocation();
       if (loc) { state.latitude = loc.latitude; state.longitude = loc.longitude; }
 
-      const whereText = (document.getElementById('lost-where')?.value || '').trim();
+      const whereInput = document.getElementById('lost-where');
+      let whereText = (whereInput?.value || '').trim();
+
+      // Enrich partial street addresses with city/state from device GPS
+      if (whereText && loc) {
+        const enriched = await _enrichPartialAddress(whereText, loc.latitude, loc.longitude);
+        if (enriched !== whereText) {
+          whereText = enriched;
+          if (whereInput) whereInput.value = enriched; // show user the resolved address
+        }
+      }
 
       // POST /items/from-text
       const r1 = await fetch(`${API}/items/from-text`, {
