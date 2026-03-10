@@ -930,6 +930,151 @@
     font-weight: 400;
   }
 
+  /* ── ATTRIBUTE EDIT PANEL (finder-done screen) ── */
+  .attr-fix-link {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+    margin-top: -18px;
+    margin-bottom: 20px;
+    letter-spacing: 0.01em;
+  }
+  .attr-fix-link span {
+    color: var(--navy);
+    font-weight: 400;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .attr-edit-panel {
+    width: 100%;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: 18px;
+    margin-bottom: 20px;
+  }
+  .attr-edit-label {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .attr-edit-type-input {
+    width: 100%;
+    background: var(--cream);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 11px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--navy);
+    font-weight: 400;
+    outline: none;
+    margin-bottom: 14px;
+    transition: border-color 0.15s;
+  }
+  .attr-edit-type-input:focus { border-color: var(--navy); }
+  .attr-edit-tags-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 10px;
+    min-height: 28px;
+  }
+  .tag-removable {
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--navy);
+    font-size: 12px;
+    padding: 4px 8px 4px 12px;
+    border-radius: 20px;
+    font-weight: 400;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .tag-x {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--muted);
+    padding: 0;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    transition: color 0.1s;
+  }
+  .tag-x:active { color: var(--navy); }
+  .attr-edit-add-wrap {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    margin-top: 4px;
+  }
+  .attr-add-input {
+    flex: 1;
+    background: var(--cream);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 9px 13px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--navy);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .attr-add-input:focus { border-color: var(--navy); }
+  .attr-add-btn {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    width: 38px;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+  .attr-add-btn:active { opacity: 0.75; }
+  .attr-edit-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0 14px;
+  }
+  .attr-edit-save-btn {
+    width: 100%;
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: opacity 0.15s;
+  }
+  .attr-edit-save-btn:active { opacity: 0.82; }
+  .attr-edit-save-btn:disabled { opacity: 0.5; cursor: default; }
+  .attr-cancel-link {
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+    cursor: pointer;
+    padding: 4px 0;
+  }
+  .attr-cancel-link:active { opacity: 0.6; }
+
   /* ─────────────────────────────────────────
      SCREEN 4: LOST PROMPT
   ───────────────────────────────────────── */
@@ -1001,6 +1146,36 @@
     gap: 5px;
     font-weight: 400;
   }
+  .prompt-where-wrap {
+    margin-top: 14px;
+    margin-bottom: auto;
+  }
+  .prompt-where-label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+    margin-bottom: 8px;
+    display: block;
+    letter-spacing: 0.01em;
+  }
+  .prompt-where-label .opt {
+    opacity: 0.6;
+  }
+  .prompt-where-input {
+    width: 100%;
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 13px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--navy);
+    font-weight: 300;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .prompt-where-input:focus { border-color: var(--navy); }
+  .prompt-where-input::placeholder { color: #C5C2BA; }
 
   /* ─────────────────────────────────────────
      SCREEN 5: WAITING
@@ -2310,6 +2485,23 @@
         <span class="tag">Gold clasp</span>
         <span class="tag">Medium</span>
       </div>
+      <div class="attr-fix-link s-item" data-delay="300" id="attr-fix-link">
+        AI got it wrong? <span onclick="toggleAttrEdit()">Fix it →</span>
+      </div>
+      <div class="attr-edit-panel" id="attr-edit-panel" style="display:none;">
+        <div class="attr-edit-label">Item type</div>
+        <input id="attr-edit-type" class="attr-edit-type-input" type="text" placeholder="e.g. tennis racket, backpack…" autocorrect="off" />
+        <div class="attr-edit-label">Details <span style="font-weight:300; text-transform:none; letter-spacing:0;">— tap × to remove</span></div>
+        <div class="attr-edit-tags-wrap" id="attr-edit-tags-wrap"></div>
+        <div class="attr-edit-add-wrap">
+          <input id="attr-add-input" class="attr-add-input" type="text" placeholder="Add a detail…" autocorrect="off"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();addEditTag();}" />
+          <button class="attr-add-btn" onclick="addEditTag()" type="button">+</button>
+        </div>
+        <div class="attr-edit-divider"></div>
+        <button class="attr-edit-save-btn" id="attr-edit-save-btn" onclick="saveAttrEdits()">Save changes →</button>
+        <span class="attr-cancel-link" onclick="toggleAttrEdit()">Cancel</span>
+      </div>
       <div class="finder-email-section s-item" data-delay="320">
         <div class="finder-email-label">Get paid when your find is reunited</div>
         <input class="finder-email-input" type="email" id="finder-email-input" placeholder="your@email.com" autocomplete="email" />
@@ -2439,12 +2631,12 @@
       <div class="prompt-eyebrow s-item" data-delay="0">Lost something</div>
       <div class="prompt-title s-item" data-delay="60">What<br><em>happened?</em></div>
       <div class="prompt-rule s-item" data-delay="110"></div>
-      <textarea id="lost-description" class="prompt-input s-item" data-delay="160" placeholder="Describe what you lost, where and when…"></textarea>
-      <div class="prompt-chips s-item" data-delay="220">
-        <div class="chip">📍 Add location</div>
-        <div class="chip">🕑 Add time</div>
+      <textarea id="lost-description" class="prompt-input s-item" data-delay="160" placeholder="Describe what you lost…"></textarea>
+      <div class="prompt-where-wrap s-item" data-delay="220">
+        <label class="prompt-where-label" for="lost-where">📍 Where did you lose it? <span class="opt">(optional)</span></label>
+        <input id="lost-where" class="prompt-where-input" type="text" placeholder="e.g. JFK Terminal 4, Central Park, 5th &amp; Broadway…" autocomplete="off" autocorrect="off" autocapitalize="none" />
       </div>
-      <button class="btn-full s-item" data-delay="260" style="margin-top:24px" onclick="submitLost()">Start looking →</button>
+      <button class="btn-full s-item" data-delay="280" style="margin-top:24px" onclick="submitLost()">Start looking →</button>
     </div>
   </div>
 
@@ -2742,6 +2934,7 @@
   // ── App state ──
   const state = {
     finderItemId:     null,
+    finderItem:       null,   // full item object — used by attr edit
     loserItemId:      null,
     matchedItem:      null,
     handoffToken:     null,
@@ -3218,6 +3411,8 @@
   });
 
   function renderFinderDone(item) {
+    state.finderItem = item;   // keep a reference for the attr-edit flow
+
     const thumb  = document.querySelector('#screen-finder-done .item-thumb');
     const nameEl = document.querySelector('#screen-finder-done .item-name');
     const metaEl = document.querySelector('#screen-finder-done .item-meta');
@@ -3234,6 +3429,131 @@
       ].filter(Boolean);
       tagsEl.innerHTML = allTags.map(t => `<span class="tag">${cap(t)}</span>`).join('');
     }
+
+    // Reset edit panel if it was open from a previous submission
+    const panel = document.getElementById('attr-edit-panel');
+    const fixLink = document.getElementById('attr-fix-link');
+    if (panel)   panel.style.display = 'none';
+    if (fixLink) fixLink.style.display = '';
+  }
+
+  // ── Attribute edit flow (finder-done screen) ──
+  let _editAttrs = null; // working copy during edit: {item_type, color[], material, size, features[]}
+
+  function toggleAttrEdit() {
+    const panel   = document.getElementById('attr-edit-panel');
+    const fixLink = document.getElementById('attr-fix-link');
+    if (!panel) return;
+
+    if (panel.style.display === 'none') {
+      // Opening — clone current item into working state
+      const item = state.finderItem;
+      if (!item) return;
+      _editAttrs = {
+        item_type: item.item_type || '',
+        color:     [...(item.color || [])],
+        material:  item.material  || '',
+        size:      item.size      || '',
+        features:  [...(item.features || [])],
+      };
+      const typeInput = document.getElementById('attr-edit-type');
+      if (typeInput) typeInput.value = _editAttrs.item_type;
+      _renderEditTagChips();
+      panel.style.display = 'block';
+      if (fixLink) fixLink.style.display = 'none';
+      // Scroll into view on small screens
+      setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+    } else {
+      // Closing without saving
+      panel.style.display = 'none';
+      if (fixLink) fixLink.style.display = '';
+      _editAttrs = null;
+    }
+  }
+
+  function _renderEditTagChips() {
+    const wrap = document.getElementById('attr-edit-tags-wrap');
+    if (!wrap || !_editAttrs) return;
+
+    // Build a flat list of {label, type, index} so we know how to remove each
+    const chips = [];
+    (_editAttrs.color    || []).forEach((c, i) => chips.push({ label: c,                type: 'color',    idx: i }));
+    if (_editAttrs.material) chips.push({ label: _editAttrs.material, type: 'material', idx: -1 });
+    if (_editAttrs.size)     chips.push({ label: _editAttrs.size,     type: 'size',     idx: -1 });
+    (_editAttrs.features || []).forEach((f, i) => chips.push({ label: f,               type: 'feature',  idx: i }));
+
+    wrap.innerHTML = chips.map((chip, i) =>
+      `<span class="tag-removable">
+        ${cap(chip.label)}
+        <button class="tag-x" onclick="_removeEditChip('${chip.type}',${chip.idx})" type="button">×</button>
+       </span>`
+    ).join('');
+
+    if (!chips.length) {
+      wrap.innerHTML = '<span style="font-size:12px;color:var(--muted);font-weight:300;">No details yet — add some below.</span>';
+    }
+  }
+
+  function _removeEditChip(type, idx) {
+    if (!_editAttrs) return;
+    if (type === 'color')   { _editAttrs.color.splice(idx, 1); }
+    else if (type === 'material') { _editAttrs.material = ''; }
+    else if (type === 'size')     { _editAttrs.size = '';     }
+    else if (type === 'feature')  { _editAttrs.features.splice(idx, 1); }
+    _renderEditTagChips();
+  }
+
+  function addEditTag() {
+    const input = document.getElementById('attr-add-input');
+    if (!input || !_editAttrs) return;
+    const val = input.value.trim();
+    if (!val) return;
+    _editAttrs.features.push(val);
+    input.value = '';
+    _renderEditTagChips();
+    input.focus();
+  }
+
+  async function saveAttrEdits() {
+    if (!_editAttrs || !state.finderItemId) return;
+
+    // Pick up any item_type change
+    const typeInput = document.getElementById('attr-edit-type');
+    if (typeInput) _editAttrs.item_type = typeInput.value.trim() || _editAttrs.item_type;
+
+    const saveBtn = document.getElementById('attr-edit-save-btn');
+    if (saveBtn) { saveBtn.textContent = 'Saving…'; saveBtn.disabled = true; }
+
+    try {
+      const res = await fetch(`${API}/items/${state.finderItemId}/attributes`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_type: _editAttrs.item_type   || undefined,
+          color:     _editAttrs.color,
+          material:  _editAttrs.material    || undefined,
+          size:      _editAttrs.size        || undefined,
+          features:  _editAttrs.features,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `Error ${res.status}`);
+      const updated = await res.json();
+
+      // Re-render the card with corrected data and close panel
+      const corrected = {
+        ...state.finderItem,
+        item_type: updated.item_type,
+        color:     updated.color     || [],
+        material:  updated.material  || null,
+        size:      updated.size      || null,
+        features:  updated.features  || [],
+      };
+      renderFinderDone(corrected);
+      showSuccess('Got it — item updated.');
+    } catch (err) {
+      showError(err.message || 'Save failed. Try again.');
+      if (saveBtn) { saveBtn.textContent = 'Save changes →'; saveBtn.disabled = false; }
+    }
   }
 
   // ── Lost item flow ──
@@ -3247,12 +3567,15 @@
       const loc = await getLocation();
       if (loc) { state.latitude = loc.latitude; state.longitude = loc.longitude; }
 
+      const whereText = (document.getElementById('lost-where')?.value || '').trim();
+
       // POST /items/from-text
       const r1 = await fetch(`${API}/items/from-text`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'loser', description: desc,
+          ...(whereText ? { where_description: whereText } : {}),
           ...(loc ? { latitude: loc.latitude, longitude: loc.longitude } : {}),
         }),
       });

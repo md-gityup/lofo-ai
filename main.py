@@ -204,6 +204,7 @@ class TextItemCreate(BaseModel):
     type: str
     description: str
     location_description: Optional[str] = None
+    where_description: Optional[str] = None   # free-text location for geocoding (loser flow)
     secret_detail: Optional[str] = None  # finder items only; ignored for loser
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -269,6 +270,14 @@ class FinderInfoUpdate(BaseModel):
 
 class LoserInfoUpdate(BaseModel):
     phone: str
+
+
+class AttributesUpdate(BaseModel):
+    item_type: Optional[str] = None
+    color: Optional[list[str]] = None
+    material: Optional[str] = None
+    size: Optional[str] = None
+    features: Optional[list[str]] = None
 
 
 class CoordinateRequest(BaseModel):
@@ -428,6 +437,29 @@ _MATCH_SQL = """
 """
 
 
+def _geocode(location_text: str) -> Optional[tuple[float, float]]:
+    """
+    Geocode a free-text location string via Nominatim (OpenStreetMap, no API key).
+    Returns (latitude, longitude) or None on failure / no result.
+    Non-blocking: exceptions are swallowed.
+    """
+    try:
+        import httpx
+        resp = httpx.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": location_text, "format": "json", "limit": 1},
+            headers={"User-Agent": "LOFO-AI/1.0 (lost-and-found-app)"},
+            timeout=4.0,
+        )
+        resp.raise_for_status()
+        results = resp.json()
+        if results:
+            return float(results[0]["lat"]), float(results[0]["lon"])
+    except Exception as exc:
+        print(f"[LOFO geocode] '{location_text}': {exc}")
+    return None
+
+
 async def _upload_photo(item_id: uuid.UUID, image_bytes: bytes) -> Optional[str]:
     """Upload a JPEG to Supabase Storage; return public URL or None on failure."""
     if not (_SUPABASE_STORAGE_BASE and _SUPABASE_SERVICE_ROLE_KEY):
@@ -505,6 +537,16 @@ def create_item_from_text(body: TextItemCreate):
     # Store secret_detail on finder items only
     stored_secret = body.secret_detail if body.type == "finder" else None
 
+    # Geocode the "where did you lose it?" text if provided (takes priority over device GPS).
+    # Falls back to device GPS silently on failure.
+    stored_lat = body.latitude
+    stored_lng = body.longitude
+    if body.where_description:
+        coords = _geocode(body.where_description)
+        if coords:
+            stored_lat, stored_lng = coords
+            print(f"[LOFO geocode] '{body.where_description}' → {stored_lat:.4f}, {stored_lng:.4f}")
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -516,8 +558,8 @@ def create_item_from_text(body: TextItemCreate):
                     extracted.get("material"),
                     extracted.get("size"),
                     extracted.get("features", []),
-                    body.latitude,
-                    body.longitude,
+                    stored_lat,
+                    stored_lng,
                     stored_secret,
                 ),
             )
@@ -829,6 +871,62 @@ def update_loser_info(item_id: uuid.UUID, body: LoserInfoUpdate):
     if row is None:
         raise HTTPException(status_code=404, detail="Loser item not found")
     return {"ok": True}
+
+
+@app.patch("/items/{item_id}/attributes", status_code=200)
+def update_item_attributes(item_id: uuid.UUID, body: AttributesUpdate):
+    """
+    Update structured attributes on any item and re-embed so the corrected profile
+    is immediately used for matching. Works for both finder and loser items.
+    """
+    updates: dict = {}
+    if body.item_type is not None:
+        updates["item_type"] = body.item_type.strip()
+    if body.color is not None:
+        updates["color"] = [c.strip().lower() for c in body.color if c.strip()]
+    if body.material is not None:
+        updates["material"] = body.material.strip() or None
+    if body.size is not None:
+        updates["size"] = body.size.strip() or None
+    if body.features is not None:
+        updates["features"] = [f.strip() for f in body.features if f.strip()]
+
+    if not updates:
+        return {"ok": True}
+
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
+    values = list(updates.values()) + [str(item_id)]
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"UPDATE items SET {set_clause} WHERE id = %s "
+                f"RETURNING id, item_type, color, material, size, features",
+                values,
+            )
+            row = cur.fetchone()
+        conn.commit()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    profile = {
+        "item_type": row["item_type"],
+        "color": row["color"] or [],
+        "material": row["material"],
+        "size": row["size"],
+        "features": row["features"] or [],
+    }
+    _store_embedding(item_id, profile)
+
+    return {
+        "ok": True,
+        "item_type": row["item_type"],
+        "color": row["color"],
+        "material": row["material"],
+        "size": row["size"],
+        "features": row["features"],
+    }
 
 
 @app.post("/handoff/coordinate", status_code=200)
