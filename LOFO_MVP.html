@@ -1075,6 +1075,48 @@
   }
   .attr-cancel-link:active { opacity: 0.6; }
 
+  /* ── Waiting screen: loser attribute summary + inline correction ── */
+  .waiting-attr-section {
+    width: 100%;
+    margin-top: 14px;
+  }
+  .waiting-attr-summary {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.7;
+    padding: 0 2px;
+  }
+  .waiting-attr-summary-label {
+    font-weight: 400;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-right: 1px;
+  }
+  .waiting-attr-tags-inline {
+    color: var(--navy);
+    font-weight: 400;
+  }
+  .waiting-attr-fix {
+    color: var(--muted);
+    font-weight: 300;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    font-size: 11px;
+    margin-left: 6px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .waiting-attr-fix:active { opacity: 0.6; }
+  .waiting-attr-edit-panel {
+    margin-top: 14px;
+  }
+
   /* ─────────────────────────────────────────
      SCREEN 4: LOST PROMPT
   ───────────────────────────────────────── */
@@ -2663,6 +2705,31 @@
         <div class="status-pill s-item" data-delay="310" id="waiting-pill-time"><span>🕑</span><span id="waiting-time-text">Submitted just now</span></div>
         <div class="status-pill s-item" data-delay="370"><span>✦</span><span>AI-powered visual matching</span></div>
       </div>
+      <!-- Loser attribute summary + inline correction -->
+      <div id="waiting-attr-section" style="display:none;">
+        <div class="waiting-attr-section">
+          <div class="waiting-attr-summary">
+            <span class="waiting-attr-summary-label">Looking for:</span>
+            <span id="waiting-attr-tags-inline"></span>
+            <span class="waiting-attr-fix" id="waiting-attr-fix" onclick="toggleLoserAttrEdit()">Don't like description?</span>
+          </div>
+          <div class="waiting-attr-edit-panel attr-edit-panel" id="loser-attr-edit-panel" style="display:none;">
+            <div class="attr-edit-label">What did you lose?</div>
+            <input id="loser-attr-edit-type" class="attr-edit-type-input" type="text" placeholder="e.g. wallet, keys, backpack…" autocorrect="off" />
+            <div class="attr-edit-label">Details <span style="font-weight:300; text-transform:none; letter-spacing:0;">— tap × to remove</span></div>
+            <div id="loser-attr-edit-tags-wrap" class="attr-edit-tags-wrap"></div>
+            <div class="attr-edit-add-wrap">
+              <input id="loser-attr-add-input" class="attr-add-input" type="text" placeholder="Add a detail…" autocorrect="off"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();addLoserEditTag();}" />
+              <button class="attr-add-btn" onclick="addLoserEditTag()" type="button">+</button>
+            </div>
+            <div class="attr-edit-divider"></div>
+            <button class="attr-edit-save-btn" id="loser-attr-edit-save-btn" onclick="saveLoserAttrEdits()">Update description →</button>
+            <span class="attr-cancel-link" onclick="toggleLoserAttrEdit()">Cancel</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Shown after 10s if no match; stays while polling continues in background -->
       <div id="waiting-notify-section" style="display:none; width:100%; margin-top:auto; padding-bottom:8px;">
         <div style="text-align:center; font-size:13px; color:var(--muted); font-weight:300; line-height:1.65; margin-bottom:20px;">
@@ -2936,6 +3003,7 @@
     finderItemId:     null,
     finderItem:       null,   // full item object — used by attr edit
     loserItemId:      null,
+    loserItem:        null,   // full item object — used by loser attr edit
     matchedItem:      null,
     handoffToken:     null,
     failedAttempts:   0,
@@ -3126,6 +3194,7 @@
     }
     if (name === 'waiting') {
       startPolling();
+      _renderWaitingAttrSummary();
     } else {
       stopPolling();
     }
@@ -3556,6 +3625,159 @@
     }
   }
 
+  // ── Loser attribute summary + inline correction (waiting screen) ──
+  let _loserEditAttrs = null;
+
+  function _renderWaitingAttrSummary() {
+    const outer  = document.getElementById('waiting-attr-section');
+    const tagsEl = document.getElementById('waiting-attr-tags-inline');
+    if (!outer || !tagsEl || !state.loserItem) {
+      if (outer) outer.style.display = 'none';
+      return;
+    }
+    const item  = state.loserItem;
+    const parts = [
+      cleanType(item.item_type),
+      ...(item.color    || []),
+      item.material || null,
+      item.size     || null,
+    ].filter(Boolean);
+    tagsEl.textContent = parts.join(' · ');
+    outer.style.display = 'block';
+
+    // Reset edit panel from any previous open state
+    const panel   = document.getElementById('loser-attr-edit-panel');
+    const fixLink = document.getElementById('waiting-attr-fix');
+    if (panel)   panel.style.display   = 'none';
+    if (fixLink) fixLink.style.display = '';
+    _loserEditAttrs = null;
+  }
+
+  function toggleLoserAttrEdit() {
+    const panel   = document.getElementById('loser-attr-edit-panel');
+    const fixLink = document.getElementById('waiting-attr-fix');
+    if (!panel) return;
+
+    if (panel.style.display === 'none') {
+      const item = state.loserItem;
+      if (!item) return;
+      _loserEditAttrs = {
+        item_type: item.item_type || '',
+        color:     [...(item.color    || [])],
+        material:  item.material  || '',
+        size:      item.size      || '',
+        features:  [...(item.features || [])],
+      };
+      const typeInput = document.getElementById('loser-attr-edit-type');
+      if (typeInput) typeInput.value = _loserEditAttrs.item_type;
+      _renderLoserEditTagChips();
+      panel.style.display = 'block';
+      if (fixLink) fixLink.style.display = 'none';
+      setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+    } else {
+      panel.style.display = 'none';
+      if (fixLink) fixLink.style.display = '';
+      _loserEditAttrs = null;
+    }
+  }
+
+  function _renderLoserEditTagChips() {
+    const wrap = document.getElementById('loser-attr-edit-tags-wrap');
+    if (!wrap || !_loserEditAttrs) return;
+
+    const chips = [];
+    (_loserEditAttrs.color    || []).forEach((c, i) => chips.push({ label: c,                        type: 'color',    idx: i }));
+    if (_loserEditAttrs.material) chips.push({ label: _loserEditAttrs.material, type: 'material', idx: -1 });
+    if (_loserEditAttrs.size)     chips.push({ label: _loserEditAttrs.size,     type: 'size',     idx: -1 });
+    (_loserEditAttrs.features || []).forEach((f, i) => chips.push({ label: f,                        type: 'feature',  idx: i }));
+
+    wrap.innerHTML = chips.map(chip =>
+      `<span class="tag-removable">
+        ${cap(chip.label)}
+        <button class="tag-x" onclick="_removeLoserEditChip('${chip.type}',${chip.idx})" type="button">×</button>
+       </span>`
+    ).join('');
+
+    if (!chips.length) {
+      wrap.innerHTML = '<span style="font-size:12px;color:var(--muted);font-weight:300;">No details yet — add some below.</span>';
+    }
+  }
+
+  function _removeLoserEditChip(type, idx) {
+    if (!_loserEditAttrs) return;
+    if (type === 'color')         { _loserEditAttrs.color.splice(idx, 1); }
+    else if (type === 'material') { _loserEditAttrs.material = ''; }
+    else if (type === 'size')     { _loserEditAttrs.size = ''; }
+    else if (type === 'feature')  { _loserEditAttrs.features.splice(idx, 1); }
+    _renderLoserEditTagChips();
+  }
+
+  function addLoserEditTag() {
+    const input = document.getElementById('loser-attr-add-input');
+    if (!input || !_loserEditAttrs) return;
+    const val = input.value.trim();
+    if (!val) return;
+    _loserEditAttrs.features.push(val);
+    input.value = '';
+    _renderLoserEditTagChips();
+    input.focus();
+  }
+
+  async function saveLoserAttrEdits() {
+    if (!_loserEditAttrs || !state.loserItemId) return;
+
+    const typeInput = document.getElementById('loser-attr-edit-type');
+    if (typeInput) _loserEditAttrs.item_type = typeInput.value.trim() || _loserEditAttrs.item_type;
+
+    const saveBtn = document.getElementById('loser-attr-edit-save-btn');
+    if (saveBtn) { saveBtn.textContent = 'Updating…'; saveBtn.disabled = true; }
+
+    try {
+      const res = await fetch(`${API}/items/${state.loserItemId}/attributes`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_type: _loserEditAttrs.item_type || undefined,
+          color:     _loserEditAttrs.color,
+          material:  _loserEditAttrs.material  || undefined,
+          size:      _loserEditAttrs.size       || undefined,
+          features:  _loserEditAttrs.features,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `Error ${res.status}`);
+      const updated = await res.json();
+
+      // Merge corrected fields back into state
+      state.loserItem = {
+        ...state.loserItem,
+        item_type: updated.item_type,
+        color:     updated.color    || [],
+        material:  updated.material || null,
+        size:      updated.size     || null,
+        features:  updated.features || [],
+      };
+      state.loserItemType = updated.item_type;
+
+      // Update waiting title to reflect corrected item type
+      const waitTitle = document.querySelector('#screen-waiting .waiting-title');
+      if (waitTitle) waitTitle.innerHTML = `Looking for<br><em>your ${cleanType(updated.item_type)}.</em>`;
+
+      // Close panel, refresh summary row
+      _loserEditAttrs = null;
+      const panel   = document.getElementById('loser-attr-edit-panel');
+      const fixLink = document.getElementById('waiting-attr-fix');
+      if (panel)   panel.style.display   = 'none';
+      if (fixLink) fixLink.style.display = '';
+      _renderWaitingAttrSummary();
+
+      showSuccess('Updated — re-scanning…');
+      pollForMatch(); // immediate re-poll with corrected embedding
+    } catch (err) {
+      showError(err.message || 'Save failed. Try again.');
+      if (saveBtn) { saveBtn.textContent = 'Update description →'; saveBtn.disabled = false; }
+    }
+  }
+
   // ── Location enrichment: appends city/state to street-only addresses ──
   async function _enrichPartialAddress(text, lat, lng) {
     // Only enrich if it looks like a street address with no city/state:
@@ -3617,6 +3839,7 @@
       const item = await r1.json();
       state.loserItemId   = item.id;
       state.loserItemType = item.item_type || null;
+      state.loserItem     = item;
 
       // 6c — POST /match
       showLoading('Searching for matches…');
