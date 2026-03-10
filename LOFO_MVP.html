@@ -3808,7 +3808,7 @@
     if (!desc) { showError('Please describe what you lost.'); return; }
     state.loserDescription = desc;
 
-    showLoading('Describing your item…');
+    showLoading('Searching for your item…');
     try {
       const loc = await getLocation();
       if (loc) { state.latitude = loc.latitude; state.longitude = loc.longitude; }
@@ -3842,7 +3842,7 @@
       state.loserItem     = item;
 
       // 6c — POST /match
-      showLoading('Searching for matches…');
+      showLoading('Searching for your item…');
       const r2 = await fetch(`${API}/match`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
