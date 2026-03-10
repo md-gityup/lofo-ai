@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 10, 2026 — Phase 14a complete and deployed*
+*Last updated: March 10, 2026 — Phase 14b complete and deployed*
 
 ---
 
@@ -34,6 +34,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 12b — Phone Save Fix & SMS Polish | ✅ Complete | Finder phone now saved reliably (awaited, was fire-and-forget); E.164 normalization on PATCH; honest copy when finder has no phone; self_outreach flag differentiates button paths; duplicate reunion guard |
 | 13 — Match Screen Polish & Match Quality | ✅ Complete | Match screen layout, location emphasis, smart reasons, color-aware matching |
 | 14a — Photo Storage & Lightbox | ✅ Complete | Finder photos uploaded to Supabase Storage; `photo_url` on items; match card thumbnail + confirmed screen show real photo; tap-to-expand lightbox with spring animation and claim/reject CTAs |
+| 14b — Attribute Correction + Loser Location | ✅ Complete | Inline attribute editor on finder-done screen; `PATCH /items/{id}/attributes` re-embeds on save; loser "Where?" field geocoded via Nominatim — no new screens, 0 extra taps in happy path |
 
 ---
 
@@ -65,6 +66,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `POST /handoff/validate` | Validate single-use JWT handoff token |
 | `PATCH /items/{id}/finder-info` | Save finder's `finder_email`, `secret_detail`, and/or `phone` after item creation |
 | `PATCH /items/{id}/loser-info` | Save loser's `phone` so they can receive match notifications |
+| `PATCH /items/{id}/attributes` | Update `item_type`, `color`, `material`, `size`, `features` + re-embed immediately; works for finder and loser items |
 | `POST /tip/create-payment-intent` | Create Stripe PaymentIntent; routes via `transfer_data` to finder's Connect account if set, falls back to platform-held |
 | `POST /stripe/webhook` | Mark tip `completed` on `payment_intent.succeeded` |
 | `POST /sms/send-otp` | Send 6-digit OTP via Twilio Verify |
@@ -221,7 +223,18 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 14b — Two Priority Features
+## What's Next: Phase 15
+
+**Phase 14b is complete.** Both features shipped with zero new screens.
+
+### Candidates for Phase 15
+
+- **Loser attribute correction** — losers currently never see what Claude extracted from their description. Could show a brief "We found: [wallet] — [brown, leather]" confirmation line on the waiting screen with a small "wrong?" edit option. Lower priority since loser embeddings auto-correct via `/attributes`.
+- **Location map pin** (future) — the Nominatim text geocoding is the fast version. If the text field proves insufficient (e.g. "somewhere near downtown"), a Leaflet map pin screen could be added as a Phase 15 enhancement.
+- **Loser location correction** — extend `PATCH /items/{id}/attributes` or add `PATCH /items/{id}/location` to let the loser update where they lost the item after submission.
+- **Match expiry / item lifecycle** — items expire at 30 days but there's no UI to extend or close a report manually.
+
+## What Was Phase 14b — Two Priority Features (DONE)
 
 ### Priority 1 — Item Attribute Correction Flow
 
@@ -304,6 +317,25 @@ If someone lost their wallet at the airport on Monday and they're now at home on
 ---
 
 ## Session History
+
+### Phase 14b — March 10, 2026
+
+**What changed:** Attribute correction flow + loser location fix. Zero new screens, zero extra taps in the happy path for either feature.
+
+**Attribute correction (finder flow):**
+- `PATCH /items/{id}/attributes` endpoint: accepts `item_type`, `color`, `material`, `size`, `features` (all optional), updates DB, immediately calls `_store_embedding()` so the corrected profile is live for matching. Works for both finder and loser items.
+- `state.finderItem` added — stores the full item object returned from photo/text submission, used as source of truth for the edit panel.
+- `renderFinderDone()` now saves `state.finderItem = item` and resets the edit panel between submissions.
+- `screen-finder-done`: "AI got it wrong? Fix it →" muted link added below the tag row. Tapping expands an inline edit panel (no new screen). Panel shows: item-type text input (pre-filled), all attribute chips with × to remove, add-detail input (Enter or + adds to features), Save + Cancel. Save calls `PATCH /items/{id}/attributes`, re-renders the card on success, collapses panel.
+- New JS functions: `toggleAttrEdit()`, `_renderEditTagChips()`, `_removeEditChip(type, idx)`, `addEditTag()`, `saveAttrEdits()`.
+
+**Loser location fix:**
+- `TextItemCreate.where_description: Optional[str]` — new optional field.
+- `_geocode(location_text)` helper: synchronous Nominatim (OpenStreetMap, no API key) call via httpx. Returns `(lat, lng)` or None. 4s timeout, exceptions swallowed. User-Agent header set per OSM usage policy.
+- `create_item_from_text`: if `where_description` is provided, geocodes it. If geocoding succeeds, uses those coords instead of device GPS. Device GPS still passed as fallback in case geocoding fails or `where_description` is empty.
+- `screen-lost-prompt`: "📍 Add location" and "🕑 Add time" placeholder chips replaced with a real optional text input: "Where did you lose it?" with placeholder "e.g. JFK Terminal 4, Central Park, 5th & Broadway…". The value is passed as `where_description` in `submitLost()`.
+
+---
 
 ### Phase 14a — March 10, 2026
 
