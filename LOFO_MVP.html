@@ -758,30 +758,56 @@
     border-radius: 0;
     display: block;
   }
-  /* Tappable thumb hint — subtle ring pulse */
+  /* Tappable thumb — sonar ring + corner badge */
   .item-thumb.tappable {
-    box-shadow: 0 0 0 2px var(--navy);
-    animation: thumbPulse 2.2s ease-in-out infinite;
+    position: relative;
+    overflow: visible;
   }
-  .item-thumb.tappable::after {
-    content: '🔍';
+  .item-thumb.tappable img {
+    border-radius: 12px;
+  }
+  /* Sonar ring that expands outward */
+  .item-thumb.tappable::before {
+    content: '';
     position: absolute;
-    bottom: -4px;
-    right: -4px;
-    font-size: 12px;
-    background: var(--navy);
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
+    inset: 0;
+    border-radius: 14px;
+    pointer-events: none;
+    animation: sonarRing 1.8s cubic-bezier(0, 0.55, 0.45, 1) infinite;
+  }
+  @keyframes sonarRing {
+    0%   { box-shadow: 0 0 0 0    rgba(193,122,74,0.85); }
+    60%  { box-shadow: 0 0 0 10px rgba(193,122,74,0);    }
+    100% { box-shadow: 0 0 0 10px rgba(193,122,74,0);    }
+  }
+  /* Expand icon badge in corner */
+  .item-thumb.tappable::after {
+    content: '⤢';
+    position: absolute;
+    bottom: -7px;
+    right: -7px;
+    width: 22px;
+    height: 22px;
+    background: var(--rust);
+    border-radius: 7px;
+    color: #fff;
+    font-size: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(193,122,74,0.45);
   }
   .match-card { position: relative; }
-  @keyframes thumbPulse {
-    0%, 100% { box-shadow: 0 0 0 2px rgba(26,26,46,0.6); }
-    50%       { box-shadow: 0 0 0 4px rgba(26,26,46,0.15); }
+  /* Hint text below match card */
+  #match-photo-hint {
+    font-size: 11.5px;
+    color: var(--rust);
+    font-weight: 400;
+    margin-top: 10px;
+    margin-left: 2px;
+    letter-spacing: 0.01em;
+    display: none;
   }
   /* ── PHOTO LIGHTBOX ── */
   .photo-lightbox {
@@ -2528,6 +2554,7 @@
           <div class="item-meta" id="match-item-meta">Brown · leather · medium</div>
         </div>
       </div>
+      <div id="match-photo-hint">Tap the photo to see it full size →</div>
       <div class="match-reasons" id="match-reasons"></div>
       <div class="match-actions">
         <button class="btn-full s-item" id="match-cta" data-delay="480" style="margin-top:0" onclick="go('handoff')">This is mine — get it back →</button>
@@ -2973,16 +3000,19 @@
           const label   = cleanType(m.item_type || 'item');
           const matchThumb = document.querySelector('#screen-match .item-thumb');
           if (matchThumb) {
+            const photoHint = document.getElementById('match-photo-hint');
             if (m.photo_url) {
               matchThumb.innerHTML = `<img src="${m.photo_url}" alt="Found item">`;
               matchThumb.classList.add('tappable');
               matchThumb.style.cursor = 'pointer';
               matchThumb.onclick = () => openLightbox();
+              if (photoHint) photoHint.style.display = 'block';
             } else {
               matchThumb.textContent = itemEmoji(m.item_type);
               matchThumb.classList.remove('tappable');
               matchThumb.style.cursor = '';
               matchThumb.onclick = null;
+              if (photoHint) photoHint.style.display = 'none';
             }
           }
           document.querySelector('#screen-match .item-name').textContent  = label + ((m.color||[]).length ? ' — ' + m.color.join(', ') : '');
