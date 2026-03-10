@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from pydantic import BaseModel, field_validator
 import os
+import re
 from typing import Optional
 from datetime import datetime, timezone
 import uuid
@@ -38,6 +39,17 @@ _twilio_client = None
 if _TWILIO_ACCOUNT_SID and _TWILIO_AUTH_TOKEN:
     from twilio.rest import Client as TwilioClient
     _twilio_client = TwilioClient(_TWILIO_ACCOUNT_SID, _TWILIO_AUTH_TOKEN)
+
+# Supabase Storage — derive project URL from DATABASE_URL, key from env
+_SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+_db_url_str = os.getenv("DATABASE_URL", "")
+_proj_match = re.search(r"postgres\.([a-z0-9]+)\.", _db_url_str)
+_SUPABASE_PROJECT_REF = _proj_match.group(1) if _proj_match else ""
+_SUPABASE_STORAGE_BASE = (
+    f"https://{_SUPABASE_PROJECT_REF}.supabase.co/storage/v1"
+    if _SUPABASE_PROJECT_REF else ""
+)
+_PHOTO_BUCKET = "item-photos"
 
 _APP_URL = "https://md-gityup.github.io/lofo-ai/LOFO_MVP.html"
 
@@ -212,6 +224,7 @@ class ItemResponse(BaseModel):
     expires_at: str
     created_at: str
     has_secret: bool = False
+    photo_url: Optional[str] = None
 
 
 class MatchRequest(BaseModel):
@@ -230,6 +243,7 @@ class MatchResponse(BaseModel):
     distance_miles: Optional[float] = None
     has_secret: bool = False
     created_at: Optional[str] = None
+    photo_url: Optional[str] = None
 
 
 class VerifyRequest(BaseModel):
@@ -345,7 +359,8 @@ _INSERT_SQL = """
         status,
         expires_at::text,
         created_at::text,
-        (secret_detail IS NOT NULL) AS has_secret
+        (secret_detail IS NOT NULL) AS has_secret,
+        photo_url
 """
 
 _SELECT_SQL = """
@@ -359,7 +374,8 @@ _SELECT_SQL = """
         features,
         status,
         expires_at::text,
-        created_at::text
+        created_at::text,
+        photo_url
     FROM items
     WHERE id = %s
 """
@@ -376,6 +392,7 @@ _MATCH_SQL = """
         1 - (f.embedding <=> l.embedding) AS similarity_score,
         (f.secret_detail IS NOT NULL) AS has_secret,
         f.created_at::text,
+        f.photo_url,
         CASE
             WHEN f.latitude IS NOT NULL AND l.latitude IS NOT NULL THEN
                 ROUND(CAST(
@@ -405,6 +422,29 @@ _MATCH_SQL = """
     ORDER BY f.embedding <=> l.embedding
     LIMIT 5
 """
+
+
+async def _upload_photo(item_id: uuid.UUID, image_bytes: bytes) -> Optional[str]:
+    """Upload a JPEG to Supabase Storage; return public URL or None on failure."""
+    if not (_SUPABASE_STORAGE_BASE and _SUPABASE_SERVICE_ROLE_KEY):
+        print("[LOFO photo] Supabase Storage not configured — skipping upload")
+        return None
+    path = f"{item_id}.jpg"
+    upload_url = f"{_SUPABASE_STORAGE_BASE}/object/{_PHOTO_BUCKET}/{path}"
+    headers = {
+        "Authorization": f"Bearer {_SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "image/jpeg",
+        "x-upsert": "true",
+    }
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(upload_url, content=image_bytes, headers=headers)
+            resp.raise_for_status()
+        return f"{_SUPABASE_STORAGE_BASE}/object/public/{_PHOTO_BUCKET}/{path}"
+    except Exception as exc:
+        print(f"[LOFO photo upload error] {exc}")
+        return None
 
 
 # --------------------------------------------------------------------------- #
@@ -570,6 +610,19 @@ async def create_item_from_photo(
 
     item = dict(row)
     _store_embedding(item["id"], extracted)
+
+    # Upload the photo and persist the public URL
+    photo_url = await _upload_photo(item["id"], image_bytes)
+    if photo_url:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE items SET photo_url = %s WHERE id = %s",
+                    (photo_url, str(item["id"])),
+                )
+            conn.commit()
+        item["photo_url"] = photo_url
+
     _notify_waiting_losers(item["id"], extracted["item_type"])  # type is always 'finder' here
     return item
 

@@ -749,6 +749,32 @@
     justify-content: center;
     font-size: 26px;
     flex-shrink: 0;
+    overflow: hidden;
+  }
+  .item-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0;
+    display: block;
+  }
+  /* Large photo preview on confirmed screen */
+  #confirmed-photo-wrap {
+    display: none;
+    width: 100%;
+    margin-top: 12px;
+    margin-bottom: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1.5px solid var(--border);
+    flex-shrink: 0;
+    background: var(--cream);
+  }
+  #confirmed-photo-wrap img {
+    width: 100%;
+    height: 190px;
+    object-fit: cover;
+    display: block;
   }
   .item-name { font-size: 14px; font-weight: 500; color: var(--navy); margin-bottom: 3px; }
   .item-meta { font-size: 12px; color: var(--muted); font-weight: 300; }
@@ -2405,6 +2431,10 @@
       <div class="done-rule s-item" data-delay="130"></div>
       <div class="done-sub s-item" data-delay="160">Ownership verified. Enter your number and we'll notify you both — you can text each other through LOFO without sharing your real number.</div>
 
+      <div id="confirmed-photo-wrap" class="s-item" data-delay="200">
+        <img id="confirmed-photo" src="" alt="Found item photo">
+      </div>
+
       <div class="item-card s-item" data-delay="220">
         <div class="item-thumb" id="confirmed-item-thumb">📦</div>
         <div>
@@ -2792,7 +2822,14 @@
         if (state.matchedItem) {
           const m = state.matchedItem;
           const label   = cleanType(m.item_type || 'item');
-          document.querySelector('#screen-match .item-thumb').textContent = itemEmoji(m.item_type);
+          const matchThumb = document.querySelector('#screen-match .item-thumb');
+          if (matchThumb) {
+            if (m.photo_url) {
+              matchThumb.innerHTML = `<img src="${m.photo_url}" alt="Found item">`;
+            } else {
+              matchThumb.textContent = itemEmoji(m.item_type);
+            }
+          }
           document.querySelector('#screen-match .item-name').textContent  = label + ((m.color||[]).length ? ' — ' + m.color.join(', ') : '');
 
           // Physical attributes in the card meta (not time/distance — those get the location row)
@@ -2919,10 +2956,31 @@
 
       const m = state.matchedItem;
       if (m) {
-        const thumb  = document.getElementById('confirmed-item-thumb');
-        const nameEl = document.getElementById('confirmed-item-name');
-        const metaEl = document.getElementById('confirmed-item-meta');
-        if (thumb)  thumb.textContent  = itemEmoji(m.item_type);
+        const thumb     = document.getElementById('confirmed-item-thumb');
+        const nameEl    = document.getElementById('confirmed-item-name');
+        const metaEl    = document.getElementById('confirmed-item-meta');
+        const photoWrap = document.getElementById('confirmed-photo-wrap');
+        const photoImg  = document.getElementById('confirmed-photo');
+
+        // Large photo preview
+        if (photoWrap && photoImg) {
+          if (m.photo_url) {
+            photoImg.src = m.photo_url;
+            photoWrap.style.display = 'block';
+          } else {
+            photoWrap.style.display = 'none';
+          }
+        }
+
+        // Card thumb — photo if available, otherwise emoji
+        if (thumb) {
+          if (m.photo_url) {
+            thumb.innerHTML = `<img src="${m.photo_url}" alt="Found item">`;
+          } else {
+            thumb.textContent = itemEmoji(m.item_type);
+          }
+        }
+
         if (nameEl) nameEl.textContent = cleanType(m.item_type || 'item') + ((m.color||[]).length ? ' — ' + m.color.join(', ') : '');
         if (metaEl) {
           const parts = [m.material, m.size].filter(Boolean);
