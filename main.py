@@ -40,15 +40,19 @@ if _TWILIO_ACCOUNT_SID and _TWILIO_AUTH_TOKEN:
     from twilio.rest import Client as TwilioClient
     _twilio_client = TwilioClient(_TWILIO_ACCOUNT_SID, _TWILIO_AUTH_TOKEN)
 
-# Supabase Storage — derive project URL from DATABASE_URL, key from env
+# Supabase Storage — prefer explicit SUPABASE_URL env var; fall back to
+# parsing the project ref from DATABASE_URL (handles both pooler and direct formats)
 _SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-_db_url_str = os.getenv("DATABASE_URL", "")
-_proj_match = re.search(r"postgres\.([a-z0-9]+)\.", _db_url_str)
-_SUPABASE_PROJECT_REF = _proj_match.group(1) if _proj_match else ""
-_SUPABASE_STORAGE_BASE = (
-    f"https://{_SUPABASE_PROJECT_REF}.supabase.co/storage/v1"
-    if _SUPABASE_PROJECT_REF else ""
-)
+_SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+if not _SUPABASE_URL:
+    _db_url_str = os.getenv("DATABASE_URL", "")
+    # Pooler format:  postgres.{ref}.pooler.supabase.com
+    # Direct format:  db.{ref}.supabase.co
+    _proj_match = re.search(r"postgres\.([a-z0-9]+)\.", _db_url_str) or \
+                  re.search(r"db\.([a-z0-9]+)\.supabase", _db_url_str)
+    if _proj_match:
+        _SUPABASE_URL = f"https://{_proj_match.group(1)}.supabase.co"
+_SUPABASE_STORAGE_BASE = f"{_SUPABASE_URL}/storage/v1" if _SUPABASE_URL else ""
 _PHOTO_BUCKET = "item-photos"
 
 _APP_URL = "https://md-gityup.github.io/lofo-ai/LOFO_MVP.html"
