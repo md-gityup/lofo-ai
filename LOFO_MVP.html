@@ -2706,27 +2706,27 @@
         <div class="status-pill s-item" data-delay="370"><span>✦</span><span>AI-powered visual matching</span></div>
       </div>
       <!-- Loser attribute summary + inline correction -->
-      <div id="waiting-attr-section" style="display:none;">
-        <div class="waiting-attr-section">
-          <div class="waiting-attr-summary">
-            <span class="waiting-attr-summary-label">Looking for:</span>
-            <span id="waiting-attr-tags-inline"></span>
-            <span class="waiting-attr-fix" id="waiting-attr-fix" onclick="toggleLoserAttrEdit()">Don't like description?</span>
+      <div id="waiting-attr-section" class="waiting-attr-section" style="display:none;">
+        <div class="waiting-attr-summary">
+          <span class="waiting-attr-summary-label">Looking for:</span>
+          <span id="waiting-attr-tags-inline"></span>
+        </div>
+        <div class="attr-fix-link" id="waiting-attr-fix" style="margin-top:6px; margin-bottom:0;">
+          Don't like description? <span onclick="toggleLoserAttrEdit()">Fix it →</span>
+        </div>
+        <div class="attr-edit-panel" id="loser-attr-edit-panel" style="display:none; margin-top:14px;">
+          <div class="attr-edit-label">What did you lose?</div>
+          <input id="loser-attr-edit-type" class="attr-edit-type-input" type="text" placeholder="e.g. wallet, keys, backpack…" autocorrect="off" />
+          <div class="attr-edit-label">Details <span style="font-weight:300; text-transform:none; letter-spacing:0;">— tap × to remove</span></div>
+          <div id="loser-attr-edit-tags-wrap" class="attr-edit-tags-wrap"></div>
+          <div class="attr-edit-add-wrap">
+            <input id="loser-attr-add-input" class="attr-add-input" type="text" placeholder="Add a detail…" autocorrect="off"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();addLoserEditTag();}" />
+            <button class="attr-add-btn" onclick="addLoserEditTag()" type="button">+</button>
           </div>
-          <div class="waiting-attr-edit-panel attr-edit-panel" id="loser-attr-edit-panel" style="display:none;">
-            <div class="attr-edit-label">What did you lose?</div>
-            <input id="loser-attr-edit-type" class="attr-edit-type-input" type="text" placeholder="e.g. wallet, keys, backpack…" autocorrect="off" />
-            <div class="attr-edit-label">Details <span style="font-weight:300; text-transform:none; letter-spacing:0;">— tap × to remove</span></div>
-            <div id="loser-attr-edit-tags-wrap" class="attr-edit-tags-wrap"></div>
-            <div class="attr-edit-add-wrap">
-              <input id="loser-attr-add-input" class="attr-add-input" type="text" placeholder="Add a detail…" autocorrect="off"
-                     onkeydown="if(event.key==='Enter'){event.preventDefault();addLoserEditTag();}" />
-              <button class="attr-add-btn" onclick="addLoserEditTag()" type="button">+</button>
-            </div>
-            <div class="attr-edit-divider"></div>
-            <button class="attr-edit-save-btn" id="loser-attr-edit-save-btn" onclick="saveLoserAttrEdits()">Update description →</button>
-            <span class="attr-cancel-link" onclick="toggleLoserAttrEdit()">Cancel</span>
-          </div>
+          <div class="attr-edit-divider"></div>
+          <button class="attr-edit-save-btn" id="loser-attr-edit-save-btn" onclick="saveLoserAttrEdits()">Update description →</button>
+          <span class="attr-cancel-link" onclick="toggleLoserAttrEdit()">Cancel</span>
         </div>
       </div>
 
