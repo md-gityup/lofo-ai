@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 10, 2026 — Phase 15 complete and deployed*
+*Last updated: March 10, 2026 — Phase 15 + UX polish complete and deployed*
 
 ---
 
@@ -226,11 +226,19 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ## What's Next: Phase 16
 
-**Phase 15 complete.**
+**Phase 15 + UX polish complete.**
 
-### Candidates for Phase 16
+### Priority: Admin / Ops Dashboard
 
-- **Admin / ops dashboard** — internal password-protected view to see active items, reunions, tips, and basic stats (total items, match rate, tip volume). Not user-facing; useful for monitoring and manual support. Priority for next session.
+The next session should focus on brainstorming and building the admin/ops dashboard. Key questions to discuss:
+
+- **What to display:** Active items (finder + loser), recent reunions, tip totals, match rate, items expiring soon, any SMS relay conversations in flight
+- **Where it lives:** A `/admin` route on the FastAPI backend, password-protected via HTTP Basic Auth or a hardcoded env-var token. Separate HTML page, not part of the main app flow.
+- **Auth:** Simple — `ADMIN_PASSWORD` env var, checked via HTTP Basic Auth or a query param token. Good enough for a personal ops tool.
+- **Design:** Functional dark dashboard — tables, counts, a few key metrics. Not user-facing so aesthetics are secondary to readability.
+
+### Other Candidates for Phase 16+
+
 - **Map pin (location upgrade)** — Leaflet.js map pin screen between `screen-lost-prompt` and submission for vague locations ("somewhere near downtown"). No API key needed. Medium effort, medium value.
 - **Item lifecycle UI** — items expire at 30 days but there's no way for a user to manually close or extend a report. Simple "Mark as found" or "Still looking — extend 30 days" action on a status screen.
 - **Loser location post-submit correction** — add `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact.
@@ -245,8 +253,8 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–15):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Phase 15 added: loser attribute correction on the waiting screen — "Looking for: wallet · brown · leather" summary line with a "Don't like description?" link that expands an inline edit panel, saves via `PATCH /items/{id}/attributes`, re-embeds immediately, updates the waiting title, and fires an instant re-poll.
+> **What's complete and deployed (Phases 1–15 + UX polish):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Phase 15 added loser attribute correction on the waiting screen. UX polish this session: copy cleanup (loading states, photo review label), camera screen now shows city/state/zip from reverse geocode instead of "Location acquired", Dynamic Island removed from camera (one location indicator), attr section layout fixes.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
 >
@@ -256,13 +264,36 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 >
 > **SMS relay:** Code-complete, pending Twilio A2P 10DLC approval (submitted March 9, 2026 — 2–3 weeks).
 >
-> **Today's priorities — read the 'What's Next: Phase 16' section in the progress doc before starting.**
+> **Today's goal: brainstorm and build the admin/ops dashboard.** Read the 'What's Next: Phase 16' section in the progress doc before starting. The user has ideas to share — discuss before building.
 >
-> Start by reading `main.py` and `LOFO_MVP.html`, then discuss before building."
+> Start by reading `main.py` and `LOFO_AI_Progress.md`, then discuss before building."
 
 ---
 
 ## Session History
+
+### UX Polish — March 10, 2026
+
+**What changed:** Copy cleanup + camera location UX. No new features, no backend changes.
+
+**Copy fixes:**
+- Camera AI overlay: "Reading your photo…" → "Reviewing photo…"
+- Lost item submit: two-step "Describing your item…" → "Searching for matches…" collapsed into single "Searching for your item…" for both loading states
+
+**Camera screen location:**
+- Removed the Dynamic Island "Location on · live" expansion from the camera screen — redundant with the bottom geo row
+- Bottom geo row now reverse geocodes device GPS via Nominatim and shows the actual location: city, state abbreviation (extracted from `ISO3166-2-lvl4`), and zip code (e.g. "San Francisco, CA 94110") instead of the generic "Location acquired"
+- Text brightens to `rgba(255,255,255,0.75)` on confirmed location
+- Fallback to "Location acquired" if geocode fails
+
+**Waiting screen attr section fixes:**
+- Removed extra wrapper div — flattened structure so edit panel is full-width matching status pills
+- "Don't like description?" line split into static muted text + navy underlined "Fix it →" clickable span (same pattern as finder-done screen)
+- Bumped font-size to 13px, weight to 400 for readability
+- Left-aligned with `padding: 0 2px` to match "Looking for:" row above
+- Added `padding-top: 24px` to "Nothing nearby yet…" section for clear visual separation
+
+---
 
 ### Phase 15 — March 10, 2026
 
