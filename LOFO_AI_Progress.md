@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 9, 2026 — Phase 12b complete and deployed*
+*Last updated: March 9, 2026 — Phase 13 complete and deployed*
 
 ---
 
@@ -32,6 +32,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 11c — Allset Screen Polish | ✅ Complete | Reward section redesigned: messaging on cream bg (no card), dropdown replaces pills, dual-entry confirm, larger type |
 | 12a — SMS Relay & Both-Path Notify | ✅ Complete | "I'll sort it out myself" fixed — both buttons call coordinateHandoff; reunions table; POST /sms/inbound relay; no raw numbers shared |
 | 12b — Phone Save Fix & SMS Polish | ✅ Complete | Finder phone now saved reliably (awaited, was fire-and-forget); E.164 normalization on PATCH; honest copy when finder has no phone; self_outreach flag differentiates button paths; duplicate reunion guard |
+| 13 — Match Screen Polish & Match Quality | ✅ Complete | Match screen layout, location emphasis, smart reasons, color-aware matching |
 
 ---
 
@@ -58,7 +59,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `POST /items/from-photo` | Photo → Claude Vision → item profile + embedding; triggers loser SMS notifications |
 | `POST /items/from-text` | Text → Claude → item profile + embedding; triggers notifications both directions |
 | `GET /items/{id}` | Retrieve item by UUID |
-| `POST /match` | Cosine similarity + Haversine proximity match; returns `has_secret: bool` per result |
+| `POST /match` | Cosine similarity + Haversine proximity match; threshold 0.78; color compatibility post-filter |
 | `POST /verify` | Claude fuzzy-matches finder's `secret_detail` against loser's `loser_claim`; returns `{verified, reason}` |
 | `POST /handoff/validate` | Validate single-use JWT handoff token |
 | `PATCH /items/{id}/finder-info` | Save finder's `finder_email`, `secret_detail`, and/or `phone` after item creation |
@@ -218,13 +219,13 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 13 — Ideas
+## What's Next: Phase 14 — Ideas
 
-- **Match found screen polish:** improve layout, copy, and visual design of the match screen
-- **Geolocation UX:** how/when GPS location is captured and displayed across the finder and loser flows
+- **Geolocation UX:** pre-fetch GPS on screen entry (before submit) so permission prompt doesn't interrupt the flow; show location status pill on finder-done and waiting screens; reverse geocode to neighborhood name
 - **Photo storage:** store finder's photo in Supabase Storage; display on confirmed screen instead of attribute text
 - **Stripe Connect application fee:** add `application_fee_amount` to `POST /tip/create-payment-intent` for a LOFO platform cut
 - **Web push notifications:** replace SMS-only with web push on desktop/PWA so finders get notified without leaving a tab open
+- **Match screen — finder view:** when a loser is found for the finder's item, the finder-side match screen could show more context (e.g. loser's description, how long ago they submitted)
 
 ## Pre-Launch Requirements
 
@@ -236,12 +237,10 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–12b):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Finder phone is now stored reliably in E.164 format after OTP. SMS relay is built and code-complete but pending Twilio A2P 10DLC carrier approval (submitted, 2–3 weeks). Both coordinator buttons (`Notify us both` / `I'll reach out — just notify the finder`) call `coordinateHandoff()` with a `self_outreach` flag. Duplicate reunion guard in place.
+> **What's complete and deployed (Phases 1–13):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Match screen fully redesigned: proper status bar in navy banner, cream bottom half, dedicated location row (📍 X mi away · found Y ago), smart match reasons (only show color/material/size if the loser mentioned it in their description), proximity always shown as first reason. Match quality improved: threshold raised to 0.78, `_colors_compatible()` post-filter rejects matches between items in different color groups (e.g. navy vs silver). Dynamic Island auto-dismisses after 3.5s. SMS relay code-complete but pending Twilio A2P 10DLC approval (submitted March 9, 2026, 2–3 weeks).
 >
-> **Next session goals:** (1) Polish the match found screen — layout, copy, visuals. (2) Improve how geolocation is captured and displayed across finder and loser flows.
->
-> **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, Twilio, `security.py`. Deployed on Railway.
+> **Backend:** FastAPI (`main.py`), Supabase/pgvector, Stripe, Twilio. Deployed on Railway.
 >
 > **Frontend:** `LOFO_MVP.html` — 16 screens.
 >
@@ -252,6 +251,30 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 ---
 
 ## Session History
+
+### Phase 13 — March 9, 2026
+
+**What changed:** Match screen layout polish + match quality improvements.
+
+**Match screen — layout & visual (frontend):**
+- Added proper `.status` bar inside the navy `.match-banner` (time + signal dots at rgba(255,255,255,0.35)) so the screen has the same top structure as all other screens. Banner no longer uses `s-item` as a whole block — the navy background appears immediately on slide-in; eyebrow (delay=0), h2 (delay=60ms), and confidence bar (delay=140ms) stagger in individually.
+- Eyebrow opacity raised from 0.30 → 0.55 so "GOOD NEWS" label is readable against navy.
+- `#screen-match` background changed from white (`#fff`) to `var(--cream)`, consistent with `screen-finder-done` and `screen-waiting`. Match card flips to white with a border (same treatment as item cards on other cream screens).
+- New `.match-location-row` pill between the card and reasons list: "📍 X mi away · found Y ago". Distance < 0.1 mi shows "Same area." Only appears when both items had GPS coordinates (distance_miles not null). Card meta now shows physical attributes (material · size) instead of duplicating the distance.
+- Dynamic Island auto-dismisses after 3.5 seconds on match screen instead of staying expanded until navigation.
+
+**Match screen — smart reasons (frontend):**
+- `state.loserDescription` added to app state. `submitLost()` stores the loser's original description text before the API call.
+- On match screen entry, reasons are built with two helper functions (`_mentionedVals`, `_mentionedStr`) that check if each attribute word appears in `state.loserDescription`. For loser context: color/material/size only show as reasons if the loser explicitly typed those words. For finder context: all attributes on the finder's item are shown (since the finder physically observed them).
+- Proximity (distance_miles) added as the **first** reason in the checklist ("Nearby — X mi away" / "Nearby — Same area") — always shown when GPS data is available, regardless of what the loser described, since it's captured automatically and is a strong objective signal.
+- Fallback: if no specific attribute reasons match, shows `"X% AI match score"` so the list is never empty.
+
+**Match quality — color filtering (backend):**
+- Similarity threshold raised: 0.70 → 0.78 in `/match` endpoint and both `_NOTIFY_LOSER_SQL` / `_NOTIFY_FINDER_SQL` notification helpers.
+- Added `_colors_compatible()` and `_COLOR_GROUPS` helper in `main.py`. Maps ~60 named colors into 10 hue families (red, orange, yellow, green, blue, purple, brown, white, black, gray). After SQL match, applies post-filter: if both items have recognized non-neutral colors that share no hue group in common, the match is rejected regardless of embedding score. Key behaviors: navy + silver → rejected (blue group vs gray group); navy + dark blue → allowed (both blue); silver + black → allowed (gray group is "neutral," pairs with anything); unrecognized/empty colors → match allowed (fail open).
+- **Important:** empty `loser_colors` (loser didn't mention color) short-circuits the filter — the condition is `loser_colors AND finder_colors AND not compatible`, so empty loser colors always passes. Confirmed via live test: "portable reading light" (no color) correctly matched "portable book/reading light" (black) at 94.9%.
+
+---
 
 ### Phase 12b — March 9, 2026
 
@@ -269,8 +292,6 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 **SMS debugging:** Traced the full SMS failure path. Twilio `messages.create()` was reaching the API but carriers were blocking delivery with error `30034` (A2P 10DLC compliance). OTP works because Twilio Verify bypasses carrier registration requirements. Regular messaging (`_sms()`) requires A2P registration. User submitted A2P 10DLC campaign registration (Brand: LOFO AI, Sole Proprietor) — pending carrier approval (2–3 weeks). No code changes needed once approved.
 
 ---
-
-## Session History
 
 ### Phase 12a — March 7, 2026
 
@@ -441,4 +462,4 @@ Foundation → AI ingestion → matching engine → security → UI → API wiri
 
 ---
 
-*Built with Cursor + Claude. Zero prior coding experience. March 5–7, 2026.*
+*Built with Cursor + Claude. Zero prior coding experience. March 5–9, 2026.*
