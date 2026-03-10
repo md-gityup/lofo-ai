@@ -758,6 +758,134 @@
     border-radius: 0;
     display: block;
   }
+  /* Tappable thumb hint — subtle ring pulse */
+  .item-thumb.tappable {
+    box-shadow: 0 0 0 2px var(--navy);
+    animation: thumbPulse 2.2s ease-in-out infinite;
+  }
+  .item-thumb.tappable::after {
+    content: '🔍';
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    font-size: 12px;
+    background: var(--navy);
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+  }
+  .match-card { position: relative; }
+  @keyframes thumbPulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(26,26,46,0.6); }
+    50%       { box-shadow: 0 0 0 4px rgba(26,26,46,0.15); }
+  }
+  /* ── PHOTO LIGHTBOX ── */
+  .photo-lightbox {
+    position: absolute;
+    inset: 0;
+    z-index: 800;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  .photo-lightbox.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 8, 18, 0.94);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .lightbox-sheet {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.48s cubic-bezier(0.34, 1.28, 0.64, 1);
+    border-radius: 28px 28px 0 0;
+    overflow: hidden;
+  }
+  .photo-lightbox.open .lightbox-sheet {
+    transform: translateY(0);
+  }
+  .lightbox-photo-wrap {
+    position: relative;
+    width: 100%;
+    height: 440px;
+    background: #111;
+    flex-shrink: 0;
+  }
+  .lightbox-photo-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .lightbox-close-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 50%;
+    color: rgba(255,255,255,0.75);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+    z-index: 2;
+  }
+  .lightbox-close-btn:active { opacity: 0.6; transform: scale(0.92); }
+  .lightbox-body {
+    background: var(--cream);
+    padding: 22px 28px 44px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .lightbox-eyebrow {
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .lightbox-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    color: var(--navy);
+    line-height: 1.1;
+    letter-spacing: -0.3px;
+    margin-bottom: 22px;
+  }
+  .lightbox-title em { font-style: italic; color: var(--rust); }
+  .lightbox-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .lightbox-btns .btn-full { margin-top: 0; }
+  .lightbox-btns .ghost-btn { color: var(--muted); }
+
   /* Large photo preview on confirmed screen */
   #confirmed-photo-wrap {
     display: none;
@@ -2039,6 +2167,27 @@
   </div>
 
   <!-- ═══════════════════════════════════════
+       PHOTO LIGHTBOX (above all screens)
+  ═══════════════════════════════════════ -->
+  <div class="photo-lightbox" id="photo-lightbox">
+    <div class="lightbox-backdrop" onclick="closeLightbox()"></div>
+    <div class="lightbox-sheet">
+      <div class="lightbox-photo-wrap">
+        <img id="lightbox-img" src="" alt="Found item photo">
+        <button class="lightbox-close-btn" onclick="closeLightbox()">✕</button>
+      </div>
+      <div class="lightbox-body">
+        <div class="lightbox-eyebrow" id="lightbox-eyebrow">Found nearby</div>
+        <div class="lightbox-title" id="lightbox-title">Is this <em>yours?</em></div>
+        <div class="lightbox-btns">
+          <button class="btn-full" id="lightbox-claim-btn">That's mine →</button>
+          <button class="ghost-btn" onclick="closeLightbox(); rejectMatch()">Not mine</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
        SCREEN 1: HOME
   ═══════════════════════════════════════ -->
   <div class="screen active" id="screen-home">
@@ -2826,8 +2975,14 @@
           if (matchThumb) {
             if (m.photo_url) {
               matchThumb.innerHTML = `<img src="${m.photo_url}" alt="Found item">`;
+              matchThumb.classList.add('tappable');
+              matchThumb.style.cursor = 'pointer';
+              matchThumb.onclick = () => openLightbox();
             } else {
               matchThumb.textContent = itemEmoji(m.item_type);
+              matchThumb.classList.remove('tappable');
+              matchThumb.style.cursor = '';
+              matchThumb.onclick = null;
             }
           }
           document.querySelector('#screen-match .item-name').textContent  = label + ((m.color||[]).length ? ' — ' + m.color.join(', ') : '');
@@ -3270,6 +3425,47 @@
     if (t.includes('umbrella'))                                              return '☂️';
     if (t.includes('book'))                                                  return '📚';
     return '📦';
+  }
+
+  // ── Photo lightbox ──
+  function openLightbox() {
+    const m = state.matchedItem;
+    if (!m?.photo_url) return;
+
+    const lb       = document.getElementById('photo-lightbox');
+    const img      = document.getElementById('lightbox-img');
+    const eyebrow  = document.getElementById('lightbox-eyebrow');
+    const title    = document.getElementById('lightbox-title');
+    const claimBtn = document.getElementById('lightbox-claim-btn');
+
+    img.src = m.photo_url;
+
+    // Eyebrow: distance + time if available
+    const distText = m.distance_miles != null
+      ? (m.distance_miles < 0.1 ? 'Same area' : `${m.distance_miles} mi away`)
+      : null;
+    const timeText = m.created_at ? timeAgo(m.created_at) : null;
+    const parts = [distText, timeText ? `found ${timeText}` : null].filter(Boolean);
+    eyebrow.textContent = parts.length ? '📍 ' + parts.join(' · ') : 'Found nearby';
+
+    // Title: item label
+    const label = cleanType(m.item_type || 'item');
+    title.innerHTML = `Is this <em>your ${label}?</em>`;
+
+    // Claim button wires to the same logic as the main CTA
+    const hasSecret = m.has_secret ?? false;
+    claimBtn.onclick = () => {
+      closeLightbox();
+      if (hasSecret) go('ownership-verify');
+      else go('confirmed');
+    };
+
+    lb.classList.add('open');
+    if (navigator.vibrate) navigator.vibrate(8);
+  }
+
+  function closeLightbox() {
+    document.getElementById('photo-lightbox').classList.remove('open');
   }
 
   // ── Init stagger on home + wire OTP inputs ──
