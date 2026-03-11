@@ -12,7 +12,9 @@
   --bg: #1a2332; --bg2: #1e2d3d; --bg3: #1a2d2a;
   --card: rgba(255,255,255,0.05); --card2: rgba(255,255,255,0.03);
   --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.05);
-  --green: #34D399; --gdim: rgba(52,211,153,0.15); --gbright: rgba(52,211,153,0.25);
+  /* Primary accent: blue */
+  --accent: #60A5FA; --adim: rgba(96,165,250,0.15); --abright: rgba(96,165,250,0.28);
+  --green: #34D399; --gdim: rgba(52,211,153,0.15);
   --yellow: #F59E0B; --ydim: rgba(245,158,11,0.15);
   --red: #FF6B6B; --rdim: rgba(255,107,107,0.15);
   --blue: #60A5FA; --bdim: rgba(96,165,250,0.15);
@@ -28,8 +30,7 @@ body {
 
 /* ── Login ── */
 #login-view {
-  min-height: 100vh; display: flex; align-items: center; justify-content: center;
-  padding: 24px;
+  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
 }
 .login-card {
   width: 100%; max-width: 380px;
@@ -39,13 +40,13 @@ body {
 .login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
 .login-logo-icon {
   width: 40px; height: 40px; border-radius: 11px;
-  background: linear-gradient(135deg, var(--green), #059669);
+  background: linear-gradient(135deg, #4B9EF5, #1d6fd8);
   display: flex; align-items: center; justify-content: center; font-size: 20px;
 }
 .login-logo-text { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
 .login-badge {
   font-size: 9px; font-weight: 700; padding: 2px 8px;
-  background: var(--gdim); color: var(--green); border-radius: 20px; letter-spacing: 1.5px;
+  background: var(--adim); color: var(--accent); border-radius: 20px; letter-spacing: 1.5px;
 }
 .login-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 6px; }
 .login-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
@@ -56,11 +57,11 @@ body {
   border: 1px solid var(--border); border-radius: 10px; color: var(--text);
   font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s;
 }
-.login-field input:focus { border-color: var(--green); }
+.login-field input:focus { border-color: var(--accent); }
 .login-field input::placeholder { color: var(--muted2); }
 .login-btn {
   width: 100%; padding: 13px; margin-top: 8px;
-  background: linear-gradient(135deg, var(--green), #059669);
+  background: linear-gradient(135deg, #4B9EF5, #1d6fd8);
   border: none; border-radius: 10px; color: #fff;
   font-size: 15px; font-weight: 700; font-family: inherit;
   cursor: pointer; transition: opacity 0.2s, transform 0.1s;
@@ -77,18 +78,18 @@ header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 36px; border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 100;
-  background: rgba(26,35,50,0.9); backdrop-filter: blur(16px);
+  background: rgba(26,35,50,0.92); backdrop-filter: blur(16px);
 }
 .logo { display: flex; align-items: center; gap: 10px; }
 .logo-icon {
   width: 36px; height: 36px; border-radius: 9px;
-  background: linear-gradient(135deg, var(--green), #059669);
+  background: linear-gradient(135deg, #4B9EF5, #1d6fd8);
   display: flex; align-items: center; justify-content: center; font-size: 17px;
 }
 .logo-text { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
 .logo-badge {
   font-size: 9px; font-weight: 700; padding: 2px 8px;
-  background: var(--gdim); color: var(--green); border-radius: 20px; letter-spacing: 1.5px;
+  background: var(--adim); color: var(--accent); border-radius: 20px; letter-spacing: 1.5px;
 }
 .time-filters { display: flex; gap: 6px; }
 .time-btn {
@@ -96,14 +97,14 @@ header {
   font-size: 13px; font-weight: 600; font-family: inherit;
   background: rgba(255,255,255,0.06); color: var(--muted); transition: all 0.2s;
 }
-.time-btn.active { background: var(--gdim); color: var(--green); }
+.time-btn.active { background: var(--adim); color: var(--accent); }
 .time-btn:hover:not(.active) { background: rgba(255,255,255,0.09); color: var(--text); }
 .header-right { display: flex; align-items: center; gap: 10px; }
 .avatar {
   width: 34px; height: 34px; border-radius: 50%;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #4B9EF5, #764ba2);
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 700; color: #fff; cursor: pointer;
+  font-size: 14px; font-weight: 700; color: #fff;
 }
 .logout-btn {
   padding: 5px 14px; border-radius: 8px; border: 1px solid var(--border);
@@ -124,7 +125,10 @@ main { padding: 28px 36px; }
   padding: 20px 22px; backdrop-filter: blur(12px); position: relative; overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
 }
-.card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
+.card.clickable { cursor: pointer; }
+.card.clickable:hover { transform: translateY(-3px); box-shadow: 0 14px 36px rgba(0,0,0,0.35); }
+.card.clickable:hover .card-nav-hint { opacity: 1; }
+.card-nav-hint { font-size: 10px; color: var(--accent); opacity: 0; transition: opacity 0.2s; margin-top: 4px; font-weight: 600; }
 .card-glow {
   position: absolute; top: -30px; right: -30px;
   width: 90px; height: 90px; border-radius: 50%; opacity: 0.12; filter: blur(20px);
@@ -136,7 +140,6 @@ main { padding: 28px 36px; }
 .card-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
 .card-value { font-size: 30px; font-weight: 800; color: #fff; margin: 4px 0 5px; letter-spacing: -1px; }
 .card-sub { font-size: 12px; color: var(--muted); }
-.card-sub b { font-weight: 700; }
 
 /* Expiring alert */
 .expiring-alert {
@@ -161,8 +164,8 @@ main { padding: 28px 36px; }
   border-bottom: 2px solid transparent;
 }
 .tab-btn:hover:not(.active) { color: var(--text); }
-.tab-btn.active { color: var(--green); border-bottom-color: var(--green); }
-.tab-divider { height: 1px; background: var(--border); margin: 0; }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-divider { height: 1px; background: var(--border); }
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; min-width: 700px; }
@@ -170,6 +173,13 @@ thead th {
   font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase;
   letter-spacing: 0.5px; padding: 14px 16px 10px; text-align: left; white-space: nowrap;
 }
+thead th.sortable {
+  cursor: pointer; user-select: none; transition: color 0.15s;
+}
+thead th.sortable:hover { color: var(--text); }
+thead th.sortable.sorted { color: var(--accent); }
+.sort-icon { margin-left: 4px; font-size: 10px; opacity: 0.4; }
+.sort-icon.on { opacity: 1; color: var(--accent); }
 tbody tr { border-top: 1px solid var(--border2); transition: background 0.15s; }
 tbody tr:hover { background: rgba(255,255,255,0.025); }
 tbody td { padding: 11px 16px; font-size: 13px; vertical-align: middle; }
@@ -177,7 +187,7 @@ tbody td.muted { color: var(--muted); font-size: 12px; }
 tbody td.small { font-size: 11px; color: var(--muted); }
 .item-type { font-weight: 600; color: var(--text); text-transform: capitalize; }
 .loading-row td, .empty-row td { text-align: center; color: var(--muted); padding: 32px !important; font-size: 13px; }
-.row-inactive { opacity: 0.45; }
+.row-inactive { opacity: 0.42; }
 
 /* Pills */
 .type-pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -194,13 +204,12 @@ tbody td.small { font-size: 11px; color: var(--muted); }
 .action-btn {
   padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
   font-size: 11px; font-weight: 600; font-family: inherit;
-  cursor: pointer; transition: all 0.15s; margin-right: 4px;
-  background: transparent;
+  cursor: pointer; transition: all 0.15s; margin-right: 4px; background: transparent;
 }
 .deactivate-btn { color: var(--red); border-color: rgba(255,107,107,0.3); }
 .deactivate-btn:hover { background: var(--rdim); border-color: var(--red); }
-.extend-btn { color: var(--green); border-color: rgba(52,211,153,0.3); }
-.extend-btn:hover { background: var(--gdim); border-color: var(--green); }
+.extend-btn { color: var(--accent); border-color: rgba(96,165,250,0.3); }
+.extend-btn:hover { background: var(--adim); border-color: var(--accent); }
 
 /* Thumb */
 .thumb {
@@ -216,31 +225,28 @@ tbody td.small { font-size: 11px; color: var(--muted); }
 .debug-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
 .debug-field label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 7px; }
 .debug-field input {
-  width: 100%; padding: 10px 14px;
-  background: rgba(255,255,255,0.07); border: 1px solid var(--border);
-  border-radius: 10px; color: var(--text); font-size: 13px; font-family: 'Inter', monospace;
-  outline: none; transition: border-color 0.2s;
+  width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.07);
+  border: 1px solid var(--border); border-radius: 10px; color: var(--text);
+  font-size: 13px; font-family: 'Inter', monospace; outline: none; transition: border-color 0.2s;
 }
-.debug-field input:focus { border-color: var(--green); }
+.debug-field input:focus { border-color: var(--accent); }
 .debug-field input::placeholder { color: var(--muted2); font-size: 12px; }
 .debug-run-btn {
-  padding: 11px 28px; background: linear-gradient(135deg, var(--green), #059669);
+  padding: 11px 28px; background: linear-gradient(135deg, #4B9EF5, #1d6fd8);
   border: none; border-radius: 10px; color: #fff;
   font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
   transition: opacity 0.2s; margin-bottom: 28px;
 }
 .debug-run-btn:hover { opacity: 0.88; }
-#debug-result {}
 .verdict {
   display: inline-block; padding: 8px 20px; border-radius: 10px;
   font-size: 15px; font-weight: 800; margin-bottom: 20px; letter-spacing: -0.3px;
 }
-.verdict-yes { background: var(--gbright); color: var(--green); border: 1px solid rgba(52,211,153,0.4); }
+.verdict-yes { background: var(--abright); color: var(--accent); border: 1px solid rgba(96,165,250,0.4); }
 .verdict-no  { background: var(--rdim); color: var(--red); border: 1px solid rgba(255,107,107,0.3); }
 .debug-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
 .debug-metric {
-  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 18px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px;
 }
 .dm-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
 .dm-value { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
@@ -253,8 +259,7 @@ tbody td.small { font-size: 11px; color: var(--muted); }
 .debug-reason { font-size: 13px; color: #ffaaaa; margin-bottom: 4px; }
 .debug-items { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .debug-item-card {
-  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 18px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px;
 }
 .dic-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
 .dic-type { font-size: 17px; font-weight: 700; color: #fff; text-transform: capitalize; margin-bottom: 4px; }
@@ -318,33 +323,37 @@ tbody td.small { font-size: 11px; color: var(--muted); }
 
     <!-- Stat Cards -->
     <div class="cards-grid">
-      <div class="card">
+      <div class="card clickable" onclick="setTab('lost')" title="View lost items">
         <div class="card-glow" style="background:var(--red)"></div>
         <div class="card-icon" style="background:var(--rdim)">📦</div>
         <div class="card-label">Active Lost</div>
         <div class="card-value" id="stat-active-lost">—</div>
         <div class="card-sub">loser reports</div>
+        <div class="card-nav-hint">View lost items →</div>
       </div>
-      <div class="card">
+      <div class="card clickable" onclick="setTab('found')" title="View found items">
         <div class="card-glow" style="background:var(--blue)"></div>
         <div class="card-icon" style="background:var(--bdim)">🔍</div>
         <div class="card-label">Active Found</div>
         <div class="card-value" id="stat-active-found">—</div>
         <div class="card-sub">finder reports</div>
+        <div class="card-nav-hint">View found items →</div>
       </div>
-      <div class="card">
-        <div class="card-glow" style="background:var(--green)"></div>
-        <div class="card-icon" style="background:var(--gdim)">🤝</div>
+      <div class="card clickable" onclick="setTab('reunions')" title="View reunions">
+        <div class="card-glow" style="background:var(--accent)"></div>
+        <div class="card-icon" style="background:var(--adim)">🤝</div>
         <div class="card-label">Reunions</div>
         <div class="card-value" id="stat-reunions">—</div>
-        <div class="card-sub" id="stat-reunions-sub">relay sessions created</div>
+        <div class="card-sub" id="stat-reunions-sub">relay sessions</div>
+        <div class="card-nav-hint">View reunions →</div>
       </div>
-      <div class="card">
+      <div class="card clickable" onclick="setTab('tips')" title="View tips">
         <div class="card-glow" style="background:var(--yellow)"></div>
         <div class="card-icon" style="background:var(--ydim)">💰</div>
         <div class="card-label">Tips Collected</div>
         <div class="card-value" id="stat-tips">—</div>
         <div class="card-sub" id="stat-tips-sub">completed payments</div>
+        <div class="card-nav-hint">View tips →</div>
       </div>
     </div>
 
@@ -354,14 +363,14 @@ tbody td.small { font-size: 11px; color: var(--muted); }
     </div>
 
     <!-- Table Panel -->
-    <div class="panel">
+    <div class="panel" id="main-panel">
       <div class="panel-header">
         <div class="panel-tabs">
-          <button class="tab-btn active" data-tab="lost" onclick="setTab('lost')">Lost Items</button>
-          <button class="tab-btn" data-tab="found" onclick="setTab('found')">Found Items</button>
-          <button class="tab-btn" data-tab="reunions" onclick="setTab('reunions')">Reunions</button>
-          <button class="tab-btn" data-tab="tips" onclick="setTab('tips')">Tips</button>
-          <button class="tab-btn" data-tab="debug" onclick="setTab('debug')">Debug Matcher</button>
+          <button class="tab-btn active" data-tab="lost"     onclick="setTab('lost')">Lost Items</button>
+          <button class="tab-btn"        data-tab="found"    onclick="setTab('found')">Found Items</button>
+          <button class="tab-btn"        data-tab="reunions" onclick="setTab('reunions')">Reunions</button>
+          <button class="tab-btn"        data-tab="tips"     onclick="setTab('tips')">Tips</button>
+          <button class="tab-btn"        data-tab="debug"    onclick="setTab('debug')">Debug Matcher</button>
         </div>
       </div>
       <div class="tab-divider"></div>
@@ -369,9 +378,7 @@ tbody td.small { font-size: 11px; color: var(--muted); }
       <div class="table-wrap" id="table-container">
         <table>
           <thead id="table-head"></thead>
-          <tbody id="table-body">
-            <tr class="loading-row"><td colspan="9">Loading…</td></tr>
-          </tbody>
+          <tbody id="table-body"><tr class="loading-row"><td colspan="9">Loading…</td></tr></tbody>
         </table>
       </div>
 
@@ -397,10 +404,14 @@ tbody td.small { font-size: 11px; color: var(--muted); }
 
 <script>
 // ── State ──
-let token    = sessionStorage.getItem('lofo_admin_token');
-let username = sessionStorage.getItem('lofo_admin_user');
-let period   = 'all';
+let token     = sessionStorage.getItem('lofo_admin_token');
+let username  = sessionStorage.getItem('lofo_admin_user');
+let period    = 'all';
 let activeTab = 'lost';
+
+// Stored table data for client-side sort without refetch
+const tableData = { lost: [], found: [], reunions: [], tips: [] };
+let sortState   = { col: null, dir: 'asc' };
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
@@ -419,8 +430,8 @@ async function api(method, path, body = null) {
     const res = await fetch(path, opts);
     if (res.status === 401) { logout(); return null; }
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `HTTP ${res.status}`);
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || `HTTP ${res.status}`);
     }
     return await res.json();
   } catch (e) {
@@ -435,30 +446,25 @@ async function login() {
   const p   = document.getElementById('login-password').value;
   const btn = document.getElementById('login-btn');
   const err = document.getElementById('login-error');
-
   if (!u || !p) { err.textContent = 'Please enter username and password.'; return; }
   btn.textContent = 'Logging in…'; btn.disabled = true; err.textContent = '';
-
   try {
     const res = await fetch('/admin/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: u, password: p }),
     });
     if (res.ok) {
       const data = await res.json();
-      token    = data.token;
-      username = data.username;
+      token = data.token; username = data.username;
       sessionStorage.setItem('lofo_admin_token', token);
       sessionStorage.setItem('lofo_admin_user', username);
-      showDashboard();
-      loadAll();
+      showDashboard(); loadAll();
     } else {
       const data = await res.json().catch(() => ({}));
       err.textContent = data.detail || 'Invalid credentials.';
       btn.textContent = 'Log In'; btn.disabled = false;
     }
-  } catch (e) {
+  } catch {
     err.textContent = 'Network error — try again.';
     btn.textContent = 'Log In'; btn.disabled = false;
   }
@@ -470,21 +476,18 @@ function logout() {
   token = null; username = null;
   showLogin();
 }
-
 function showLogin() {
   document.getElementById('login-view').style.display = 'flex';
   document.getElementById('dashboard-view').style.display = 'none';
 }
-
 function showDashboard() {
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('dashboard-view').style.display = 'block';
   const u = username || '?';
   document.getElementById('greeting-name').textContent = `Hey, ${cap(u)} 👋`;
   document.getElementById('header-avatar').textContent = u[0].toUpperCase();
-  const now = new Date();
   document.getElementById('greeting-sub').textContent =
-    `Here's what's happening with LOFO right now. ${now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })}`;
+    `Here's what's happening with LOFO right now. ${new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })}`;
 }
 
 // ── Period & Tab ──
@@ -499,6 +502,8 @@ async function setTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
   activeTab = tab;
+  sortState = { col: null, dir: 'asc' }; // reset sort on tab change
+
   if (tab === 'debug') {
     document.getElementById('table-container').style.display = 'none';
     document.getElementById('debug-container').style.display = 'block';
@@ -508,6 +513,9 @@ async function setTab(tab) {
     document.getElementById('debug-container').style.display = 'none';
     await loadTab(tab);
   }
+
+  // Scroll to panel smoothly
+  document.getElementById('main-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 async function loadAll() {
@@ -518,53 +526,113 @@ async function loadAll() {
 async function loadStats() {
   const data = await api('GET', `/admin/stats?period=${period}`);
   if (!data) return;
-
   document.getElementById('stat-active-lost').textContent  = data.active_lost;
   document.getElementById('stat-active-found').textContent = data.active_found;
   document.getElementById('stat-reunions').textContent     = data.reunions;
-  document.getElementById('stat-tips').textContent =
-    data.tips_cents > 0 ? `$${(data.tips_cents / 100).toFixed(2)}` : '$0';
-
-  const periodLabel = { today: 'today', week: 'this week', month: 'this month', all: 'all time' }[period] || '';
-  document.getElementById('stat-reunions-sub').textContent = `relay sessions ${periodLabel}`;
-  document.getElementById('stat-tips-sub').textContent     = `completed ${periodLabel}`;
-
-  const expAlert  = document.getElementById('expiring-alert');
-  const expText   = document.getElementById('expiring-text');
+  document.getElementById('stat-tips').textContent = data.tips_cents > 0 ? `$${(data.tips_cents / 100).toFixed(2)}` : '$0';
+  const lbl = { today:'today', week:'this week', month:'this month', all:'all time' }[period] || '';
+  document.getElementById('stat-reunions-sub').textContent = `relay sessions ${lbl}`;
+  document.getElementById('stat-tips-sub').textContent     = `completed ${lbl}`;
+  const al = document.getElementById('expiring-alert');
   if (data.expiring_7d > 0) {
-    expText.textContent = `${data.expiring_7d} active item${data.expiring_7d > 1 ? 's' : ''} expiring in the next 7 days`;
-    expAlert.classList.add('visible');
+    document.getElementById('expiring-text').textContent =
+      `${data.expiring_7d} active item${data.expiring_7d > 1 ? 's' : ''} expiring in the next 7 days`;
+    al.classList.add('visible');
   } else {
-    expAlert.classList.remove('visible');
+    al.classList.remove('visible');
   }
+}
+
+// ── Sort ──
+function sortBy(col) {
+  if (sortState.col === col) {
+    sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortState.col = col;
+    sortState.dir = 'asc';
+  }
+  rerenderCurrentTab();
+}
+
+function getSorted(data) {
+  const { col, dir } = sortState;
+  if (!col || !data?.length) return data;
+  return [...data].sort((a, b) => {
+    let va = a[col], vb = b[col];
+    if (Array.isArray(va)) va = va[0] ?? '';
+    if (Array.isArray(vb)) vb = vb[0] ?? '';
+    if (va == null) va = '';
+    if (vb == null) vb = '';
+    if (typeof va === 'number' && typeof vb === 'number') return dir === 'asc' ? va - vb : vb - va;
+    const cmp = String(va).toLowerCase().localeCompare(String(vb).toLowerCase());
+    return dir === 'asc' ? cmp : -cmp;
+  });
+}
+
+function si(col) {
+  // Sort indicator HTML for a given column key
+  if (sortState.col !== col) return `<span class="sort-icon">↕</span>`;
+  return `<span class="sort-icon on">${sortState.dir === 'asc' ? '↑' : '↓'}</span>`;
+}
+
+function th(label, col) {
+  const isSorted = sortState.col === col;
+  return `<th class="sortable${isSorted ? ' sorted' : ''}" onclick="sortBy('${col}')">${label} ${si(col)}</th>`;
+}
+
+function rerenderCurrentTab() {
+  const tab = activeTab;
+  if (tab === 'lost')     renderItemsBody('loser',    getSorted(tableData.lost));
+  if (tab === 'found')    renderItemsBody('finder',   getSorted(tableData.found));
+  if (tab === 'reunions') renderReunionsBody(          getSorted(tableData.reunions));
+  if (tab === 'tips')     renderTipsBody(              getSorted(tableData.tips));
+  // Re-render headers to update sort indicators
+  if (tab === 'lost' || tab === 'found') renderItemsHead(tab === 'lost' ? 'loser' : 'finder');
+  if (tab === 'reunions') renderReunionsHead();
+  if (tab === 'tips')     renderTipsHead();
 }
 
 // ── Tables ──
 async function loadTab(tab) {
   if (tab === 'debug') return;
-  const tbody = document.getElementById('table-body');
-  tbody.innerHTML = `<tr class="loading-row"><td colspan="9">Loading…</td></tr>`;
-
+  document.getElementById('table-body').innerHTML = `<tr class="loading-row"><td colspan="9">Loading…</td></tr>`;
   if (tab === 'lost')     await loadItems('loser');
   if (tab === 'found')    await loadItems('finder');
   if (tab === 'reunions') await loadReunions();
   if (tab === 'tips')     await loadTips();
 }
 
-async function loadItems(type) {
-  const data = await api('GET', `/admin/items?type=${type}&period=${period}`);
-  const tbody = document.getElementById('table-body');
+// Items
+function renderItemsHead(type) {
   const thead = document.getElementById('table-head');
-
-  if (!data) { tbody.innerHTML = `<tr class="empty-row"><td colspan="9">Failed to load.</td></tr>`; return; }
-  if (data.length === 0) { tbody.innerHTML = `<tr class="empty-row"><td colspan="9">No items found for this period.</td></tr>`; return; }
-
   if (type === 'loser') {
-    thead.innerHTML = `<tr><th>Item</th><th>Description</th><th>Features</th><th>Location</th><th>Reported</th><th>Expires</th><th>Status</th><th>Phone</th><th>Actions</th></tr>`;
+    thead.innerHTML = `<tr>
+      ${th('Item','item_type')}${th('Description','material')}${th('Features','features')}
+      ${th('Location','latitude')}${th('Reported','created_at')}${th('Expires','expires_at')}
+      ${th('Status','status')}${th('Phone','phone')}
+      <th>Actions</th>
+    </tr>`;
+  } else {
+    thead.innerHTML = `<tr>
+      ${th('Item','item_type')}${th('Description','material')}
+      <th>Photo</th>${th('Location','latitude')}${th('Found','created_at')}
+      ${th('Expires','expires_at')}${th('Status','status')}${th('Payout','finder_payout_app')}
+      <th>Actions</th>
+    </tr>`;
+  }
+}
+
+function renderItemsBody(type, data) {
+  const tbody = document.getElementById('table-body');
+  if (!data || data.length === 0) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">No items found for this period.</td></tr>`;
+    return;
+  }
+  if (type === 'loser') {
     tbody.innerHTML = data.map(item => {
-      const desc = [item.color?.join('/'), item.material, item.size].filter(Boolean).join(' · ');
-      const features = (item.features || []).slice(0, 2).join(', ') || '—';
-      const loc = item.latitude ? `${(+item.latitude).toFixed(3)}, ${(+item.longitude).toFixed(3)}` : '—';
+      const desc     = [item.color?.join('/'), item.material, item.size].filter(Boolean).join(' · ');
+      const features = (item.features || []).slice(0,2).join(', ') || '—';
+      const loc      = item.latitude ? `${(+item.latitude).toFixed(3)}, ${(+item.longitude).toFixed(3)}` : '—';
       const isActive = item.status === 'active';
       return `<tr id="row-${item.id}" class="${isActive ? '' : 'row-inactive'}">
         <td class="item-type">${item.item_type || '—'}</td>
@@ -575,20 +643,17 @@ async function loadItems(type) {
         <td class="muted">${timeUntil(item.expires_at)}</td>
         <td><span class="status-pill ${statusCls(item.status)}">${item.status}</span></td>
         <td class="muted">${maskPhone(item.phone)}</td>
-        <td class="actions-cell">${isActive ? actions(item.id) : '<span class="muted">—</span>'}</td>
+        <td class="actions-cell">${isActive ? rowActions(item.id) : '<span class="muted">—</span>'}</td>
       </tr>`;
     }).join('');
   } else {
-    thead.innerHTML = `<tr><th>Item</th><th>Description</th><th>Photo</th><th>Location</th><th>Found</th><th>Expires</th><th>Status</th><th>Payout</th><th>Actions</th></tr>`;
     tbody.innerHTML = data.map(item => {
-      const desc = [item.color?.join('/'), item.material, item.size].filter(Boolean).join(' · ');
-      const loc = item.latitude ? `${(+item.latitude).toFixed(3)}, ${(+item.longitude).toFixed(3)}` : '—';
-      const photo = item.photo_url
-        ? `<img class="thumb" src="${item.photo_url}" onclick="window.open('${item.photo_url}','_blank')" title="View full photo" />`
+      const desc     = [item.color?.join('/'), item.material, item.size].filter(Boolean).join(' · ');
+      const loc      = item.latitude ? `${(+item.latitude).toFixed(3)}, ${(+item.longitude).toFixed(3)}` : '—';
+      const photo    = item.photo_url
+        ? `<img class="thumb" src="${item.photo_url}" onclick="window.open('${item.photo_url}','_blank')" />`
         : '<span class="muted">—</span>';
-      const payout = item.finder_payout_app
-        ? `${cap(item.finder_payout_app)} ${item.finder_payout_handle || ''}`
-        : '—';
+      const payout   = item.finder_payout_app ? `${cap(item.finder_payout_app)} ${item.finder_payout_handle || ''}` : '—';
       const isActive = item.status === 'active';
       return `<tr id="row-${item.id}" class="${isActive ? '' : 'row-inactive'}">
         <td class="item-type">${item.item_type || '—'}</td>
@@ -599,20 +664,31 @@ async function loadItems(type) {
         <td class="muted">${timeUntil(item.expires_at)}</td>
         <td><span class="status-pill ${statusCls(item.status)}">${item.status}</span></td>
         <td class="small">${payout}</td>
-        <td class="actions-cell">${isActive ? actions(item.id) : '<span class="muted">—</span>'}</td>
+        <td class="actions-cell">${isActive ? rowActions(item.id) : '<span class="muted">—</span>'}</td>
       </tr>`;
     }).join('');
   }
 }
 
-async function loadReunions() {
-  const data = await api('GET', `/admin/reunions?period=${period}`);
+async function loadItems(type) {
+  const tab  = type === 'loser' ? 'lost' : 'found';
+  const data = await api('GET', `/admin/items?type=${type}&period=${period}`);
+  tableData[tab] = data || [];
+  renderItemsHead(type);
+  renderItemsBody(type, getSorted(tableData[tab]));
+}
+
+// Reunions
+function renderReunionsHead() {
+  document.getElementById('table-head').innerHTML = `<tr>
+    ${th('Item','item_type')}${th('Finder','finder_phone')}${th('Owner','loser_phone')}
+    ${th('Created','created_at')}${th('Expires','expires_at')}${th('Status','status')}
+  </tr>`;
+}
+function renderReunionsBody(data) {
   const tbody = document.getElementById('table-body');
-  const thead = document.getElementById('table-head');
-  thead.innerHTML = `<tr><th>Item</th><th>Finder</th><th>Owner</th><th>Created</th><th>Expires</th><th>Status</th></tr>`;
   if (!data || data.length === 0) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${!data ? 'Failed to load.' : 'No reunions found.'}</td></tr>`;
-    return;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No reunions found.</td></tr>`; return;
   }
   tbody.innerHTML = data.map(r => `<tr>
     <td class="item-type">${r.item_type || '—'}</td>
@@ -623,15 +699,24 @@ async function loadReunions() {
     <td><span class="status-pill ${r.status === 'active' ? 's-active' : 's-expired'}">${r.status}</span></td>
   </tr>`).join('');
 }
+async function loadReunions() {
+  const data = await api('GET', `/admin/reunions?period=${period}`);
+  tableData.reunions = data || [];
+  renderReunionsHead();
+  renderReunionsBody(getSorted(tableData.reunions));
+}
 
-async function loadTips() {
-  const data = await api('GET', `/admin/tips?period=${period}`);
+// Tips
+function renderTipsHead() {
+  document.getElementById('table-head').innerHTML = `<tr>
+    ${th('Finder Item','finder_item_type')}${th('Loser Item','loser_item_type')}
+    ${th('Amount','amount_cents')}${th('Status','status')}${th('Date','created_at')}
+  </tr>`;
+}
+function renderTipsBody(data) {
   const tbody = document.getElementById('table-body');
-  const thead = document.getElementById('table-head');
-  thead.innerHTML = `<tr><th>Finder Item</th><th>Loser Item</th><th>Amount</th><th>Status</th><th>Date</th></tr>`;
   if (!data || data.length === 0) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">${!data ? 'Failed to load.' : 'No tips found.'}</td></tr>`;
-    return;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No tips found.</td></tr>`; return;
   }
   tbody.innerHTML = data.map(t => `<tr>
     <td class="small">${t.finder_item_type || t.finder_item_id?.substring(0,8) + '…' || '—'}</td>
@@ -640,6 +725,12 @@ async function loadTips() {
     <td><span class="status-pill ${t.status === 'completed' ? 's-active' : 's-pending'}">${t.status}</span></td>
     <td class="muted">${timeAgo(t.created_at)}</td>
   </tr>`).join('');
+}
+async function loadTips() {
+  const data = await api('GET', `/admin/tips?period=${period}`);
+  tableData.tips = data || [];
+  renderTipsHead();
+  renderTipsBody(getSorted(tableData.tips));
 }
 
 // ── Actions ──
@@ -650,85 +741,78 @@ async function deactivateItem(id) {
     const row = document.getElementById(`row-${id}`);
     if (row) {
       row.classList.add('row-inactive');
-      row.querySelector('.status-pill').className = 'status-pill s-inactive';
-      row.querySelector('.status-pill').textContent = 'inactive';
+      const sp = row.querySelector('.status-pill');
+      if (sp) { sp.className = 'status-pill s-inactive'; sp.textContent = 'inactive'; }
       row.querySelector('.actions-cell').innerHTML = '<span class="muted">—</span>';
     }
   }
 }
-
 async function extendItem(id) {
   const res = await api('PATCH', `/admin/items/${id}/extend`);
-  if (res?.ok) {
-    await loadTab(activeTab);
-  }
+  if (res?.ok) await loadTab(activeTab);
 }
-
-function actions(id) {
+function rowActions(id) {
   return `<button class="action-btn deactivate-btn" onclick="deactivateItem('${id}')">Deactivate</button><button class="action-btn extend-btn" onclick="extendItem('${id}')">+30d</button>`;
 }
 
 // ── Debug Matcher ──
 async function runDebug() {
-  const a = document.getElementById('debug-id-a').value.trim();
-  const b = document.getElementById('debug-id-b').value.trim();
-  const result = document.getElementById('debug-result');
-  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const a   = document.getElementById('debug-id-a').value.trim();
+  const b   = document.getElementById('debug-id-b').value.trim();
+  const out = document.getElementById('debug-result');
+  const re  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  if (!a || !b) { result.innerHTML = `<p class="debug-error">Please enter both item IDs.</p>`; return; }
-  if (!uuidRe.test(a) || !uuidRe.test(b)) { result.innerHTML = `<p class="debug-error">IDs must be valid UUIDs (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).</p>`; return; }
+  if (!a || !b)              { out.innerHTML = `<p class="debug-error">Please enter both item IDs.</p>`; return; }
+  if (!re.test(a)||!re.test(b)) { out.innerHTML = `<p class="debug-error">IDs must be valid UUIDs.</p>`; return; }
 
-  result.innerHTML = `<p class="muted">Running…</p>`;
+  out.innerHTML = `<p class="muted">Running…</p>`;
   const data = await api('POST', '/admin/debug/match', { item_a_id: a, item_b_id: b });
-  if (!data) { result.innerHTML = `<p class="debug-error">Request failed — check item IDs exist.</p>`; return; }
+  if (!data) { out.innerHTML = `<p class="debug-error">Request failed — check IDs exist in the DB.</p>`; return; }
 
-  const scoreColor = (data.similarity_score ?? 0) >= 0.78 ? 'var(--green)' : 'var(--red)';
-  const colorColor = data.colors_compatible ? 'var(--green)' : 'var(--red)';
-  const distColor  = data.within_radius ? 'var(--green)' : 'var(--red)';
-  const scoreDisplay = data.similarity_score != null ? data.similarity_score.toFixed(4) : 'N/A';
-  const distDisplay  = data.distance_miles  != null ? `${data.distance_miles} mi` : 'N/A (no GPS)';
+  const sc = (data.similarity_score ?? 0) >= 0.78 ? 'var(--accent)' : 'var(--red)';
+  const cc = data.colors_compatible ? 'var(--green)' : 'var(--red)';
+  const dc = data.within_radius     ? 'var(--green)' : 'var(--red)';
+  const aColors = (data.a_color_groups||[]).map(g=>`${g.color} (${g.group_name})`).join(', ')||'—';
+  const bColors = (data.b_color_groups||[]).map(g=>`${g.color} (${g.group_name})`).join(', ')||'—';
 
-  const aColorStr = (data.a_color_groups || []).map(g => `${g.color} (${g.group_name})`).join(', ') || '—';
-  const bColorStr = (data.b_color_groups || []).map(g => `${g.color} (${g.group_name})`).join(', ') || '—';
-
-  result.innerHTML = `
+  out.innerHTML = `
     <div class="verdict ${data.would_match ? 'verdict-yes' : 'verdict-no'}">
       ${data.would_match ? '✓ Would Match' : '✗ Would Not Match'}
     </div>
     <div class="debug-grid">
       <div class="debug-metric">
         <div class="dm-label">Similarity Score</div>
-        <div class="dm-value" style="color:${scoreColor}">${scoreDisplay}</div>
+        <div class="dm-value" style="color:${sc}">${data.similarity_score?.toFixed(4) ?? 'N/A'}</div>
         <div class="dm-sub">Threshold: 0.78 &nbsp;${data.would_pass_threshold ? '✓ passes' : '✗ fails'}</div>
       </div>
       <div class="debug-metric">
         <div class="dm-label">Color Compatibility</div>
-        <div class="dm-value" style="color:${colorColor};font-size:16px">${data.colors_compatible ? 'Compatible' : 'Incompatible'}</div>
-        <div class="dm-sub">A: ${aColorStr}</div>
-        <div class="dm-sub" style="margin-top:2px">B: ${bColorStr}</div>
+        <div class="dm-value" style="color:${cc};font-size:16px">${data.colors_compatible ? 'Compatible' : 'Incompatible'}</div>
+        <div class="dm-sub">A: ${aColors}</div>
+        <div class="dm-sub" style="margin-top:2px">B: ${bColors}</div>
       </div>
       <div class="debug-metric">
         <div class="dm-label">Distance</div>
-        <div class="dm-value" style="color:${distColor}">${distDisplay}</div>
+        <div class="dm-value" style="color:${dc}">${data.distance_miles != null ? data.distance_miles + ' mi' : 'N/A'}</div>
         <div class="dm-sub">Radius: 10 mi &nbsp;${data.within_radius ? '✓ within' : '✗ too far'}</div>
       </div>
     </div>
-    ${data.block_reasons.length > 0 ? `
+    ${data.block_reasons.length ? `
       <div class="debug-reasons">
         <div class="debug-reasons-title">Why it wouldn't match</div>
-        ${data.block_reasons.map(r => `<div class="debug-reason">• ${r}</div>`).join('')}
+        ${data.block_reasons.map(r=>`<div class="debug-reason">• ${r}</div>`).join('')}
       </div>` : ''}
     <div class="debug-items">
       <div class="debug-item-card">
-        <div class="dic-label">Item A &nbsp;<span class="type-pill ${data.item_a.type === 'finder' ? 'type-found' : 'type-lost'}">${data.item_a.type}</span></div>
-        <div class="dic-type">${data.item_a.item_type || '—'}</div>
-        <div class="dic-attr">${(data.item_a.color || []).join(', ')} ${data.item_a.material ? '· ' + data.item_a.material : ''}</div>
+        <div class="dic-label">Item A &nbsp;<span class="type-pill ${data.item_a.type==='finder'?'type-found':'type-lost'}">${data.item_a.type}</span></div>
+        <div class="dic-type">${data.item_a.item_type||'—'}</div>
+        <div class="dic-attr">${(data.item_a.color||[]).join(', ')}${data.item_a.material?' · '+data.item_a.material:''}</div>
         <div class="dic-id muted">${data.item_a.id}</div>
       </div>
       <div class="debug-item-card">
-        <div class="dic-label">Item B &nbsp;<span class="type-pill ${data.item_b.type === 'finder' ? 'type-found' : 'type-lost'}">${data.item_b.type}</span></div>
-        <div class="dic-type">${data.item_b.item_type || '—'}</div>
-        <div class="dic-attr">${(data.item_b.color || []).join(', ')} ${data.item_b.material ? '· ' + data.item_b.material : ''}</div>
+        <div class="dic-label">Item B &nbsp;<span class="type-pill ${data.item_b.type==='finder'?'type-found':'type-lost'}">${data.item_b.type}</span></div>
+        <div class="dic-type">${data.item_b.item_type||'—'}</div>
+        <div class="dic-attr">${(data.item_b.color||[]).join(', ')}${data.item_b.material?' · '+data.item_b.material:''}</div>
         <div class="dic-id muted">${data.item_b.id}</div>
       </div>
     </div>`;
@@ -738,39 +822,30 @@ async function runDebug() {
 function timeAgo(iso) {
   if (!iso) return '—';
   const ms = Date.now() - new Date(iso);
-  const m = Math.floor(ms / 60000);
+  const m = Math.floor(ms/60000);
   if (m < 1)  return 'just now';
   if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
+  const h = Math.floor(m/60);
   if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
+  const d = Math.floor(h/24);
   if (d < 30) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 }
-
 function timeUntil(iso) {
   if (!iso) return '—';
   const ms = new Date(iso) - Date.now();
   if (ms <= 0) return 'expired';
-  const d = Math.floor(ms / 86400000);
-  if (d === 0) return 'today';
-  if (d === 1) return '1d';
-  return `${d}d`;
+  const d = Math.floor(ms/86400000);
+  if (d === 0) return 'today'; if (d === 1) return '1d'; return `${d}d`;
 }
-
 function maskPhone(p) {
   if (!p) return '—';
-  const d = p.replace(/\D/g, '');
-  if (d.length >= 10) return `+1 ••• ••• ${d.slice(-4)}`;
-  return '••••';
+  const d = p.replace(/\D/g,'');
+  return d.length >= 10 ? `+1 ••• ••• ${d.slice(-4)}` : '••••';
 }
-
 function statusCls(s) {
-  if (s === 'active')   return 's-active';
-  if (s === 'inactive') return 's-inactive';
-  return 's-expired';
+  return s==='active' ? 's-active' : s==='inactive' ? 's-inactive' : 's-expired';
 }
-
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
 </script>
 </body>
