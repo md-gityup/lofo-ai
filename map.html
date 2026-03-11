@@ -366,7 +366,7 @@ async function loadPins() {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000); // 20s per attempt
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30s per attempt (Railway cold start ~20-30s)
 
     if (_retryCount === 0 && lt) lt.textContent = 'Loading map data…';
 
