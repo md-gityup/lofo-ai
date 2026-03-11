@@ -359,19 +359,47 @@ function initMap() {
 
 // ── Load data ──
 async function loadPins() {
+  // Show "waking up" hint if Railway cold-starts (takes 20-40s)
+  const wakeTimer = setTimeout(() => {
+    const lt = document.querySelector('.loading-text');
+    if (lt) lt.textContent = 'Server waking up — can take ~30s on cold start…';
+  }, 5000);
+
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000); // 60s hard timeout
+
     const res = await fetch('/admin/map-pins', {
       headers: { 'Authorization': `Bearer ${token}` },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
+    clearTimeout(wakeTimer);
+
     if (res.status === 401) { window.location.href = '/admin'; return; }
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
     const data = await res.json();
     allPins = data.pins || [];
-
     renderPins(allPins);
     updateUI(data);
   } catch (e) {
+    clearTimeout(wakeTimer);
     console.error('Map load error:', e);
-    document.querySelector('.loading-text').textContent = 'Failed to load map data.';
+    const msg = e.name === 'AbortError' ? 'Request timed out.' : e.message;
+    document.getElementById('map-loading').innerHTML = `
+      <div style="text-align:center;font-family:'DM Sans',sans-serif;padding:32px;max-width:320px">
+        <div style="font-size:36px;margin-bottom:14px">⚠️</div>
+        <div style="font-size:16px;font-weight:700;color:#e8f0f0;margin-bottom:6px">Couldn't load map</div>
+        <div style="font-size:13px;color:#6b9090;margin-bottom:24px">${msg} — Railway may still be starting up.</div>
+        <button onclick="location.reload()" style="
+          padding:11px 28px;background:linear-gradient(135deg,#4B9EF5,#1d6fd8);
+          border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;
+          font-family:'DM Sans',sans-serif;cursor:pointer">
+          Try Again
+        </button>
+        <div style="margin-top:14px"><a href="/admin" style="font-size:12px;color:#6b9090;text-decoration:none">← Back to Admin</a></div>
+      </div>`;
   }
 }
 
@@ -515,7 +543,7 @@ function clusterIcon(cluster) {
 
 // ── Refresh ──
 async function refreshMap() {
-  clusters.clearLayers();
+  if (clusters) clusters.clearLayers();
   document.getElementById('mh-refresh-txt').textContent = 'Refreshing…';
   await loadPins();
 }
