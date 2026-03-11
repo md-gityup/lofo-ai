@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 11, 2026 — Phase 16 admin dashboard complete, pending deploy*
+*Last updated: March 11, 2026 — Phase 16 complete: admin dashboard + live map, deployed*
 
 ---
 
@@ -36,7 +36,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 14a — Photo Storage & Lightbox | ✅ Complete | Finder photos uploaded to Supabase Storage; `photo_url` on items; match card thumbnail + confirmed screen show real photo; tap-to-expand lightbox with spring animation and claim/reject CTAs |
 | 14b — Attribute Correction + Loser Location | ✅ Complete | Inline attribute editor on finder-done screen; `PATCH /items/{id}/attributes` re-embeds on save; loser "Where?" field geocoded via Nominatim — no new screens, 0 extra taps in happy path |
 | 15 — Loser Attribute Correction | ✅ Complete | "Looking for: wallet · brown · leather" summary line on waiting screen; "Don't like description?" expands inline edit panel; saves via `PATCH /items/{id}/attributes`, re-embeds, updates title, fires immediate re-poll |
-| 16 — Admin / Ops Dashboard | ✅ Complete | Password-protected `/admin` route; multi-user login (JWT, 24h sessions, `ADMIN_USERS` env var); 4 stat cards; time filters (Today/Week/Month/All Time); table with 5 tabs (Lost · Found · Reunions · Tips · Debug Matcher); Deactivate + Extend 30d actions; expiring-soon alert |
+| 16 — Admin / Ops Dashboard + Live Map | ✅ Complete | `/admin`: multi-user login (JWT, `ADMIN_USERS` env var), 4 stat cards, time filters, 5-tab table (Lost · Found · Reunions · Tips · Debug Matcher), Deactivate + Extend 30d actions, expiring-soon alert. `/map`: full-screen Leaflet dark map, blue finder pins, pulsing red loser pins, clustered markers, rich popups with photo/details. Both use DM Sans + DM Serif Display (same as app). |
 
 ---
 
@@ -46,6 +46,8 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 |---|---|
 | **Live API (Railway)** | `https://lofo-ai-production.up.railway.app` |
 | **Live app (GitHub Pages)** | `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html` |
+| **Admin dashboard** | `https://lofo-ai-production.up.railway.app/admin` |
+| **Live map** | `https://lofo-ai-production.up.railway.app/map` |
 | **API docs** | `https://lofo-ai-production.up.railway.app/docs` |
 | **Local API** | `http://localhost:8000` (only when uvicorn running) |
 | **Database** | Supabase (PostgreSQL + pgvector) |
@@ -78,6 +80,17 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `POST /connect/onboard` | Create Stripe Connect Express account for finder; return onboarding URL *(dormant — not used in UI)* |
 | `GET /connect/return` | Post-onboarding redirect → back to frontend *(dormant)* |
 | `GET /connect/refresh` | Re-generate expired onboarding link *(dormant)* |
+| `GET /admin` | Serves `admin.html` (protected via JWT in page) |
+| `POST /admin/login` | Validates username/password against `ADMIN_USERS` env var; returns 24h JWT |
+| `GET /admin/stats?period=` | Stat card data: active_lost, active_found, reunions, tips_cents, expiring_7d |
+| `GET /admin/items?type=&period=` | Up to 200 items with all columns (phone, payout, photo_url, etc.) |
+| `GET /admin/reunions?period=` | Reunions joined with finder item for item_type |
+| `GET /admin/tips?period=` | Tips joined with both items for item_type labels |
+| `PATCH /admin/items/{id}/deactivate` | Sets item status = 'inactive' |
+| `PATCH /admin/items/{id}/extend` | Adds 30 days to item expires_at |
+| `POST /admin/debug/match` | Takes two item UUIDs; returns similarity, color groups, distance, block reasons, would_match |
+| `GET /map` | Serves `map.html` (protected via JWT in page) |
+| `GET /admin/map-pins` | All active items with GPS coords for map; includes no_gps_count |
 
 ---
 
@@ -151,6 +164,8 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `schema.sql` | PostgreSQL table definitions |
 | `requirements.txt` | Python dependencies |
 | `LOFO_MVP.html` | 16-screen app — all live API calls, Stripe.js, GPS, Twilio OTP |
+| `admin.html` | Admin/ops dashboard — login, stat cards, tables, debug matcher |
+| `map.html` | Full-screen live map — Leaflet, CartoDB dark tiles, clustered pins |
 | `security.py` | Argon2id hashing + JWT handoff token logic |
 | `.env` | API keys — never share, never commit |
 
@@ -165,7 +180,13 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | Twilio console | console.twilio.com |
 | All API keys | `.env` on local machine only |
 
-**Railway environment variables:** `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `TWILIO_VERIFY_SID`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`
+**Railway environment variables:** `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `TWILIO_VERIFY_SID`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `ADMIN_USERS`
+
+**`ADMIN_USERS` format** (JSON string in Railway Variables):
+```
+{"marc": "yourpassword", "alice": "herpassword"}
+```
+Add/remove users by editing this variable and redeploying. No code changes needed.
 
 ---
 
@@ -225,32 +246,26 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 16
+## What's Next: Phase 17+
 
-**Phase 15 + UX polish complete.**
+**Phase 16 complete and deployed.** Admin dashboard + live map both live.
 
-### Admin Dashboard — Complete (Phase 16)
+### Pre-Launch Requirements
 
-`admin.html` served at `/admin`. Multi-user auth via `ADMIN_USERS` env var (Railway).
+- **Twilio A2P 10DLC registration:** Submitted March 9, 2026. Must be approved before SMS relay/notifications work for real users. Status: *In progress — approval expected mid-to-late March 2026.* Once approved, `+15175136672` will send to any US number without carrier filtering. No code changes needed.
 
-**Setup required:** Add `ADMIN_USERS` to Railway environment variables as JSON:
-```
-{"marc": "yourpassword", "alice": "herpassword"}
-```
+### Candidates for Phase 17
 
-**What's built:** 4 stat cards (active lost/found, reunions, tips) · time filters (Today/Week/Month/All Time) · 5-tab table (Lost Items · Found Items · Reunions · Tips · Debug Matcher) · Deactivate + Extend 30d item actions · expiring-soon alert · masked phone numbers · photo thumbnails inline.
+- **Item lifecycle UI (user-facing)** — items expire at 30 days but users have no way to close or extend a report themselves. A simple "Mark as returned" or "Still looking — extend 30 days" action reachable via a link in the SMS notification. Low effort, high trust value.
+- **Loser location post-submit correction** — `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact. Small backend + small UI addition.
+- **Map in app flow** — Leaflet pin-drop screen in the loser flow between `screen-lost-prompt` and submission, for users who type vague locations ("somewhere near downtown"). Would improve geocoding accuracy. Medium effort.
+- **Admin map enhancements** — filter map pins by time period (matching the dashboard's time filter), draw a 10-mile radius circle around a selected pin to visualize the match zone, show a line between matched finder+loser pairs.
+- **Railway keep-alive** — the free Railway tier sleeps after inactivity, causing 30s cold starts. Options: upgrade to paid ($5/mo), add a cron job pinging the health endpoint every 10 min, or add a `GET /health` endpoint and use an external uptime monitor (UptimeRobot free tier).
 
-**Debug Matcher:** Paste two item IDs → see similarity score, color compatibility breakdown, distance, and block reasons.
+### Known Intentional Limitations
 
-### Other Candidates for Phase 16+
-
-- **Map pin (location upgrade)** — Leaflet.js map pin screen between `screen-lost-prompt` and submission for vague locations ("somewhere near downtown"). No API key needed. Medium effort, medium value.
-- **Item lifecycle UI** — items expire at 30 days but there's no way for a user to manually close or extend a report. Simple "Mark as found" or "Still looking — extend 30 days" action on a status screen.
-- **Loser location post-submit correction** — add `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact.
-
-## Pre-Launch Requirements
-
-- **Twilio A2P 10DLC registration:** Campaign submitted and under review (submitted March 9, 2026). Must be approved before SMS relay/notifications work for real users. Status: *In progress — 2–3 weeks*. Once approved, `+15175136672` will send to any US number without carrier filtering. No code changes needed.
+- Finder payout is manual — tips land in LOFO's Stripe balance; admin must look up `finder_payout_handle` in DB and send payment manually. Stripe Connect (dormant code in `main.py`) is the long-term fix but requires business verification.
+- Admin users are plaintext passwords in an env var. Fine for a personal ops tool, but should be hashed if more people get access.
 
 ---
 
@@ -258,18 +273,20 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–15 + UX polish):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Phase 15 added loser attribute correction on the waiting screen. UX polish this session: copy cleanup (loading states, photo review label), camera screen now shows city/state/zip from reverse geocode instead of "Location acquired", Dynamic Island removed from camera (one location indicator), attr section layout fixes.
+> **What's complete and deployed (Phases 1–16):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working.
+>
+> **Phase 16 (this session):** Admin/ops dashboard at `/admin` — multi-user login (ADMIN_USERS env var), 4 stat cards, time filters, 5-tab table (Lost · Found · Reunions · Tips · Debug Matcher), Deactivate + Extend 30d actions, expiring-soon alert. Live map at `/map` — full-screen Leaflet, CartoDB dark tiles, blue finder pins, pulsing red loser pins, clustered markers, rich popups with photo/attributes/GPS. Both use DM Sans + DM Serif Display (matching the main app font).
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
 >
-> **Frontend:** `LOFO_MVP.html` — 16 screens.
+> **Frontend:** `LOFO_MVP.html` (16-screen user app), `admin.html` (ops dashboard), `map.html` (live map).
 >
 > **DB schema:** `items` (includes `photo_url`), `tips`, `reunions`.
 >
-> **SMS relay:** Code-complete, pending Twilio A2P 10DLC approval (submitted March 9, 2026 — 2–3 weeks).
+> **SMS relay:** Code-complete, pending Twilio A2P 10DLC approval (submitted March 9, 2026 — expected mid-to-late March).
 >
-> **Today's goal: brainstorm and build the admin/ops dashboard.** Read the 'What's Next: Phase 16' section in the progress doc before starting. The user has ideas to share — discuss before building.
+> **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 17+' section in the progress doc before starting.
 >
 > Start by reading `main.py` and `LOFO_AI_Progress.md`, then discuss before building."
 
@@ -300,15 +317,27 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 **Frontend (`admin.html`):**
 - Login screen: username + password → POST `/admin/login` → JWT stored in `sessionStorage`
-- Header: LOFO logo + ADMIN badge, time filters, avatar initial, logout button
+- Header: LOFO logo + ADMIN badge, time filters, avatar initial, logout button, "🗺 Live Map" link
 - Greeting with current date
-- 4 stat cards (red/blue/green/yellow), all live from `/admin/stats`
+- 4 stat cards (red/blue/green/yellow), all live from `/admin/stats`; clicking a card jumps to the corresponding table tab
 - Orange expiring-soon alert bar (appears when expiring_7d > 0)
 - 5-tab panel: Lost Items · Found Items · Reunions · Tips · Debug Matcher
+- Sortable column headers (click to toggle ↑/↓) — client-side, sort state resets on tab change
 - Time filters update both stat cards and table simultaneously
 - Photo thumbnails (click to open full size), masked phones (+1 ••• ••• 1234)
 - Deactivate: confirms, updates row in place; Extend: refreshes table
 - Debug panel: UUID inputs → match verdict card + 3 metric tiles + color breakdown + block reasons + item cards
+- Accent color: `#60A5FA` blue (matches app); semantic status pills (active green / inactive red) unchanged
+- Fonts: DM Sans body, DM Serif Display for "LOFO" branding (same as main app)
+
+**Live Map (`map.html`) — Phase 16 addition:**
+- Full-screen Leaflet map, CartoDB Dark Matter tiles (no API key needed)
+- Two marker styles: blue circle pins (finders) + pulsing red pins (losers)
+- Leaflet.MarkerCluster for density management
+- Popups: photo thumbnail (if present), item type badge, attributes, GPS coords, created date, item ID
+- Floating header (LOFO branding + "Live Map" label), floating legend, item count badge
+- Admin auth: reads JWT from `sessionStorage`, redirects to `/admin` if missing/expired
+- Cold-start handling: 5s `wakeTimer` shows "Server waking up…" message; 60s `AbortController` hard timeout; on failure shows error message + "Try Again" button + "← Back to Admin" link
 
 ---
 
