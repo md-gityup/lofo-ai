@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>LOFO Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -23,7 +23,7 @@
   --text: #e8f0f0; --muted: #6b9090; --muted2: #4a7070;
 }
 body {
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: 'DM Sans', -apple-system, sans-serif;
   background: linear-gradient(135deg, var(--bg) 0%, var(--bg2) 60%, var(--bg3) 100%);
   min-height: 100vh; color: var(--text);
 }
@@ -38,12 +38,7 @@ body {
   border-radius: 20px; padding: 40px 36px; backdrop-filter: blur(16px);
 }
 .login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
-.login-logo-icon {
-  width: 40px; height: 40px; border-radius: 11px;
-  background: linear-gradient(135deg, #4B9EF5, #1d6fd8);
-  display: flex; align-items: center; justify-content: center; font-size: 20px;
-}
-.login-logo-text { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
+.login-logo-text { font-family: 'DM Serif Display', serif; font-size: 28px; font-weight: 400; letter-spacing: 0.5px; color: #fff; }
 .login-badge {
   font-size: 9px; font-weight: 700; padding: 2px 8px;
   background: var(--adim); color: var(--accent); border-radius: 20px; letter-spacing: 1.5px;
@@ -81,12 +76,7 @@ header {
   background: rgba(26,35,50,0.92); backdrop-filter: blur(16px);
 }
 .logo { display: flex; align-items: center; gap: 10px; }
-.logo-icon {
-  width: 36px; height: 36px; border-radius: 9px;
-  background: linear-gradient(135deg, #4B9EF5, #1d6fd8);
-  display: flex; align-items: center; justify-content: center; font-size: 17px;
-}
-.logo-text { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
+.logo-text { font-family: 'DM Serif Display', serif; font-size: 24px; font-weight: 400; letter-spacing: 0.5px; color: #fff; }
 .logo-badge {
   font-size: 9px; font-weight: 700; padding: 2px 8px;
   background: var(--adim); color: var(--accent); border-radius: 20px; letter-spacing: 1.5px;
@@ -233,7 +223,7 @@ tbody td.small { font-size: 11px; color: var(--muted); }
 .debug-field input {
   width: 100%; padding: 10px 14px; background: rgba(255,255,255,0.07);
   border: 1px solid var(--border); border-radius: 10px; color: var(--text);
-  font-size: 13px; font-family: 'Inter', monospace; outline: none; transition: border-color 0.2s;
+  font-size: 13px; font-family: 'DM Sans', monospace; outline: none; transition: border-color 0.2s;
 }
 .debug-field input:focus { border-color: var(--accent); }
 .debug-field input::placeholder { color: var(--muted2); font-size: 12px; }
@@ -280,7 +270,6 @@ tbody td.small { font-size: 11px; color: var(--muted); }
 <div id="login-view">
   <div class="login-card">
     <div class="login-logo">
-      <div class="login-logo-icon">🔍</div>
       <span class="login-logo-text">LOFO</span>
       <span class="login-badge">ADMIN</span>
     </div>
@@ -305,7 +294,6 @@ tbody td.small { font-size: 11px; color: var(--muted); }
 <div id="dashboard-view">
   <header>
     <div class="logo">
-      <div class="logo-icon">🔍</div>
       <span class="logo-text">LOFO</span>
       <span class="logo-badge">ADMIN</span>
     </div>
