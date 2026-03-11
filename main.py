@@ -1,11 +1,12 @@
-from fastapi import FastAPI, Form, HTTPException, File, UploadFile, Request, Query
+from fastapi import FastAPI, Form, HTTPException, File, UploadFile, Request, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from pydantic import BaseModel, field_validator
 import os
 import re
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import math
 import uuid
 import base64
 import json
@@ -739,6 +740,7 @@ _COLOR_GROUPS: list[set[str]] = [
     {"gray", "grey", "silver", "graphite", "stone", "ash"},
 ]
 _NEUTRAL_GROUPS: set[int] = {7, 8, 9}  # white/black/gray groups — neutrals can pair with anything
+_COLOR_GROUP_NAMES = ["red", "orange", "yellow", "green", "blue", "purple", "brown", "white", "black", "gray"]
 
 
 def _color_group(color: str) -> int | None:
@@ -1352,3 +1354,290 @@ def validate_handoff_token(body: HandoffValidateRequest):
         raise HTTPException(status_code=409, detail="Handoff token has already been used")
 
     return {"valid": True, "item_id": item_id}
+
+
+# --------------------------------------------------------------------------- #
+# Admin / Ops Dashboard                                                        #
+# --------------------------------------------------------------------------- #
+
+# Parse ADMIN_USERS env var: JSON dict of {"username": "password"}
+_ADMIN_USERS: dict = {}
+try:
+    _ADMIN_USERS = json.loads(os.getenv("ADMIN_USERS", "{}"))
+except Exception as _e:
+    print(f"[LOFO admin] ADMIN_USERS parse error: {_e}")
+
+
+def _create_admin_token(username: str) -> str:
+    payload = {
+        "sub": username,
+        "role": "admin",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, os.getenv("JWT_SECRET", "dev-secret"), algorithm="HS256")
+
+
+def _verify_admin(request: Request):
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+    token = auth[7:]
+    try:
+        payload = jwt.decode(token, os.getenv("JWT_SECRET", "dev-secret"), algorithms=["HS256"])
+        if payload.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Not an admin token")
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Session expired — please log in again")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid session token")
+
+
+def _admin_period_filter(period: str, col: str = "created_at") -> str:
+    """Return a safe SQL snippet for time-range filtering. period is validated before call."""
+    if period == "today":
+        return f"AND {col} > NOW() - INTERVAL '24 hours'"
+    elif period == "week":
+        return f"AND {col} > NOW() - INTERVAL '7 days'"
+    elif period == "month":
+        return f"AND {col} > NOW() - INTERVAL '30 days'"
+    return ""
+
+
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AdminDebugMatchRequest(BaseModel):
+    item_a_id: uuid.UUID
+    item_b_id: uuid.UUID
+
+
+@app.get("/admin", include_in_schema=False)
+def serve_admin():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "admin.html"))
+
+
+@app.post("/admin/login", include_in_schema=False)
+def admin_login(body: AdminLoginRequest):
+    expected = _ADMIN_USERS.get(body.username)
+    if not expected or body.password != expected:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    token = _create_admin_token(body.username)
+    return {"token": token, "username": body.username}
+
+
+@app.get("/admin/stats", include_in_schema=False)
+def admin_stats(period: str = "all", admin=Depends(_verify_admin)):
+    period = period if period in ("today", "week", "month", "all") else "all"
+    pf = _admin_period_filter(period)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT
+                    (SELECT COUNT(*) FROM items WHERE type='loser'  AND status='active') AS active_lost,
+                    (SELECT COUNT(*) FROM items WHERE type='finder' AND status='active') AS active_found,
+                    (SELECT COUNT(*) FROM reunions WHERE 1=1 {pf}) AS reunions,
+                    (SELECT COALESCE(SUM(amount_cents), 0) FROM tips WHERE status='completed' {pf}) AS tips_cents,
+                    (SELECT COUNT(*) FROM items
+                     WHERE status='active' AND expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days') AS expiring_7d
+            """)
+            row = cur.fetchone()
+    return dict(row)
+
+
+@app.get("/admin/items", include_in_schema=False)
+def admin_items(type: Optional[str] = None, period: str = "all", admin=Depends(_verify_admin)):
+    period = period if period in ("today", "week", "month", "all") else "all"
+    pf = _admin_period_filter(period)
+    type_filter = "AND type = 'loser'" if type == "loser" else ("AND type = 'finder'" if type == "finder" else "")
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT
+                    id, type, item_type, color, material, size, features,
+                    latitude, longitude, status,
+                    expires_at::text, created_at::text,
+                    phone, finder_email,
+                    finder_payout_app, finder_payout_handle,
+                    photo_url,
+                    (secret_detail IS NOT NULL) AS has_secret
+                FROM items
+                WHERE 1=1 {type_filter} {pf}
+                ORDER BY created_at DESC
+                LIMIT 200
+            """)
+            rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.get("/admin/reunions", include_in_schema=False)
+def admin_reunions(period: str = "all", admin=Depends(_verify_admin)):
+    period = period if period in ("today", "week", "month", "all") else "all"
+    pf = _admin_period_filter(period, col="r.created_at")
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT
+                    r.id, r.finder_phone, r.loser_phone, r.status,
+                    r.created_at::text, r.expires_at::text,
+                    fi.item_type
+                FROM reunions r
+                LEFT JOIN items fi ON fi.id = r.finder_item_id
+                WHERE 1=1 {pf}
+                ORDER BY r.created_at DESC
+                LIMIT 200
+            """)
+            rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.get("/admin/tips", include_in_schema=False)
+def admin_tips(period: str = "all", admin=Depends(_verify_admin)):
+    period = period if period in ("today", "week", "month", "all") else "all"
+    pf = _admin_period_filter(period, col="t.created_at")
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT
+                    t.id, t.finder_item_id::text, t.loser_item_id::text,
+                    t.amount_cents, t.status, t.created_at::text,
+                    fi.item_type AS finder_item_type,
+                    li.item_type AS loser_item_type
+                FROM tips t
+                LEFT JOIN items fi ON fi.id = t.finder_item_id
+                LEFT JOIN items li ON li.id = t.loser_item_id
+                WHERE 1=1 {pf}
+                ORDER BY t.created_at DESC
+                LIMIT 200
+            """)
+            rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.patch("/admin/items/{item_id}/deactivate", include_in_schema=False)
+def admin_deactivate_item(item_id: uuid.UUID, admin=Depends(_verify_admin)):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE items SET status = 'inactive' WHERE id = %s RETURNING id",
+                (str(item_id),),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"ok": True}
+
+
+@app.patch("/admin/items/{item_id}/extend", include_in_schema=False)
+def admin_extend_item(item_id: uuid.UUID, admin=Depends(_verify_admin)):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE items SET expires_at = expires_at + INTERVAL '30 days' WHERE id = %s RETURNING id, expires_at::text",
+                (str(item_id),),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"ok": True, "expires_at": row["expires_at"]}
+
+
+@app.post("/admin/debug/match", include_in_schema=False)
+def admin_debug_match(body: AdminDebugMatchRequest, admin=Depends(_verify_admin)):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    a.id AS a_id, a.type AS a_type, a.item_type AS a_item_type,
+                    a.color AS a_color, a.material AS a_material, a.size AS a_size,
+                    a.features AS a_features, a.latitude AS a_lat, a.longitude AS a_lng,
+                    a.status AS a_status,
+                    b.id AS b_id, b.type AS b_type, b.item_type AS b_item_type,
+                    b.color AS b_color, b.material AS b_material, b.size AS b_size,
+                    b.features AS b_features, b.latitude AS b_lat, b.longitude AS b_lng,
+                    b.status AS b_status,
+                    CASE
+                        WHEN a.embedding IS NOT NULL AND b.embedding IS NOT NULL
+                        THEN ROUND(CAST(1 - (a.embedding <=> b.embedding) AS NUMERIC), 4)
+                        ELSE NULL
+                    END AS similarity_score
+                FROM items a, items b
+                WHERE a.id = %s AND b.id = %s
+                """,
+                (str(body.item_a_id), str(body.item_b_id)),
+            )
+            row = cur.fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="One or both items not found")
+
+    similarity = float(row["similarity_score"]) if row["similarity_score"] is not None else None
+
+    a_colors = [c.lower() for c in (row["a_color"] or [])]
+    b_colors = [c.lower() for c in (row["b_color"] or [])]
+
+    def _color_detail(color: str) -> dict:
+        idx = _color_group(color)
+        return {
+            "color": color,
+            "group_index": idx,
+            "group_name": _COLOR_GROUP_NAMES[idx] if idx is not None else "unrecognized",
+        }
+
+    a_color_groups = [_color_detail(c) for c in a_colors]
+    b_color_groups = [_color_detail(c) for c in b_colors]
+    colors_ok = _colors_compatible(a_colors, b_colors)
+
+    distance_miles = None
+    within_radius = True
+    if all(x is not None for x in [row["a_lat"], row["a_lng"], row["b_lat"], row["b_lng"]]):
+        lat1, lon1 = float(row["a_lat"]), float(row["a_lng"])
+        lat2, lon2 = float(row["b_lat"]), float(row["b_lng"])
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        ha = (math.sin(dlat / 2) ** 2
+              + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2)
+        distance_miles = round(3958.8 * 2 * math.asin(math.sqrt(ha)), 1)
+        within_radius = distance_miles <= 10
+
+    block_reasons = []
+    if similarity is None:
+        block_reasons.append("One or both items have no embedding yet")
+    elif similarity < 0.78:
+        block_reasons.append(f"Similarity {similarity:.4f} is below threshold (0.78)")
+    if not colors_ok:
+        a_str = ", ".join(c["color"] for c in a_color_groups) or "none"
+        b_str = ", ".join(c["color"] for c in b_color_groups) or "none"
+        block_reasons.append(f"Colors incompatible — A: [{a_str}] vs B: [{b_str}]")
+    if not within_radius:
+        block_reasons.append(f"Distance {distance_miles} mi exceeds 10-mile radius")
+
+    return {
+        "item_a": {
+            "id": str(body.item_a_id), "type": row["a_type"], "item_type": row["a_item_type"],
+            "color": row["a_color"], "material": row["a_material"], "size": row["a_size"],
+            "features": row["a_features"], "status": row["a_status"],
+            "latitude": row["a_lat"], "longitude": row["a_lng"],
+        },
+        "item_b": {
+            "id": str(body.item_b_id), "type": row["b_type"], "item_type": row["b_item_type"],
+            "color": row["b_color"], "material": row["b_material"], "size": row["b_size"],
+            "features": row["b_features"], "status": row["b_status"],
+            "latitude": row["b_lat"], "longitude": row["b_lng"],
+        },
+        "similarity_score": similarity,
+        "would_pass_threshold": similarity is not None and similarity >= 0.78,
+        "a_color_groups": a_color_groups,
+        "b_color_groups": b_color_groups,
+        "colors_compatible": colors_ok,
+        "distance_miles": distance_miles,
+        "within_radius": within_radius,
+        "would_match": len(block_reasons) == 0,
+        "block_reasons": block_reasons,
+    }

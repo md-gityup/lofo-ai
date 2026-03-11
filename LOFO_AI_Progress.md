@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 10, 2026 — Phase 15 + UX polish complete and deployed*
+*Last updated: March 11, 2026 — Phase 16 admin dashboard complete, pending deploy*
 
 ---
 
@@ -36,6 +36,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 14a — Photo Storage & Lightbox | ✅ Complete | Finder photos uploaded to Supabase Storage; `photo_url` on items; match card thumbnail + confirmed screen show real photo; tap-to-expand lightbox with spring animation and claim/reject CTAs |
 | 14b — Attribute Correction + Loser Location | ✅ Complete | Inline attribute editor on finder-done screen; `PATCH /items/{id}/attributes` re-embeds on save; loser "Where?" field geocoded via Nominatim — no new screens, 0 extra taps in happy path |
 | 15 — Loser Attribute Correction | ✅ Complete | "Looking for: wallet · brown · leather" summary line on waiting screen; "Don't like description?" expands inline edit panel; saves via `PATCH /items/{id}/attributes`, re-embeds, updates title, fires immediate re-poll |
+| 16 — Admin / Ops Dashboard | ✅ Complete | Password-protected `/admin` route; multi-user login (JWT, 24h sessions, `ADMIN_USERS` env var); 4 stat cards; time filters (Today/Week/Month/All Time); table with 5 tabs (Lost · Found · Reunions · Tips · Debug Matcher); Deactivate + Extend 30d actions; expiring-soon alert |
 
 ---
 
@@ -228,14 +229,18 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 **Phase 15 + UX polish complete.**
 
-### Priority: Admin / Ops Dashboard
+### Admin Dashboard — Complete (Phase 16)
 
-The next session should focus on brainstorming and building the admin/ops dashboard. Key questions to discuss:
+`admin.html` served at `/admin`. Multi-user auth via `ADMIN_USERS` env var (Railway).
 
-- **What to display:** Active items (finder + loser), recent reunions, tip totals, match rate, items expiring soon, any SMS relay conversations in flight
-- **Where it lives:** A `/admin` route on the FastAPI backend, password-protected via HTTP Basic Auth or a hardcoded env-var token. Separate HTML page, not part of the main app flow.
-- **Auth:** Simple — `ADMIN_PASSWORD` env var, checked via HTTP Basic Auth or a query param token. Good enough for a personal ops tool.
-- **Design:** Functional dark dashboard — tables, counts, a few key metrics. Not user-facing so aesthetics are secondary to readability.
+**Setup required:** Add `ADMIN_USERS` to Railway environment variables as JSON:
+```
+{"marc": "yourpassword", "alice": "herpassword"}
+```
+
+**What's built:** 4 stat cards (active lost/found, reunions, tips) · time filters (Today/Week/Month/All Time) · 5-tab table (Lost Items · Found Items · Reunions · Tips · Debug Matcher) · Deactivate + Extend 30d item actions · expiring-soon alert · masked phone numbers · photo thumbnails inline.
+
+**Debug Matcher:** Paste two item IDs → see similarity score, color compatibility breakdown, distance, and block reasons.
 
 ### Other Candidates for Phase 16+
 
@@ -271,6 +276,41 @@ The next session should focus on brainstorming and building the admin/ops dashbo
 ---
 
 ## Session History
+
+### Phase 16 — Admin Dashboard — March 11, 2026
+
+**What changed:** Full admin/ops dashboard at `/admin`.
+
+**Backend (`main.py`):**
+- `import math` + `timedelta` + `Depends` added
+- `_COLOR_GROUP_NAMES` list added alongside `_COLOR_GROUPS` for human-readable group names in debug output
+- `ADMIN_USERS` env var (JSON dict `{"username": "password"}`) parsed at startup
+- `_create_admin_token(username)` — issues a 24h JWT with `role: admin` claim, signed with existing `JWT_SECRET`
+- `_verify_admin(request)` — FastAPI dependency; validates Bearer token, checks `role == admin`
+- `_admin_period_filter(period, col)` — returns safe SQL INTERVAL snippet for today/week/month/all
+- `GET /admin` — serves `admin.html`
+- `POST /admin/login` — validates against `_ADMIN_USERS`, returns JWT + username
+- `GET /admin/stats?period=` — 5 metrics: active_lost, active_found, reunions (in period), tips_cents (in period), expiring_7d
+- `GET /admin/items?type=&period=` — up to 200 items with all columns inc. phone, payout, photo_url
+- `GET /admin/reunions?period=` — reunions joined with finder item for item_type
+- `GET /admin/tips?period=` — tips joined with both items for item_type labels
+- `PATCH /admin/items/{id}/deactivate` — sets status = 'inactive'
+- `PATCH /admin/items/{id}/extend` — adds 30 days to expires_at
+- `POST /admin/debug/match` — takes two item UUIDs; returns similarity score (pgvector), color group breakdown, Haversine distance, block reasons, would_match verdict
+
+**Frontend (`admin.html`):**
+- Login screen: username + password → POST `/admin/login` → JWT stored in `sessionStorage`
+- Header: LOFO logo + ADMIN badge, time filters, avatar initial, logout button
+- Greeting with current date
+- 4 stat cards (red/blue/green/yellow), all live from `/admin/stats`
+- Orange expiring-soon alert bar (appears when expiring_7d > 0)
+- 5-tab panel: Lost Items · Found Items · Reunions · Tips · Debug Matcher
+- Time filters update both stat cards and table simultaneously
+- Photo thumbnails (click to open full size), masked phones (+1 ••• ••• 1234)
+- Deactivate: confirms, updates row in place; Extend: refreshes table
+- Debug panel: UUID inputs → match verdict card + 3 metric tiles + color breakdown + block reasons + item cards
+
+---
 
 ### UX Polish — March 10, 2026
 
