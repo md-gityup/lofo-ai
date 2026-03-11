@@ -178,6 +178,11 @@ def serve_ui():
     return FileResponse(os.path.join(os.path.dirname(__file__), "LOFO_MVP.html"))
 
 
+@app.get("/health", include_in_schema=False)
+def health_check():
+    return {"status": "ok"}
+
+
 # --------------------------------------------------------------------------- #
 # Schemas                                                                      #
 # --------------------------------------------------------------------------- #

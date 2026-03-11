@@ -358,48 +358,56 @@ function initMap() {
 }
 
 // ── Load data ──
+let _retryCount = 0;
+const _MAX_RETRIES = 4; // ~80s total before giving up
+
 async function loadPins() {
-  // Show "waking up" hint if Railway cold-starts (takes 20-40s)
-  const wakeTimer = setTimeout(() => {
-    const lt = document.querySelector('.loading-text');
-    if (lt) lt.textContent = 'Server waking up — can take ~30s on cold start…';
-  }, 5000);
+  const lt = document.querySelector('.loading-text');
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000); // 60s hard timeout
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20s per attempt
+
+    if (_retryCount === 0 && lt) lt.textContent = 'Loading map data…';
 
     const res = await fetch('/admin/map-pins', {
       headers: { 'Authorization': `Bearer ${token}` },
       signal: controller.signal,
     });
     clearTimeout(timeout);
-    clearTimeout(wakeTimer);
 
     if (res.status === 401) { window.location.href = '/admin'; return; }
     if (!res.ok) throw new Error(`Server returned ${res.status}`);
 
+    _retryCount = 0;
     const data = await res.json();
     allPins = data.pins || [];
     renderPins(allPins);
     updateUI(data);
   } catch (e) {
-    clearTimeout(wakeTimer);
-    console.error('Map load error:', e);
-    const msg = e.name === 'AbortError' ? 'Request timed out.' : e.message;
-    document.getElementById('map-loading').innerHTML = `
-      <div style="text-align:center;font-family:'DM Sans',sans-serif;padding:32px;max-width:320px">
-        <div style="font-size:36px;margin-bottom:14px">⚠️</div>
-        <div style="font-size:16px;font-weight:700;color:#e8f0f0;margin-bottom:6px">Couldn't load map</div>
-        <div style="font-size:13px;color:#6b9090;margin-bottom:24px">${msg} — Railway may still be starting up.</div>
-        <button onclick="location.reload()" style="
-          padding:11px 28px;background:linear-gradient(135deg,#4B9EF5,#1d6fd8);
-          border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;
-          font-family:'DM Sans',sans-serif;cursor:pointer">
-          Try Again
-        </button>
-        <div style="margin-top:14px"><a href="/admin" style="font-size:12px;color:#6b9090;text-decoration:none">← Back to Admin</a></div>
-      </div>`;
+    console.warn(`Map load attempt ${_retryCount + 1} failed:`, e.message);
+
+    if (_retryCount < _MAX_RETRIES) {
+      _retryCount++;
+      const elapsed = _retryCount * 20;
+      if (lt) lt.textContent = `Server waking up… retrying (${elapsed}s)`;
+      setTimeout(loadPins, 3000); // wait 3s then retry
+    } else {
+      // All retries exhausted — show manual retry option
+      document.getElementById('map-loading').innerHTML = `
+        <div style="text-align:center;font-family:'DM Sans',sans-serif;padding:32px;max-width:320px">
+          <div style="font-size:36px;margin-bottom:14px">⚠️</div>
+          <div style="font-size:16px;font-weight:700;color:#e8f0f0;margin-bottom:6px">Server took too long</div>
+          <div style="font-size:13px;color:#6b9090;margin-bottom:24px">Railway may still be starting up. Try again in a moment.</div>
+          <button onclick="_retryCount=0;loadPins();document.getElementById('map-loading').innerHTML='<div class=spinner></div><div class=loading-text>Retrying…</div>'" style="
+            padding:11px 28px;background:linear-gradient(135deg,#4B9EF5,#1d6fd8);
+            border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;
+            font-family:'DM Sans',sans-serif;cursor:pointer">
+            Try Again
+          </button>
+          <div style="margin-top:14px"><a href="/admin" style="font-size:12px;color:#6b9090;text-decoration:none">← Back to Admin</a></div>
+        </div>`;
+    }
   }
 }
 
