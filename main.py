@@ -180,6 +180,12 @@ def serve_ui():
 
 @app.get("/health", include_in_schema=False)
 def health_check():
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+    except Exception as e:
+        return {"status": "degraded", "db": str(e)}
     return {"status": "ok"}
 
 
