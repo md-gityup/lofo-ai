@@ -1420,6 +1420,35 @@ def serve_admin():
     return FileResponse(os.path.join(os.path.dirname(__file__), "admin.html"))
 
 
+@app.get("/map", include_in_schema=False)
+def serve_map():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "map.html"))
+
+
+@app.get("/admin/map-pins", include_in_schema=False)
+def admin_map_pins(admin=Depends(_verify_admin)):
+    """Return all active items with GPS coords for map display, plus count of items without GPS."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    id, type, item_type, color, material, size, features,
+                    latitude, longitude, status, created_at::text, photo_url,
+                    (phone IS NOT NULL) AS has_phone
+                FROM items
+                WHERE status = 'active'
+                  AND latitude IS NOT NULL
+                  AND longitude IS NOT NULL
+                ORDER BY created_at DESC
+            """)
+            gps_rows = cur.fetchall()
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM items WHERE status='active' AND (latitude IS NULL OR longitude IS NULL)"
+            )
+            no_gps = cur.fetchone()["cnt"]
+    return {"pins": [dict(r) for r in gps_rows], "no_gps_count": int(no_gps)}
+
+
 @app.post("/admin/login", include_in_schema=False)
 def admin_login(body: AdminLoginRequest):
     expected = _ADMIN_USERS.get(body.username)
