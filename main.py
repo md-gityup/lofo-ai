@@ -1014,12 +1014,13 @@ def coordinate_handoff(body: CoordinateRequest):
                 conn.commit()
 
             # Notify both parties — no raw numbers shared, relay via LOFO's number
+            resolve_link = f"{_RAILWAY_URL}/resolve/{body.loser_item_id}"
             if body.self_outreach:
                 _sms(
                     loser_phone,
                     f"LOFO: Your {label} is confirmed! "
                     f"The finder has been notified and is expecting your message. "
-                    f"Reply here to reach them — we'll relay it securely."
+                    f"Once you've got it back, close the report (and tip if you'd like): {resolve_link}"
                 )
                 _sms(
                     finder_phone,
@@ -1030,8 +1031,8 @@ def coordinate_handoff(body: CoordinateRequest):
                 _sms(
                     loser_phone,
                     f"LOFO: Your {label} is confirmed! "
-                    f"Reply to this number to message the finder — we'll pass it along securely. "
-                    f"No need to share your number."
+                    f"Reply here to message the finder — we'll relay it securely. "
+                    f"Once you've got it back, close the report (and tip if you'd like): {resolve_link}"
                 )
                 _sms(
                     finder_phone,
@@ -1585,6 +1586,115 @@ def admin_extend_item(item_id: uuid.UUID, admin=Depends(_verify_admin)):
     if row is None:
         raise HTTPException(status_code=404, detail="Item not found")
     return {"ok": True, "expires_at": row["expires_at"]}
+
+
+# --------------------------------------------------------------------------- #
+# Resolve / Item Lifecycle                                                     #
+# --------------------------------------------------------------------------- #
+
+@app.get("/resolve/{loser_item_id}", include_in_schema=False)
+def serve_resolve(loser_item_id: uuid.UUID):
+    return FileResponse(os.path.join(os.path.dirname(__file__), "resolve.html"))
+
+
+@app.get("/resolve/{loser_item_id}/data", include_in_schema=False)
+def resolve_data(loser_item_id: uuid.UUID):
+    """Return item and finder info needed by the resolve page."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT item_type, status FROM items WHERE id = %s AND type = 'loser'",
+                (str(loser_item_id),),
+            )
+            loser = cur.fetchone()
+
+    if loser is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    if loser["status"] != "active":
+        return {
+            "loser_item_type": loser["item_type"],
+            "finder_item_id": None,
+            "finder_item_type": None,
+            "finder_payout_handle": None,
+            "finder_payout_app": None,
+            "already_closed": True,
+        }
+
+    # Look up reunion to find the matched finder item
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT r.finder_item_id,
+                       i.item_type        AS finder_item_type,
+                       i.finder_payout_handle,
+                       i.finder_payout_app
+                FROM reunions r
+                JOIN items i ON i.id = r.finder_item_id
+                WHERE r.loser_item_id = %s
+                  AND r.status = 'active'
+                ORDER BY r.created_at DESC
+                LIMIT 1
+                """,
+                (str(loser_item_id),),
+            )
+            reunion = cur.fetchone()
+
+    return {
+        "loser_item_type":     loser["item_type"],
+        "finder_item_id":      str(reunion["finder_item_id"]) if reunion else None,
+        "finder_item_type":    reunion["finder_item_type"]    if reunion else None,
+        "finder_payout_handle": reunion["finder_payout_handle"] if reunion else None,
+        "finder_payout_app":   reunion["finder_payout_app"]   if reunion else None,
+        "already_closed":      False,
+    }
+
+
+class ResolveConfirmRequest(BaseModel):
+    tip_amount_cents: Optional[int] = 0
+
+
+@app.post("/resolve/{loser_item_id}/confirm", include_in_schema=False)
+def resolve_confirm(loser_item_id: uuid.UUID, body: ResolveConfirmRequest = ResolveConfirmRequest()):
+    """Mark the loser item (and matched finder item via reunion) as inactive."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE items SET status = 'inactive' WHERE id = %s AND type = 'loser' RETURNING id",
+                (str(loser_item_id),),
+            )
+            if cur.fetchone() is None:
+                raise HTTPException(status_code=404, detail="Report not found")
+        conn.commit()
+
+    # Close finder item and mark reunion resolved
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT finder_item_id FROM reunions
+                WHERE loser_item_id = %s AND status = 'active'
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (str(loser_item_id),),
+            )
+            reunion = cur.fetchone()
+
+    if reunion:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE items SET status = 'inactive' WHERE id = %s",
+                    (str(reunion["finder_item_id"]),),
+                )
+                cur.execute(
+                    "UPDATE reunions SET status = 'closed' WHERE loser_item_id = %s AND status = 'active'",
+                    (str(loser_item_id),),
+                )
+            conn.commit()
+
+    return {"ok": True}
 
 
 @app.post("/admin/debug/match", include_in_schema=False)

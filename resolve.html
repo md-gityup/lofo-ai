@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>LOFO — Close Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream: #FAF7F2;
+      --navy:  #1A1F3C;
+      --gold:  #C9A84C;
+      --green: #22C55E;
+      --red:   #EF4444;
+      --muted: rgba(26,31,60,0.45);
+      --border: rgba(26,31,60,0.10);
+    }
+
+    body {
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      background: var(--cream);
+      color: var(--navy);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: max(env(safe-area-inset-top), 32px) 20px max(env(safe-area-inset-bottom), 32px);
+    }
+
+    /* ── Card shell ── */
+    .card {
+      width: 100%;
+      max-width: 400px;
+      background: #fff;
+      border-radius: 24px;
+      padding: 36px 28px 32px;
+      box-shadow:
+        0 1px 3px rgba(26,31,60,0.06),
+        0 8px 40px rgba(26,31,60,0.08);
+    }
+
+    .lofo-logo {
+      font-family: 'DM Serif Display', serif;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      color: rgba(26,31,60,0.30);
+      text-align: center;
+      margin-bottom: 32px;
+      text-transform: uppercase;
+    }
+
+    /* ── States ── */
+    .state { display: none; }
+    .state.active { display: block; }
+
+    /* ── Spinner ── */
+    .spinner-wrap { padding: 32px 0; text-align: center; }
+    .spinner {
+      display: inline-block;
+      width: 32px; height: 32px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Icon ── */
+    .big-icon {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      margin: 0 auto 22px;
+    }
+    .big-icon.green { background: rgba(34,197,94,0.10); }
+    .big-icon.gold  { background: rgba(201,168,76,0.10); }
+    .big-icon.muted { background: rgba(26,31,60,0.06); }
+
+    /* ── Headings ── */
+    .state-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 26px;
+      line-height: 1.25;
+      text-align: center;
+      color: var(--navy);
+      margin-bottom: 8px;
+    }
+    .state-title em { font-style: italic; }
+
+    .state-sub {
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      display: block;
+      width: 100%;
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 16px 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .btn-primary:hover:not(:disabled) { opacity: 0.85; }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-ghost {
+      display: block;
+      width: 100%;
+      background: transparent;
+      color: var(--muted);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 400;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      text-align: center;
+    }
+    .btn-ghost:hover { border-color: rgba(26,31,60,0.28); color: var(--navy); }
+
+    .rule {
+      height: 1px;
+      background: var(--border);
+      margin: 24px 0;
+    }
+
+    /* ── Tip amounts ── */
+    .tip-amounts {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .tip-btn {
+      flex: 1;
+      padding: 13px 0;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--navy);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .tip-btn:hover { border-color: rgba(26,31,60,0.3); }
+    .tip-btn.selected {
+      background: var(--navy);
+      border-color: var(--navy);
+      color: #fff;
+    }
+
+    /* ── Payout info pill ── */
+    .payout-pill {
+      background: rgba(26,31,60,0.04);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 18px;
+      line-height: 1.45;
+    }
+    .payout-pill strong { color: var(--navy); }
+
+    /* ── Stripe card element ── */
+    .card-element-wrap {
+      background: var(--navy);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .card-error {
+      font-size: 13px;
+      color: var(--red);
+      text-align: center;
+      margin-bottom: 10px;
+      min-height: 18px;
+    }
+
+    /* ── Skip link ── */
+    .skip-link {
+      display: block;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 8px 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      margin-top: 4px;
+    }
+    .skip-link:hover { color: var(--navy); }
+
+    /* ── Done footer ── */
+    .done-footer {
+      font-size: 12px;
+      color: rgba(26,31,60,0.28);
+      text-align: center;
+      font-style: italic;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="lofo-logo">LOFO.AI</div>
+
+    <!-- Loading -->
+    <div class="state active" id="state-loading">
+      <div class="spinner-wrap"><div class="spinner"></div></div>
+    </div>
+
+    <!-- Question: "Did you get it back?" -->
+    <div class="state" id="state-question">
+      <div class="big-icon green">✓</div>
+      <div class="state-title">Did you get your<br><em id="q-label">item</em> back?</div>
+      <div class="state-sub">Let us know so we can close the report<br>and say thanks to the finder.</div>
+      <button class="btn-primary" onclick="handleYes()">Yes, I got it back →</button>
+      <button class="btn-ghost" onclick="handleNotYet()">Not yet</button>
+    </div>
+
+    <!-- Tip flow -->
+    <div class="state" id="state-tip">
+      <div class="big-icon gold">💛</div>
+      <div class="state-title">A stranger did<br><em>something kind.</em></div>
+      <div class="state-sub">Want to send a thank you tip?<br>100% goes to the finder.</div>
+
+      <div id="payout-pill" class="payout-pill" style="display:none"></div>
+
+      <div class="tip-amounts">
+        <button class="tip-btn" data-amt="5"  onclick="selectTip('5')">$5</button>
+        <button class="tip-btn selected" data-amt="10" onclick="selectTip('10')">$10</button>
+        <button class="tip-btn" data-amt="20" onclick="selectTip('20')">$20</button>
+      </div>
+
+      <div class="card-element-wrap">
+        <div id="card-element"></div>
+      </div>
+      <div class="card-error" id="card-error"></div>
+
+      <button class="btn-primary" id="pay-btn" onclick="submitTip()">Pay $10 →</button>
+      <span class="skip-link" onclick="skipTip()">Skip — close without tipping</span>
+    </div>
+
+    <!-- Not yet -->
+    <div class="state" id="state-notyet">
+      <div class="big-icon muted" style="font-size:22px">🕐</div>
+      <div class="state-title">No problem.</div>
+      <div class="state-sub">The link in your text works any time.<br>Come back once you've made the handoff.</div>
+    </div>
+
+    <!-- Done: closed without tip -->
+    <div class="state" id="state-done">
+      <div class="big-icon green">✓</div>
+      <div class="state-title">Report closed.<br><em>Good humans.</em></div>
+      <div class="state-sub">Thanks for closing the loop. It makes the system work better for everyone.</div>
+      <div class="done-footer">Lost it. Found it. Here.</div>
+    </div>
+
+    <!-- Done: tip sent -->
+    <div class="state" id="state-tipped">
+      <div class="big-icon gold">💛</div>
+      <div class="state-title">Thank you<br><em>sent.</em></div>
+      <div class="state-sub">You sent <strong id="tip-display">$10</strong> to the finder. Report closed. You made someone's day a little brighter.</div>
+      <div class="done-footer">Lost it. Found it. Here.</div>
+    </div>
+
+    <!-- Already closed -->
+    <div class="state" id="state-closed">
+      <div class="big-icon green">✓</div>
+      <div class="state-title">Already resolved.</div>
+      <div class="state-sub">This report has already been closed. Nothing more to do here.</div>
+      <div class="done-footer">Lost it. Found it. Here.</div>
+    </div>
+
+    <!-- Error -->
+    <div class="state" id="state-error">
+      <div class="big-icon muted" style="font-size:22px">⚠️</div>
+      <div class="state-title">Something went wrong.</div>
+      <div class="state-sub" id="error-msg">We couldn't load this report. Please try the link again.</div>
+      <button class="btn-ghost" onclick="location.reload()" style="margin-top:8px">Try again</button>
+    </div>
+  </div>
+
+  <script>
+    const STRIPE_PK = 'pk_test_51T7nErBOuXHzjZNpmuFOEWtJzIhM4JJO7hrde3cWl03xDR7zVbrcCFrDqlfld6DLNiozLMK8Io2Xug6qcwakw7CN00tjHDjNRi';
+    const API = 'https://lofo-ai-production.up.railway.app';
+
+    // Extract loser_item_id from path: /resolve/{id}
+    const loserItemId = location.pathname.match(/\/resolve\/([^\/]+)/)?.[1];
+
+    let itemData = null;
+    let selectedTipAmt = '10';
+    let stripeClient = null;
+    let cardEl = null;
+
+    // ── State machine ──
+    function showState(id) {
+      document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+      document.getElementById(`state-${id}`).classList.add('active');
+    }
+
+    // ── Tip amount selection ──
+    function selectTip(amt) {
+      selectedTipAmt = amt;
+      document.querySelectorAll('.tip-btn').forEach(b =>
+        b.classList.toggle('selected', b.dataset.amt === amt)
+      );
+      document.getElementById('pay-btn').textContent = `Pay $${amt} →`;
+    }
+
+    // ── Init Stripe card element ──
+    function mountCard() {
+      if (!stripeClient) stripeClient = Stripe(STRIPE_PK);
+      const elements = stripeClient.elements();
+      cardEl = elements.create('card', {
+        style: {
+          base: {
+            color: '#ffffff',
+            fontFamily: '"DM Sans", -apple-system, sans-serif',
+            fontSize: '15px',
+            fontSmoothing: 'antialiased',
+            '::placeholder': { color: 'rgba(255,255,255,0.35)' },
+            iconColor: 'rgba(255,255,255,0.5)',
+          },
+          invalid: { color: '#FF6B6B', iconColor: '#FF6B6B' },
+        },
+      });
+      cardEl.mount('#card-element');
+    }
+
+    // ── "Yes, got it back" ──
+    function handleYes() {
+      if (itemData?.finder_item_id) {
+        // Show tip flow
+        if (itemData.finder_payout_handle && itemData.finder_payout_app) {
+          const pill = document.getElementById('payout-pill');
+          const appLabel = { venmo: 'Venmo', paypal: 'PayPal', cashapp: 'Cash App', zelle: 'Zelle' }[itemData.finder_payout_app] || itemData.finder_payout_app;
+          pill.innerHTML = `Tip goes to <strong>${appLabel} ${itemData.finder_payout_handle}</strong>`;
+          pill.style.display = 'block';
+        }
+        showState('tip');
+        mountCard();
+      } else {
+        // No finder linked — just close
+        doConfirm(0);
+      }
+    }
+
+    // ── "Not yet" ──
+    function handleNotYet() {
+      showState('notyet');
+    }
+
+    // ── Submit tip + close ──
+    async function submitTip() {
+      if (!cardEl) return;
+      const amtCents = parseInt(selectedTipAmt) * 100;
+      const btn = document.getElementById('pay-btn');
+      const errEl = document.getElementById('card-error');
+
+      btn.disabled = true;
+      btn.textContent = 'Processing…';
+      errEl.textContent = '';
+
+      try {
+        // Create PaymentIntent via existing endpoint
+        const piRes = await fetch(`${API}/tip/create-payment-intent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            finder_item_id: itemData.finder_item_id,
+            loser_item_id:  loserItemId,
+            amount_cents:   amtCents,
+          }),
+        });
+        if (!piRes.ok) throw new Error((await piRes.json().catch(() => ({}))).detail || 'Payment setup failed');
+        const { client_secret } = await piRes.json();
+
+        // Confirm with Stripe
+        const { error } = await stripeClient.confirmCardPayment(client_secret, {
+          payment_method: { card: cardEl },
+        });
+
+        if (error) {
+          errEl.textContent = error.message;
+          btn.disabled = false;
+          btn.textContent = `Pay $${selectedTipAmt} →`;
+          return;
+        }
+
+        // Payment succeeded — close report and show done
+        document.getElementById('tip-display').textContent = `$${selectedTipAmt}`;
+        await doConfirm(amtCents);
+        showState('tipped');
+
+      } catch (err) {
+        errEl.textContent = err.message || 'Something went wrong. Please try again.';
+        btn.disabled = false;
+        btn.textContent = `Pay $${selectedTipAmt} →`;
+      }
+    }
+
+    // ── Skip tip, just close ──
+    async function skipTip() {
+      await doConfirm(0);
+    }
+
+    // ── POST confirm (marks items inactive) ──
+    async function doConfirm(tipAmtCents) {
+      try {
+        await fetch(`${API}/resolve/${loserItemId}/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tip_amount_cents: tipAmtCents }),
+        });
+      } catch (_) {
+        // Best-effort — don't block the done state on a network blip
+      }
+      if (tipAmtCents === 0) showState('done');
+    }
+
+    // ── Init: load item data ──
+    async function init() {
+      if (!loserItemId) {
+        document.getElementById('error-msg').textContent = 'Invalid link — no report ID found.';
+        showState('error');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/resolve/${loserItemId}/data`);
+        if (res.status === 404) {
+          document.getElementById('error-msg').textContent = 'Report not found. The link may be incorrect.';
+          showState('error');
+          return;
+        }
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+
+        itemData = await res.json();
+
+        if (itemData.already_closed) {
+          showState('closed');
+          return;
+        }
+
+        const label = itemData.loser_item_type || 'item';
+        document.getElementById('q-label').textContent = label;
+        showState('question');
+
+      } catch (err) {
+        document.getElementById('error-msg').textContent = 'Could not load this report. Please try again.';
+        showState('error');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
