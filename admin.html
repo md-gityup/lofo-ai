@@ -387,6 +387,66 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
 .lf-tt { background: rgba(12,22,36,0.95) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; color: #e8f0f0 !important; font-family: 'DM Sans', sans-serif !important; font-size: 12px !important; font-weight: 600 !important; padding: 5px 11px !important; white-space: nowrap !important; box-shadow: 0 4px 18px rgba(0,0,0,0.45) !important; }
 .lf-tt::before { display: none !important; }
 
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .cards-grid { grid-template-columns: repeat(2, 1fr); }
+  header { padding: 14px 18px; flex-wrap: wrap; gap: 10px; }
+  .time-filters { order: 3; width: 100%; justify-content: center; }
+  main { padding: 20px 18px; }
+  .panel-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .panel-tabs::-webkit-scrollbar { display: none; }
+  .tab-btn { white-space: nowrap; flex-shrink: 0; padding: 12px 12px; font-size: 12px; }
+  .detail-fields { grid-template-columns: repeat(2, 1fr); }
+  .debug-inputs { grid-template-columns: 1fr; }
+  .debug-grid { grid-template-columns: 1fr; }
+  .debug-items { grid-template-columns: 1fr; }
+  .row-detail-inner { flex-direction: column; }
+  .detail-photo { width: 100%; height: 180px; }
+}
+
+@media (max-width: 540px) {
+  header { padding: 12px 14px; }
+  .logo-text { font-size: 20px; }
+  .header-right { gap: 6px; }
+  .time-filters { gap: 4px; }
+  .time-btn { padding: 5px 12px; font-size: 12px; }
+  main { padding: 16px 12px; }
+  .greeting h1 { font-size: 20px; }
+  .login-card { padding: 28px 22px; }
+  .card-nav-hint { display: none; }
+  .cards-grid { gap: 10px; }
+  .card { padding: 14px 16px; border-radius: 12px; }
+  .card-value { font-size: 24px; }
+  .card-icon { width: 28px; height: 28px; font-size: 13px; margin-bottom: 8px; }
+  .card-label { font-size: 9px; }
+  .card-sub, .card-nav-hint { font-size: 10px; }
+  .panel { border-radius: 12px; }
+  .panel-tabs { padding: 0 12px; gap: 0; }
+  .tab-btn { padding: 10px 10px; font-size: 11px; }
+  .detail-fields { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .detail-field { padding: 8px 10px; }
+  .df-label { font-size: 8px; }
+  .df-value { font-size: 11px; }
+  thead th { padding: 10px 10px 8px; font-size: 9px; }
+  tbody td { padding: 9px 10px; font-size: 12px; }
+  .map-nav-btn { padding: 5px 10px; font-size: 11px; }
+  .logout-btn { padding: 4px 10px; font-size: 11px; }
+  .avatar { width: 30px; height: 30px; font-size: 12px; }
+  .expiring-alert { font-size: 12px; padding: 8px 12px; }
+  #debug-container { padding: 20px 14px 24px; }
+  .debug-panel-title { font-size: 14px; }
+  .debug-panel-desc { font-size: 12px; }
+  .debug-run-btn { width: 100%; }
+  /* Map overlays */
+  #atab-legend { left: 10px; bottom: 16px; padding: 10px 12px; min-width: 150px; }
+  #atab-stats { right: 10px; bottom: 16px; padding: 8px 12px; }
+  #atab-refresh { top: 10px; right: 10px; }
+  .atab-leg-title { font-size: 8px; }
+  .atab-leg-name { font-size: 11px; }
+  .atab-stat .asv { font-size: 16px; }
+  #admin-map { height: max(400px, calc(100vh - 320px)); }
+}
+
 /* Map popup card */
 .map-popup { padding: 16px 18px 14px; min-width: 210px; max-width: 260px; font-family: 'DM Sans', sans-serif; }
 .popup-badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 9px; }
@@ -1117,6 +1177,9 @@ async function focusMapOnItem(itemId) {
 
 async function loadMapTab() {
   if (!_adminMap) initAdminMap();
+  // Leaflet can't size itself when the container was just shown (display:none → block);
+  // invalidateSize after a microtask lets the browser reflow first.
+  setTimeout(() => _adminMap.invalidateSize(), 0);
   await Promise.all([loadMapPins(), loadMapPairs()]);
 }
 
