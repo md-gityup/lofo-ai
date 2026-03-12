@@ -187,6 +187,32 @@ tbody td.small { font-size: 11px; color: var(--muted); }
 .item-type { font-weight: 600; color: var(--text); text-transform: capitalize; }
 .loading-row td, .empty-row td { text-align: center; color: var(--muted); padding: 32px !important; font-size: 13px; }
 .row-inactive { opacity: 0.42; }
+tbody tr.data-row { cursor: pointer; }
+tbody tr.data-row:hover td { background: rgba(96,165,250,0.04); }
+tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; border-bottom: none !important; }
+.row-detail-row > td { padding: 0 !important; border-top: none !important; }
+.row-detail-wrap {
+  padding: 0 20px 22px;
+  background: rgba(96,165,250,0.03);
+  border-top: 1px solid rgba(96,165,250,0.12);
+  border-bottom: 1px solid var(--border2);
+  animation: detailSlide 0.18s ease;
+}
+@keyframes detailSlide { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.row-detail-inner { display: flex; gap: 24px; padding-top: 18px; align-items: flex-start; }
+.detail-photo-col { flex-shrink: 0; }
+.detail-photo {
+  width: 160px; height: 160px; object-fit: cover; border-radius: 10px;
+  border: 1px solid var(--border); cursor: pointer; transition: transform 0.15s;
+  display: block;
+}
+.detail-photo:hover { transform: scale(1.03); }
+.detail-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; flex: 1; }
+.detail-field { background: rgba(255,255,255,0.03); border: 1px solid var(--border2); border-radius: 9px; padding: 10px 12px; }
+.df-label { font-size: 9px; font-weight: 700; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; }
+.df-value { font-size: 12px; color: var(--text); word-break: break-word; line-height: 1.4; text-transform: capitalize; }
+.df-value.mono { font-family: 'Courier New', monospace; font-size: 10px; color: var(--muted); text-transform: none; }
+.df-value.nocap { text-transform: none; }
 
 /* Pills */
 .type-pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -536,8 +562,10 @@ let username  = sessionStorage.getItem('lofo_admin_user');
 let period    = 'all';
 let activeTab = 'lost';
 
-const tableData = { lost: [], found: [], reunions: [], tips: [] };
-let sortState   = { col: null, dir: 'asc' };
+const tableData  = { lost: [], found: [], reunions: [], tips: [] };
+let sortState    = { col: null, dir: 'asc' };
+const rowDataMap = {}; // item.id → full item object for row expansion
+let expandedRowId = null;
 
 // ── Map state ──
 let _adminMap         = null;
@@ -780,7 +808,7 @@ function renderItemsBody(type, data) {
       const features = (item.features || []).slice(0,2).join(', ') || '—';
       const loc      = item.latitude ? `${(+item.latitude).toFixed(3)}, ${(+item.longitude).toFixed(3)}` : '—';
       const isActive = item.status === 'active';
-      return `<tr id="row-${item.id}" class="${isActive ? '' : 'row-inactive'}">
+      return `<tr id="row-${item.id}" class="data-row${isActive ? '' : ' row-inactive'}" onclick="toggleRowDetail(event,'${item.id}')">
         <td class="item-type">${item.item_type || '—'}</td>
         <td class="muted">${desc || '—'}</td>
         <td class="small">${features}</td>
@@ -797,11 +825,11 @@ function renderItemsBody(type, data) {
       const desc     = [item.color?.join('/'), item.material, item.size].filter(Boolean).join(' · ');
       const loc      = item.latitude ? `${(+item.latitude).toFixed(3)}, ${(+item.longitude).toFixed(3)}` : '—';
       const photo    = item.photo_url
-        ? `<img class="thumb" src="${item.photo_url}" onclick="window.open('${item.photo_url}','_blank')" />`
+        ? `<img class="thumb" src="${item.photo_url}" onclick="event.stopPropagation();window.open('${item.photo_url}','_blank')" />`
         : '<span class="muted">—</span>';
       const payout   = item.finder_payout_app ? `${cap(item.finder_payout_app)} ${item.finder_payout_handle || ''}` : '—';
       const isActive = item.status === 'active';
-      return `<tr id="row-${item.id}" class="${isActive ? '' : 'row-inactive'}">
+      return `<tr id="row-${item.id}" class="data-row${isActive ? '' : ' row-inactive'}" onclick="toggleRowDetail(event,'${item.id}')">
         <td class="item-type">${item.item_type || '—'}</td>
         <td class="muted">${desc || '—'}</td>
         <td>${photo}</td>
@@ -820,6 +848,8 @@ async function loadItems(type) {
   const tab  = type === 'loser' ? 'lost' : 'found';
   const data = await api('GET', `/admin/items?type=${type}&period=${period}`);
   tableData[tab] = data || [];
+  (data || []).forEach(item => { rowDataMap[item.id] = item; });
+  expandedRowId = null;
   renderItemsHead(type);
   renderItemsBody(type, getSorted(tableData[tab]));
 }
@@ -896,7 +926,7 @@ async function extendItem(id) {
   if (res?.ok) await loadTab(activeTab);
 }
 function rowActions(id) {
-  return `<button class="action-btn deactivate-btn" onclick="deactivateItem('${id}')">Deactivate</button><button class="action-btn extend-btn" onclick="extendItem('${id}')">+30d</button>`;
+  return `<button class="action-btn deactivate-btn" onclick="event.stopPropagation();deactivateItem('${id}')">Deactivate</button><button class="action-btn extend-btn" onclick="event.stopPropagation();extendItem('${id}')">+30d</button>`;
 }
 
 // ── Debug Matcher ──
@@ -960,6 +990,84 @@ async function runDebug() {
         <div class="dic-id muted">${data.item_b.id}</div>
       </div>
     </div>`;
+}
+
+// ── Row Expand ───────────────────────────────────────────────────────────── //
+
+function toggleRowDetail(event, id) {
+  if (event.target.closest('button, img, a')) return;
+
+  const detailId  = `row-detail-${id}`;
+  const existing  = document.getElementById(detailId);
+  const mainRow   = document.getElementById(`row-${id}`);
+
+  // Collapse if already open
+  if (existing) {
+    existing.remove();
+    mainRow.classList.remove('row-expanded');
+    expandedRowId = null;
+    return;
+  }
+
+  // Collapse any previously open row
+  if (expandedRowId) {
+    const prev = document.getElementById(`row-detail-${expandedRowId}`);
+    if (prev) prev.remove();
+    const prevRow = document.getElementById(`row-${expandedRowId}`);
+    if (prevRow) prevRow.classList.remove('row-expanded');
+  }
+  expandedRowId = id;
+
+  const item = rowDataMap[id];
+  if (!item) return;
+
+  mainRow.classList.add('row-expanded');
+  const colspan = mainRow.querySelectorAll('td').length;
+
+  const detailRow = document.createElement('tr');
+  detailRow.id = detailId;
+  detailRow.className = 'row-detail-row';
+  detailRow.innerHTML = `<td colspan="${colspan}" style="padding:0">${buildDetailPanel(item)}</td>`;
+  mainRow.insertAdjacentElement('afterend', detailRow);
+}
+
+function buildDetailPanel(item) {
+  const isLoser  = item.type === 'loser';
+  const colors   = (item.color || []).map(cap).join(', ') || '—';
+  const features = (item.features || []).join(', ') || '—';
+  const gps      = item.latitude ? `${(+item.latitude).toFixed(6)}, ${(+item.longitude).toFixed(6)}` : 'No GPS';
+  const created  = item.created_at ? new Date(item.created_at).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) : '—';
+  const expires  = item.expires_at ? new Date(item.expires_at).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
+  const photo    = item.photo_url
+    ? `<div class="detail-photo-col"><img class="detail-photo" src="${item.photo_url}" onclick="window.open('${item.photo_url}','_blank')" title="Click to open full size" /></div>`
+    : '';
+
+  const fields = [
+    df('Type',     `<span class="nocap">${item.item_type ? cap(item.item_type) : '—'}</span>`),
+    df('Color',    colors),
+    df('Material', cap(item.material || '—')),
+    df('Size',     cap(item.size || '—')),
+    df('Features', `<span class="nocap">${features}</span>`),
+    df('Status',   `<span class="status-pill ${statusCls(item.status)}">${item.status}</span>`),
+    df('Reported', `<span class="nocap">${created}</span>`),
+    df('Expires',  `<span class="nocap">${expires}</span>`),
+    df('GPS',      `<span class="nocap">${gps}</span>`),
+    df('Phone',    `<span class="nocap">${item.phone || '—'}</span>`),
+    ...(!isLoser && item.finder_payout_app ? [df('Payout', `<span class="nocap">${cap(item.finder_payout_app)} ${item.finder_payout_handle || ''}</span>`)] : []),
+    ...(!isLoser ? [df('Secret', item.has_secret ? '✓ Set' : '—')] : []),
+    df('Item ID', `<span class="mono">${item.id}</span>`),
+  ];
+
+  return `<div class="row-detail-wrap">
+    <div class="row-detail-inner">
+      ${photo}
+      <div class="detail-fields">${fields.join('')}</div>
+    </div>
+  </div>`;
+}
+
+function df(label, value) {
+  return `<div class="detail-field"><div class="df-label">${label}</div><div class="df-value">${value}</div></div>`;
 }
 
 // ── Live Map Tab ──────────────────────────────────────────────────────────── //
