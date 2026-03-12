@@ -6,13 +6,15 @@
 <title>LOFO Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
   --bg: #1a2332; --bg2: #1e2d3d; --bg3: #1a2d2a;
   --card: rgba(255,255,255,0.05); --card2: rgba(255,255,255,0.03);
   --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.05);
-  /* Primary accent: blue */
   --accent: #60A5FA; --adim: rgba(96,165,250,0.15); --abright: rgba(96,165,250,0.28);
   --green: #34D399; --gdim: rgba(52,211,153,0.15);
   --yellow: #F59E0B; --ydim: rgba(245,158,11,0.15);
@@ -105,7 +107,8 @@ header {
 .map-nav-btn {
   padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(96,165,250,0.3);
   background: var(--adim); color: var(--accent); font-size: 12px; font-weight: 600;
-  text-decoration: none; transition: all 0.2s; display: flex; align-items: center; gap: 5px;
+  font-family: inherit; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 5px;
+  text-decoration: none;
 }
 .map-nav-btn:hover { background: var(--abright); }
 
@@ -262,6 +265,92 @@ tbody td.small { font-size: 11px; color: var(--muted); }
 .dic-attr { font-size: 12px; color: var(--muted); margin-bottom: 6px; text-transform: capitalize; }
 .dic-id { font-size: 10px; font-family: monospace; word-break: break-all; }
 .debug-error { color: var(--red); font-size: 13px; }
+
+/* ── Map Tab ── */
+#map-tab-container { display: none; position: relative; }
+#admin-map {
+  width: 100%;
+  height: max(520px, calc(100vh - 370px));
+  background: #0d1724;
+  border-radius: 0 0 14px 14px;
+}
+/* Floating overlays inside the map (positioned relative to #map-tab-container) */
+.atab-float {
+  position: absolute; z-index: 1001;
+  background: rgba(12,22,36,0.93); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px; backdrop-filter: blur(20px);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.55);
+  font-family: 'DM Sans', sans-serif;
+}
+#atab-legend  { bottom: 28px; left: 20px; padding: 14px 16px; min-width: 178px; }
+#atab-stats   { bottom: 28px; right: 20px; padding: 12px 18px; }
+#atab-refresh {
+  top: 14px; right: 20px; z-index: 1002;
+  padding: 6px 13px; border: none; cursor: pointer;
+  color: var(--accent); font-size: 12px; font-weight: 600; font-family: inherit;
+}
+#atab-refresh:hover { background: rgba(12,22,36,0.99); }
+.atab-leg-title { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 10px; }
+.atab-leg-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.atab-leg-left { display: flex; align-items: center; gap: 8px; }
+.atab-dot-b { width: 9px; height: 9px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 6px rgba(96,165,250,0.6); flex-shrink: 0; }
+.atab-dot-r { width: 9px; height: 9px; border-radius: 50%; background: var(--red);  box-shadow: 0 0 6px rgba(255,107,107,0.6); flex-shrink: 0; }
+.atab-dot-g { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; border: 1.5px dashed var(--green); }
+.atab-leg-name  { font-size: 12px; color: var(--text); }
+.atab-leg-count { font-size: 13px; font-weight: 800; color: #fff; }
+.atab-leg-div   { height: 1px; background: var(--border); margin: 8px 0; }
+.atab-toggle    { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 12px; color: var(--muted); user-select: none; }
+.atab-toggle input { accent-color: var(--accent); cursor: pointer; }
+#atab-no-gps    { font-size: 11px; color: var(--muted2); margin-top: 7px; line-height: 1.4; }
+.atab-stats-row { display: flex; gap: 20px; }
+.atab-stat .asv { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+.atab-stat .asl { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* Marker styles (shared with map.html) */
+.lf-wrap   { display: flex; align-items: center; justify-content: center; position: relative; }
+.lf-marker { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: transform 0.15s; }
+.lf-marker:hover { transform: scale(1.18); }
+.lf-finder { background: rgba(75,158,245,0.9); border: 2px solid #60A5FA; box-shadow: 0 0 12px rgba(96,165,250,0.55), 0 2px 8px rgba(0,0,0,0.4); }
+.lf-loser  { background: rgba(255,107,107,0.9); border: 2px solid #FF6B6B; box-shadow: 0 0 12px rgba(255,107,107,0.55), 0 2px 8px rgba(0,0,0,0.4); }
+.lf-pulse  { position: absolute; width: 32px; height: 32px; border-radius: 50%; border: 2px solid rgba(255,107,107,0.6); animation: lf-pulse-anim 2.2s ease-out infinite; pointer-events: none; }
+@keyframes lf-pulse-anim { 0% { transform: scale(1); opacity: 0.85; } 100% { transform: scale(2.6); opacity: 0; } }
+
+/* Leaflet popup overrides (global — Leaflet uses these exact class names) */
+.lf-popup-admin .leaflet-popup-content-wrapper {
+  background: rgba(12,22,36,0.97) !important; border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 14px !important; backdrop-filter: blur(22px) !important;
+  color: #e8f0f0 !important; box-shadow: 0 12px 40px rgba(0,0,0,0.65) !important; padding: 0 !important;
+}
+.lf-popup-admin .leaflet-popup-content { margin: 0 !important; width: auto !important; }
+.lf-popup-admin .leaflet-popup-tip-container { display: none !important; }
+.lf-popup-admin .leaflet-popup-close-button { color: #6b9090 !important; font-size: 20px !important; top: 8px !important; right: 11px !important; z-index: 1; line-height: 1 !important; }
+.lf-popup-admin .leaflet-popup-close-button:hover { color: #e8f0f0 !important; background: transparent !important; }
+.lf-popup-admin .leaflet-popup-close-button:focus { outline: none !important; background: transparent !important; }
+.marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background: transparent !important; }
+.marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div { background: transparent !important; }
+.leaflet-control-zoom a { background: rgba(12,22,36,0.93) !important; color: #e8f0f0 !important; border: 1px solid rgba(255,255,255,0.1) !important; }
+.leaflet-control-zoom a:hover { background: rgba(255,255,255,0.12) !important; }
+.leaflet-bar { border: none !important; box-shadow: 0 4px 20px rgba(0,0,0,0.45) !important; border-radius: 10px !important; overflow: hidden; }
+.leaflet-bar a:first-child { border-radius: 10px 10px 0 0 !important; }
+.leaflet-bar a:last-child  { border-radius: 0 0 10px 10px !important; }
+.leaflet-control-attribution { background: rgba(12,22,36,0.7) !important; color: #6b9090 !important; font-size: 10px !important; border-radius: 6px 0 0 0 !important; }
+.leaflet-control-attribution a { color: #6b9090 !important; }
+.lf-tt { background: rgba(12,22,36,0.95) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; color: #e8f0f0 !important; font-family: 'DM Sans', sans-serif !important; font-size: 12px !important; font-weight: 600 !important; padding: 5px 11px !important; white-space: nowrap !important; box-shadow: 0 4px 18px rgba(0,0,0,0.45) !important; }
+.lf-tt::before { display: none !important; }
+
+/* Map popup card */
+.map-popup { padding: 16px 18px 14px; min-width: 210px; max-width: 260px; font-family: 'DM Sans', sans-serif; }
+.popup-badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 9px; }
+.pb-finder { background: rgba(96,165,250,0.16); color: #60A5FA; }
+.pb-loser  { background: rgba(255,107,107,0.16); color: #FF6B6B; }
+.popup-photo  { width: 100%; height: 130px; object-fit: cover; border-radius: 9px; margin-bottom: 10px; display: block; cursor: pointer; }
+.popup-item   { font-size: 17px; font-weight: 800; color: #fff; text-transform: capitalize; margin-bottom: 2px; letter-spacing: -0.3px; }
+.popup-desc   { font-size: 12px; color: #6b9090; text-transform: capitalize; margin-bottom: 5px; }
+.popup-divider { height: 1px; background: rgba(255,255,255,0.07); margin-bottom: 8px; }
+.popup-meta-row { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+.popup-meta-icon { font-size: 11px; }
+.popup-meta-text { font-size: 11px; color: #6b9090; }
+.popup-id { font-size: 9px; color: rgba(255,255,255,0.15); font-family: 'Courier New', monospace; margin-top: 5px; }
 </style>
 </head>
 <body>
@@ -304,7 +393,7 @@ tbody td.small { font-size: 11px; color: var(--muted); }
       <button class="time-btn active" onclick="setPeriod(this,'all')">All Time</button>
     </div>
     <div class="header-right">
-      <a href="/map" class="map-nav-btn">🗺 Live Map</a>
+      <button onclick="setTab('map')" class="map-nav-btn">🗺 Map</button>
       <div class="avatar" id="header-avatar">?</div>
       <button class="logout-btn" onclick="logout()">Log out</button>
     </div>
@@ -357,7 +446,7 @@ tbody td.small { font-size: 11px; color: var(--muted); }
       ⚠️ <span id="expiring-text"></span>
     </div>
 
-    <!-- Table Panel -->
+    <!-- Table / Map Panel -->
     <div class="panel" id="main-panel">
       <div class="panel-header">
         <div class="panel-tabs">
@@ -366,10 +455,12 @@ tbody td.small { font-size: 11px; color: var(--muted); }
           <button class="tab-btn"        data-tab="reunions" onclick="setTab('reunions')">Reunions</button>
           <button class="tab-btn"        data-tab="tips"     onclick="setTab('tips')">Tips</button>
           <button class="tab-btn"        data-tab="debug"    onclick="setTab('debug')">Debug Matcher</button>
+          <button class="tab-btn"        data-tab="map"      onclick="setTab('map')">🗺 Map</button>
         </div>
       </div>
       <div class="tab-divider"></div>
 
+      <!-- Table -->
       <div class="table-wrap" id="table-container">
         <table>
           <thead id="table-head"></thead>
@@ -377,6 +468,7 @@ tbody td.small { font-size: 11px; color: var(--muted); }
         </table>
       </div>
 
+      <!-- Debug Matcher -->
       <div id="debug-container">
         <div class="debug-panel-title">Match Debugger</div>
         <div class="debug-panel-desc">Paste two item IDs to see exactly how the matcher evaluates them — similarity score, color compatibility, distance, and whether they'd match or why they wouldn't.</div>
@@ -393,10 +485,50 @@ tbody td.small { font-size: 11px; color: var(--muted); }
         <button class="debug-run-btn" onclick="runDebug()">Check Match →</button>
         <div id="debug-result"></div>
       </div>
+
+      <!-- Live Map -->
+      <div id="map-tab-container">
+        <div id="admin-map"></div>
+
+        <!-- Legend (bottom-left) -->
+        <div class="atab-float" id="atab-legend">
+          <div class="atab-leg-title">Legend</div>
+          <div class="atab-leg-row">
+            <div class="atab-leg-left"><div class="atab-dot-b"></div><span class="atab-leg-name">Finders</span></div>
+            <span class="atab-leg-count" id="atab-finders">—</span>
+          </div>
+          <div class="atab-leg-row">
+            <div class="atab-leg-left"><div class="atab-dot-r"></div><span class="atab-leg-name">Losers</span></div>
+            <span class="atab-leg-count" id="atab-losers">—</span>
+          </div>
+          <div class="atab-leg-div"></div>
+          <label class="atab-toggle">
+            <input type="checkbox" id="pairs-toggle" checked onchange="toggleMapPairs()" />
+            <div class="atab-dot-g"></div>
+            <span>Match pairs &nbsp;<span id="atab-pairs-count" style="color:#fff;font-weight:700">—</span></span>
+          </label>
+          <div id="atab-no-gps"></div>
+        </div>
+
+        <!-- Stats (bottom-right) -->
+        <div class="atab-float" id="atab-stats">
+          <div class="atab-stats-row">
+            <div class="atab-stat">
+              <div class="asv" style="color:var(--blue)" id="atab-total">—</div>
+              <div class="asl">pins on map</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Refresh (top-right) -->
+        <button class="atab-float" id="atab-refresh" onclick="refreshAdminMap()">↻ Refresh</button>
+      </div>
     </div>
   </main>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
 // ── State ──
 let token     = sessionStorage.getItem('lofo_admin_token');
@@ -404,9 +536,16 @@ let username  = sessionStorage.getItem('lofo_admin_user');
 let period    = 'all';
 let activeTab = 'lost';
 
-// Stored table data for client-side sort without refetch
 const tableData = { lost: [], found: [], reunions: [], tips: [] };
 let sortState   = { col: null, dir: 'asc' };
+
+// ── Map state ──
+let _adminMap         = null;
+let _adminClusters    = null;
+let _adminPairLines   = null;
+let _adminRadiusCircle = null;
+let _showPairs        = true;
+let _lastPairsData    = [];
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
@@ -497,24 +636,39 @@ async function setTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
   activeTab = tab;
-  sortState = { col: null, dir: 'asc' }; // reset sort on tab change
+  sortState = { col: null, dir: 'asc' };
 
-  if (tab === 'debug') {
+  const panel = document.getElementById('main-panel');
+
+  if (tab === 'map') {
+    document.getElementById('table-container').style.display = 'none';
+    document.getElementById('debug-container').style.display = 'none';
+    document.getElementById('map-tab-container').style.display = 'block';
+    panel.style.overflow = 'visible'; // allow Leaflet popups to extend above panel edge
+    await loadMapTab();
+  } else if (tab === 'debug') {
     document.getElementById('table-container').style.display = 'none';
     document.getElementById('debug-container').style.display = 'block';
+    document.getElementById('map-tab-container').style.display = 'none';
+    panel.style.overflow = 'hidden';
     document.getElementById('debug-result').innerHTML = '';
   } else {
     document.getElementById('table-container').style.display = 'block';
     document.getElementById('debug-container').style.display = 'none';
+    document.getElementById('map-tab-container').style.display = 'none';
+    panel.style.overflow = 'hidden';
     await loadTab(tab);
   }
 
-  // Scroll to panel smoothly
   document.getElementById('main-panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 async function loadAll() {
-  await Promise.all([loadStats(), loadTab(activeTab)]);
+  if (activeTab === 'map') {
+    await Promise.all([loadStats(), loadMapTab()]);
+  } else {
+    await Promise.all([loadStats(), loadTab(activeTab)]);
+  }
 }
 
 // ── Stats ──
@@ -565,7 +719,6 @@ function getSorted(data) {
 }
 
 function si(col) {
-  // Sort indicator HTML for a given column key
   if (sortState.col !== col) return `<span class="sort-icon">↕</span>`;
   return `<span class="sort-icon on">${sortState.dir === 'asc' ? '↑' : '↓'}</span>`;
 }
@@ -581,7 +734,6 @@ function rerenderCurrentTab() {
   if (tab === 'found')    renderItemsBody('finder',   getSorted(tableData.found));
   if (tab === 'reunions') renderReunionsBody(          getSorted(tableData.reunions));
   if (tab === 'tips')     renderTipsBody(              getSorted(tableData.tips));
-  // Re-render headers to update sort indicators
   if (tab === 'lost' || tab === 'found') renderItemsHead(tab === 'lost' ? 'loser' : 'finder');
   if (tab === 'reunions') renderReunionsHead();
   if (tab === 'tips')     renderTipsHead();
@@ -589,7 +741,7 @@ function rerenderCurrentTab() {
 
 // ── Tables ──
 async function loadTab(tab) {
-  if (tab === 'debug') return;
+  if (tab === 'debug' || tab === 'map') return;
   document.getElementById('table-body').innerHTML = `<tr class="loading-row"><td colspan="9">Loading…</td></tr>`;
   if (tab === 'lost')     await loadItems('loser');
   if (tab === 'found')    await loadItems('finder');
@@ -597,7 +749,6 @@ async function loadTab(tab) {
   if (tab === 'tips')     await loadTips();
 }
 
-// Items
 function renderItemsHead(type) {
   const thead = document.getElementById('table-head');
   if (type === 'loser') {
@@ -673,7 +824,6 @@ async function loadItems(type) {
   renderItemsBody(type, getSorted(tableData[tab]));
 }
 
-// Reunions
 function renderReunionsHead() {
   document.getElementById('table-head').innerHTML = `<tr>
     ${th('Item','item_type')}${th('Finder','finder_phone')}${th('Owner','loser_phone')}
@@ -701,7 +851,6 @@ async function loadReunions() {
   renderReunionsBody(getSorted(tableData.reunions));
 }
 
-// Tips
 function renderTipsHead() {
   document.getElementById('table-head').innerHTML = `<tr>
     ${th('Finder Item','finder_item_type')}${th('Loser Item','loser_item_type')}
@@ -757,7 +906,7 @@ async function runDebug() {
   const out = document.getElementById('debug-result');
   const re  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  if (!a || !b)              { out.innerHTML = `<p class="debug-error">Please enter both item IDs.</p>`; return; }
+  if (!a || !b)               { out.innerHTML = `<p class="debug-error">Please enter both item IDs.</p>`; return; }
   if (!re.test(a)||!re.test(b)) { out.innerHTML = `<p class="debug-error">IDs must be valid UUIDs.</p>`; return; }
 
   out.innerHTML = `<p class="muted">Running…</p>`;
@@ -813,7 +962,186 @@ async function runDebug() {
     </div>`;
 }
 
-// ── Helpers ──
+// ── Live Map Tab ──────────────────────────────────────────────────────────── //
+
+async function loadMapTab() {
+  if (!_adminMap) initAdminMap();
+  await Promise.all([loadMapPins(), loadMapPairs()]);
+}
+
+function initAdminMap() {
+  _adminMap = L.map('admin-map', { zoomControl: false, preferCanvas: true });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19,
+  }).addTo(_adminMap);
+
+  L.control.zoom({ position: 'bottomright' }).addTo(_adminMap);
+
+  _adminClusters = L.markerClusterGroup({
+    maxClusterRadius: 56, iconCreateFunction: mapClusterIcon,
+    spiderfyOnMaxZoom: true, showCoverageOnHover: false, zoomToBoundsOnClick: true,
+  });
+  _adminMap.addLayer(_adminClusters);
+
+  _adminPairLines = L.layerGroup().addTo(_adminMap);
+
+  // Clear radius circle on map click (outside a marker)
+  _adminMap.on('click', () => {
+    if (_adminRadiusCircle) { _adminMap.removeLayer(_adminRadiusCircle); _adminRadiusCircle = null; }
+  });
+}
+
+async function loadMapPins() {
+  const data = await api('GET', `/admin/map-pins?period=${period}`);
+  if (!data) return;
+  renderMapPins(data.pins || []);
+  updateMapLegend(data);
+}
+
+async function loadMapPairs() {
+  const data = await api('GET', `/admin/map-pairs?period=${period}`);
+  if (!data) return;
+  _lastPairsData = data;
+  renderMapPairs(data);
+}
+
+function renderMapPins(pins) {
+  _adminClusters.clearLayers();
+  if (_adminRadiusCircle) { _adminMap.removeLayer(_adminRadiusCircle); _adminRadiusCircle = null; }
+
+  if (!pins.length) { _adminMap.setView([39.5, -98.35], 4); return; }
+
+  const markers = pins.map(item => {
+    const isLoser = item.type === 'loser';
+    const icon = L.divIcon({
+      html: `<div class="lf-wrap">
+        ${isLoser ? '<div class="lf-pulse"></div>' : ''}
+        <div class="lf-marker ${isLoser ? 'lf-loser' : 'lf-finder'}">${isLoser ? '📦' : '🔍'}</div>
+      </div>`,
+      className: '', iconSize: [44, 44], iconAnchor: [22, 22], popupAnchor: [0, -26],
+    });
+
+    const marker = L.marker([+item.latitude, +item.longitude], { icon });
+    marker._itemData = item;
+
+    marker.bindTooltip(mapCap(item.item_type || 'item'), {
+      className: 'lf-tt', direction: 'top', offset: [0, -6],
+    });
+
+    marker.bindPopup(buildMapPopup(item), {
+      maxWidth: 290, className: 'lf-popup-admin',
+    });
+
+    // Draw 10-mile radius circle when popup opens
+    marker.on('popupopen', () => {
+      if (_adminRadiusCircle) _adminMap.removeLayer(_adminRadiusCircle);
+      _adminRadiusCircle = L.circle([+item.latitude, +item.longitude], {
+        radius: 16093.4, // 10 miles in metres
+        color:       item.type === 'finder' ? '#60A5FA' : '#FF6B6B',
+        fillColor:   item.type === 'finder' ? '#60A5FA' : '#FF6B6B',
+        fillOpacity: 0.04, opacity: 0.3, weight: 1.5, dashArray: '7 5',
+      }).addTo(_adminMap);
+    });
+
+    marker.on('popupclose', () => {
+      if (_adminRadiusCircle) { _adminMap.removeLayer(_adminRadiusCircle); _adminRadiusCircle = null; }
+    });
+
+    return marker;
+  });
+
+  _adminClusters.addLayers(markers);
+  const bounds = _adminClusters.getBounds();
+  if (bounds.isValid()) _adminMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 13, animate: true });
+}
+
+function renderMapPairs(pairs) {
+  _adminPairLines.clearLayers();
+  if (!_showPairs || !pairs.length) {
+    document.getElementById('atab-pairs-count').textContent = pairs.length;
+    return;
+  }
+  pairs.forEach(p => {
+    if (p.finder_lat && p.finder_lng && p.loser_lat && p.loser_lng) {
+      L.polyline(
+        [[+p.finder_lat, +p.finder_lng], [+p.loser_lat, +p.loser_lng]],
+        { color: '#34D399', opacity: 0.5, weight: 2, dashArray: '6 5' }
+      ).bindTooltip(
+        `${mapCap(p.finder_item_type || 'item')} ↔ ${mapCap(p.loser_item_type || 'item')}`,
+        { className: 'lf-tt', sticky: true }
+      ).addTo(_adminPairLines);
+    }
+  });
+  document.getElementById('atab-pairs-count').textContent = pairs.length;
+}
+
+function updateMapLegend(data) {
+  const pins   = data.pins || [];
+  const fCount = pins.filter(p => p.type === 'finder').length;
+  const lCount = pins.filter(p => p.type === 'loser').length;
+  document.getElementById('atab-finders').textContent = fCount;
+  document.getElementById('atab-losers').textContent  = lCount;
+  document.getElementById('atab-total').textContent   = fCount + lCount;
+  const noGps = data.no_gps_count || 0;
+  document.getElementById('atab-no-gps').textContent =
+    noGps > 0 ? `${noGps} item${noGps !== 1 ? 's' : ''} without GPS not shown` : '';
+}
+
+function toggleMapPairs() {
+  _showPairs = document.getElementById('pairs-toggle').checked;
+  renderMapPairs(_lastPairsData);
+}
+
+async function refreshAdminMap() {
+  if (!_adminMap) return;
+  _adminClusters.clearLayers();
+  _adminPairLines.clearLayers();
+  if (_adminRadiusCircle) { _adminMap.removeLayer(_adminRadiusCircle); _adminRadiusCircle = null; }
+  await loadMapTab();
+}
+
+function buildMapPopup(item) {
+  const colors = (item.color || []).map(mapCap).join(', ');
+  const attrs  = [colors, mapCap(item.material), mapCap(item.size)].filter(Boolean).join(' · ');
+  const verb   = item.type === 'finder' ? 'Found' : 'Lost';
+  const photo  = item.photo_url
+    ? `<img class="popup-photo" src="${item.photo_url}" onclick="window.open('${item.photo_url}','_blank')" />`
+    : '';
+  return `<div class="map-popup">
+    <div class="popup-badge ${item.type === 'finder' ? 'pb-finder' : 'pb-loser'}">${item.type === 'finder' ? 'FINDER' : 'LOSER'}</div>
+    ${photo}
+    <div class="popup-item">${mapCap(item.item_type) || 'Item'}</div>
+    ${attrs ? `<div class="popup-desc">${attrs}</div>` : ''}
+    <div class="popup-divider"></div>
+    <div class="popup-meta-row"><span class="popup-meta-icon">🕐</span><span class="popup-meta-text">${verb} ${timeAgo(item.created_at)}</span></div>
+    <div class="popup-meta-row"><span class="popup-meta-icon">📍</span><span class="popup-meta-text">${(+item.latitude).toFixed(4)}, ${(+item.longitude).toFixed(4)}</span></div>
+    <div class="popup-meta-row"><span class="popup-meta-icon">◎</span><span class="popup-meta-text" style="color:${item.type==='finder'?'#60A5FA':'#FF6B6B'}">10-mile match radius shown</span></div>
+    ${item.has_phone ? `<div class="popup-meta-row"><span class="popup-meta-icon">📱</span><span class="popup-meta-text" style="color:#34D399">Contact on file</span></div>` : ''}
+    <div class="popup-id">${item.id}</div>
+  </div>`;
+}
+
+function mapClusterIcon(cluster) {
+  const children = cluster.getAllChildMarkers();
+  const fCount   = children.filter(m => m._itemData?.type === 'finder').length;
+  const lCount   = children.filter(m => m._itemData?.type === 'loser').length;
+  const count    = cluster.getChildCount();
+  const isFinder = fCount >= lCount;
+  const color    = isFinder ? '#60A5FA' : '#FF6B6B';
+  const rgb      = isFinder ? '96,165,250' : '255,107,107';
+  const size     = count < 5 ? 36 : count < 20 ? 44 : count < 100 ? 52 : 60;
+  const fs       = size < 42 ? 11 : 13;
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;background:rgba(${rgb},0.16);border:2px solid ${color};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${fs}px;font-weight:800;color:${color};font-family:'DM Sans',sans-serif;box-shadow:0 0 20px rgba(${rgb},0.4),0 3px 12px rgba(0,0,0,0.5);letter-spacing:-0.5px">${count}</div>`,
+    className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2],
+  });
+}
+
+function mapCap(s) { return s ? s[0].toUpperCase() + s.slice(1) : (s || ''); }
+
+// ── Shared Helpers ──
 function timeAgo(iso) {
   if (!iso) return '—';
   const ms = Date.now() - new Date(iso);

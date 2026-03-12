@@ -1440,11 +1440,13 @@ def serve_map():
 
 
 @app.get("/admin/map-pins", include_in_schema=False)
-def admin_map_pins(admin=Depends(_verify_admin)):
-    """Return all active items with GPS coords for map display, plus count of items without GPS."""
+def admin_map_pins(period: str = "all", admin=Depends(_verify_admin)):
+    """Return active items with GPS coords for map display, filtered by period."""
+    period = period if period in ("today", "week", "month", "all") else "all"
+    pf = _admin_period_filter(period)
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT
                     id, type, item_type, color, material, size, features,
                     latitude, longitude, status, created_at::text, photo_url,
@@ -1453,14 +1455,49 @@ def admin_map_pins(admin=Depends(_verify_admin)):
                 WHERE status = 'active'
                   AND latitude IS NOT NULL
                   AND longitude IS NOT NULL
+                  {pf}
                 ORDER BY created_at DESC
             """)
             gps_rows = cur.fetchall()
-            cur.execute(
-                "SELECT COUNT(*) AS cnt FROM items WHERE status='active' AND (latitude IS NULL OR longitude IS NULL)"
-            )
+            cur.execute(f"""
+                SELECT COUNT(*) AS cnt FROM items
+                WHERE status='active' AND (latitude IS NULL OR longitude IS NULL) {pf}
+            """)
             no_gps = cur.fetchone()["cnt"]
     return {"pins": [dict(r) for r in gps_rows], "no_gps_count": int(no_gps)}
+
+
+@app.get("/admin/map-pairs", include_in_schema=False)
+def admin_map_pairs(period: str = "all", admin=Depends(_verify_admin)):
+    """Return reunion pairs where both items have GPS, for drawing match lines on the map."""
+    period = period if period in ("today", "week", "month", "all") else "all"
+    pf = _admin_period_filter(period, col="r.created_at")
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT
+                    r.id::text               AS reunion_id,
+                    fi.id::text              AS finder_item_id,
+                    fi.item_type             AS finder_item_type,
+                    fi.latitude              AS finder_lat,
+                    fi.longitude             AS finder_lng,
+                    li.id::text              AS loser_item_id,
+                    li.item_type             AS loser_item_type,
+                    li.latitude              AS loser_lat,
+                    li.longitude             AS loser_lng,
+                    r.status,
+                    r.created_at::text
+                FROM reunions r
+                JOIN items fi ON fi.id = r.finder_item_id
+                JOIN items li ON li.id = r.loser_item_id
+                WHERE fi.latitude  IS NOT NULL AND fi.longitude  IS NOT NULL
+                  AND li.latitude  IS NOT NULL AND li.longitude  IS NOT NULL
+                  {pf}
+                ORDER BY r.created_at DESC
+                LIMIT 200
+            """)
+            rows = cur.fetchall()
+    return [dict(r) for r in rows]
 
 
 @app.post("/admin/login", include_in_schema=False)
