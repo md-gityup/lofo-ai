@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 12, 2026 — Phase 21: Bug fixes, XSS hardening, admin UX*
+*Last updated: March 12, 2026 — Phase 22: Admin chart cards, map fix, mobile responsive*
 
 ---
 
@@ -43,6 +43,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 19 — Map as Admin Tab + Enhancements | ✅ Complete | Live map embedded as 6th tab in admin dashboard. Period filter drives map pins + pairs. 10-mile radius circle on pin click. Dashed green lines connecting matched reunion pairs (toggleable). No separate page navigation — all in one auth context. Admin table rows clickable — expand inline to show full item detail (photo, all attributes, GPS, full timestamps, phone, payout, item ID). |
 | 20 — In-App Menu Drawer | ✅ Complete | Gear icon (white circle) top-right of home screen. Slide-up sheet: My Usage (user-level lost/found/reunited from localStorage item IDs), Support (FAQ accordion + Contact Us email form), Information (Terms, Privacy, About, App Version). Backend: `GET /terms`, `GET /privacy`, `GET /stats/by-items`. App Store ready. |
 | 21 — Bug Fixes & Hardening | ✅ Complete | 8 bugs fixed: loser phone normalization, DB pool corruption, resolve page false-success, unbounded stats IDs, JWT_SECRET crash, XSS hardening (all frontends), photo URL validation, absolute API paths in admin/map. Admin UX: minimal underline tabs, clickable geo coords zoom to item on map. |
+| 22 — Admin Charts & Mobile | ✅ Complete | Two chart cards: Lost vs Found bar chart (daily, current week) + Avg Time to Reunion line chart (weekly trend, month-over-month delta, active matches). `GET /admin/charts` endpoint. Blank map fix (Leaflet `invalidateSize`). Full mobile responsive layout (900px + 540px breakpoints). |
 
 ---
 
@@ -262,9 +263,9 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 21+
+## What's Next: Phase 22+
 
-**Phases 1–21 complete and deployed.**
+**Phases 1–22 complete and deployed.**
 
 ### Pre-Launch Requirements
 
@@ -276,8 +277,9 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 > 2. Consider moving the in-app tip back to post-reunion (Direction 2 from the design discussion) — or keep both as a belt-and-suspenders approach (in-app tip + resolve page as second chance)
 > 3. The resolve page also handles **item closure** (marks both items inactive) — this is the only way items currently get closed before their 30-day expiry, so it's worth making prominent in the SMS copy once it works
 
-### Candidates for Phase 22+
+### Candidates for Phase 23+
 
+- **SwiftUI native app** — Transition the HTML/JS frontend (`LOFO_MVP.html`) to a native iOS app in SwiftUI. The backend API stays as-is; the native app replaces the web frontend. Camera, GPS, haptics, and push notifications all become native. This is the big next step.
 - **Loser location post-submit correction** — `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact. Small backend + small UI addition.
 - **Map in app flow** — Leaflet pin-drop screen in the loser flow between `screen-lost-prompt` and submission, for users who type vague locations ("somewhere near downtown"). Would improve geocoding accuracy. Medium effort.
 
@@ -292,15 +294,14 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–21):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Admin dashboard at `/admin`, live map at `/map`. UptimeRobot keep-alive on GET /health every 10 min — no cold starts. Lifecycle cron running daily via GitHub Actions.
+> **What's complete and deployed (Phases 1–22):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Admin dashboard at `/admin` (with chart cards, mobile responsive), live map at `/map`. UptimeRobot keep-alive on GET /health every 10 min — no cold starts. Lifecycle cron running daily via GitHub Actions.
 >
-> **Phase 21 (last session) — Bug fixes & hardening:**
-> - Deep-dive bug audit: 8 bugs found and fixed across `main.py`, `database.py`, `security.py`, and all frontend files.
-> - Critical: loser phone not normalized to E.164 before DB write; DB connection pool corruption when replacing dead connections.
-> - Medium: resolve page showed success even when API call failed; `handleYes()` no-finder path not awaited; `/stats/by-items` had unbounded ID list (now capped at 100).
-> - Low: `security.py` crashed with `KeyError` if `JWT_SECRET` missing (now `RuntimeError` with message); XSS risk from user-controlled content (added `esc()` HTML escaping + `https://` URL validation across all 4 frontend files); admin/map pages used relative API paths (broke on GitHub Pages — now use absolute `API` base URL).
-> - Admin UX: tabs restyled to minimal underline (no dark background bar); clickable geo coordinates in tables zoom directly to item on map and open its popup.
+> **Phase 22 (last session) — Admin charts & mobile:**
+> - Two chart cards added to admin dashboard: **Lost vs Found** (grouped bar chart, daily counts for current week) and **Avg. Time to Reunion** (line chart with weekly trend, hero number, month-over-month delta, active matches count).
+> - New `GET /admin/charts` backend endpoint (daily items via `generate_series`, reunion avg via epoch math, weekly trend, active reunion count).
+> - Blank map bug fixed: Leaflet `invalidateSize()` after container shown (geo-link clicks and tab switches both affected).
+> - Full mobile responsive layout: 900px breakpoint (2-col stat cards, wrapping header, scrollable tabs, stacking detail panels) + 540px breakpoint (tighter padding, smaller fonts, full-width debug button, adjusted map overlays).
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
 >
@@ -312,13 +313,36 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 >
 > **Keep-alive:** UptimeRobot pings `GET /health` every 10 min — Railway stays warm, no cold starts.
 >
-> **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 21+' section in the progress doc before starting.
+> **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 22+' section in the progress doc before starting.
 >
 > Start by reading `main.py` and `LOFO_AI_Progress.md`, then discuss before building."
 
 ---
 
 ## Session History
+
+### Phase 22 — Admin Charts, Map Fix, Mobile Responsive — March 12, 2026
+
+**What changed:** Two data visualization chart cards added to admin dashboard. Blank map bug fixed. Full mobile responsive layout.
+
+**Chart cards (`admin.html`):**
+- **Lost vs Found** — Canvas-drawn grouped bar chart (red = lost, blue = found). Shows daily item counts for the current ISO week (Mon–Sun). Auto-scaling Y axis with grid lines, rounded bar tops, day labels. Legend in top-right of card.
+- **Avg. Time to Reunion** — Hero number (avg days from loser item creation to reunion coordination, last 30 days). Green/red delta vs previous 30-day window. Active matches (reunion) count. Canvas-drawn smooth bezier line chart with gradient fill, dots at data points, week labels (W1–W5).
+- Both charts redraw on window resize (debounced 200ms).
+- Charts load in parallel with stats and table data via `loadAll()`.
+- "No reunion data yet" fallback when line chart has no data.
+
+**Backend (`main.py`):**
+- `GET /admin/charts` — admin-auth-protected endpoint returning: `daily_items` (7 rows via `generate_series`, LEFT JOIN items), `reunion_avg_days` (epoch math on `reunions.created_at - items.created_at`), `reunion_diff_vs_prev` (30-day vs previous 30-day comparison), `active_matches` (active reunion count), `reunion_weekly` (grouped by week, last 35 days).
+
+**Blank map fix (`admin.html`):**
+- Root cause: Leaflet map initialized while `#map-tab-container` was `display: none`. Leaflet calculated container size as 0×0, tiles never loaded. Fixed by calling `_adminMap.invalidateSize()` via `setTimeout(..., 0)` in `loadMapTab()` — defers to next tick so the browser reflows first. Affects both geo-link clicks and direct map tab switches.
+
+**Mobile responsive (`admin.html`):**
+- 900px breakpoint: stat cards → 2×2 grid, chart cards → single column, header wraps (logo + controls top, time filters centered below), tabs horizontally scrollable, detail panel photo stacks above fields (2-col), debug inputs/metrics/items all single-column.
+- 540px breakpoint: tighter padding (36px → 12px), smaller card values/icons/fonts, login card padding reduced, hover nav hints hidden, table cells reduced, map overlays nudged inward, debug button full-width, chart cards tighter padding.
+
+---
 
 ### Phase 21 — Bug Fixes, XSS Hardening, Admin UX — March 12, 2026
 
