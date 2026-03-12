@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 11, 2026 — Phase 16 complete + keep-alive infrastructure + map bug fixes*
+*Last updated: March 11, 2026 — Phase 17a complete: post-reunion resolve page + tip flow*
 
 ---
 
@@ -37,6 +37,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 14b — Attribute Correction + Loser Location | ✅ Complete | Inline attribute editor on finder-done screen; `PATCH /items/{id}/attributes` re-embeds on save; loser "Where?" field geocoded via Nominatim — no new screens, 0 extra taps in happy path |
 | 15 — Loser Attribute Correction | ✅ Complete | "Looking for: wallet · brown · leather" summary line on waiting screen; "Don't like description?" expands inline edit panel; saves via `PATCH /items/{id}/attributes`, re-embeds, updates title, fires immediate re-poll |
 | 16 — Admin / Ops Dashboard + Live Map | ✅ Complete | `/admin`: multi-user login (JWT, `ADMIN_USERS` env var), 4 stat cards, time filters, 5-tab table (Lost · Found · Reunions · Tips · Debug Matcher), Deactivate + Extend 30d actions, expiring-soon alert. `/map`: full-screen Leaflet dark map, blue finder pins, pulsing red loser pins, clustered markers, rich popups with photo/details. Both use DM Sans + DM Serif Display (same as app). |
+| 17a — Post-Reunion Resolve Page + Tip Flow | ✅ Complete | `/resolve/{loser_item_id}`: standalone page linked from handoff SMS. States: question → tip (Stripe inline, $5/$10/$20, skip) → done/tipped. Marks both items inactive + closes reunion record on confirm. In-app `screen-reunion` repurposed to simple "we'll text you" terminal — tip now lives exclusively after physical reunion. |
 
 ---
 
@@ -249,15 +250,15 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ## What's Next: Phase 17+
 
-**Phase 16 complete and deployed.** Admin dashboard + live map both live.
+**Phase 17a complete and deployed.** Post-reunion resolve page live at `/resolve/{loser_item_id}`.
 
 ### Pre-Launch Requirements
 
 - **Twilio A2P 10DLC registration:** Submitted March 9, 2026. Must be approved before SMS relay/notifications work for real users. Status: *In progress — approval expected mid-to-late March 2026.* Once approved, `+15175136672` will send to any US number without carrier filtering. No code changes needed.
 
-### Candidates for Phase 17
+### Candidates for Phase 17b+
 
-- **Item lifecycle UI (user-facing)** — items expire at 30 days but users have no way to close or extend a report themselves. A simple "Mark as returned" or "Still looking — extend 30 days" action reachable via a link in the SMS notification. Low effort, high trust value.
+- **Item lifecycle UI — extend** — loser-side "Still looking — extend 30 days" action. Phase 17a handles closure; extension is the other half. Could live on the resolve page as a second CTA ("Not yet — extend my report 30 days") or a separate SMS reminder flow.
 - **Loser location post-submit correction** — `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact. Small backend + small UI addition.
 - **Map in app flow** — Leaflet pin-drop screen in the loser flow between `screen-lost-prompt` and submission, for users who type vague locations ("somewhere near downtown"). Would improve geocoding accuracy. Medium effort.
 - **Admin map enhancements** — filter map pins by time period (matching the dashboard's time filter), draw a 10-mile radius circle around a selected pin to visualize the match zone, show a line between matched finder+loser pairs.
@@ -296,6 +297,31 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 ---
 
 ## Session History
+
+### Phase 17a — Post-Reunion Resolve Page + Tip Flow — March 11, 2026
+
+**What changed:** Moved the tip from the in-app flow (pre-physical-reunion) to a standalone resolve page (post-physical-reunion). Full item lifecycle closure.
+
+**Design decision:** Removed in-app `screen-reunion` tip prompt — it was asking the loser to pay before they had their item in hand. Tip now lives exclusively on `/resolve/{loser_item_id}`, linked from the handoff SMS. More honest UX: you pay after the service is complete.
+
+**Backend (`main.py`):**
+- `GET /resolve/{loser_item_id}` — serves `resolve.html`
+- `GET /resolve/{loser_item_id}/data` — returns loser item type + finder item info (payout handle/app) via reunion lookup; `already_closed: true` if item is inactive
+- `POST /resolve/{loser_item_id}/confirm` — marks loser item inactive; finds reunion record → marks finder item inactive + reunion status = 'closed'; body accepts `tip_amount_cents` (informational)
+- `POST /handoff/coordinate` — resolve link appended to loser's confirmation SMS: "Once you've got it back, close the report (and tip if you'd like): [link]"
+
+**Frontend (`resolve.html` — new file):**
+- Standalone LOFO-branded page (DM Sans + DM Serif Display, cream bg, white card)
+- States: `loading` → `question` ("Did you get your [wallet] back?") → `tip` (Stripe inline, $5/$10/$20, skip link) → `done` / `tipped` / `notyet` / `closed` / `error`
+- Shows finder's payout handle (Venmo/PayPal/Cash App/Zelle) in tip state if set
+- Calls existing `POST /tip/create-payment-intent` + Stripe `confirmCardPayment` (same flow as before, just on a new page)
+- On payment success or skip → `POST /resolve/{id}/confirm` → done state
+
+**Frontend (`LOFO_MVP.html`):**
+- `screen-reunion` repurposed: stripped Stripe/tip UI, replaced with "You're all set. We'll be in touch." terminal — body text dynamically sets item label from `state.matchedItem.item_type`
+- `screen-thanks` left in DOM but unreachable from active flow (harmless dead screen)
+
+---
 
 ### Keep-alive + Map Bug Fixes — March 11, 2026
 
