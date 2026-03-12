@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 11, 2026 — Phase 17a + UI cleanup (Dynamic Island removed, green check icons removed)*
+*Last updated: March 12, 2026 — Phase 18: Lifecycle notifications (day-7 encouragement + day-28 auto-extend)*
 
 ---
 
@@ -39,6 +39,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 16 — Admin / Ops Dashboard + Live Map | ✅ Complete | `/admin`: multi-user login (JWT, `ADMIN_USERS` env var), 4 stat cards, time filters, 5-tab table (Lost · Found · Reunions · Tips · Debug Matcher), Deactivate + Extend 30d actions, expiring-soon alert. `/map`: full-screen Leaflet dark map, blue finder pins, pulsing red loser pins, clustered markers, rich popups with photo/details. Both use DM Sans + DM Serif Display (same as app). |
 | 17a — Post-Reunion Resolve Page + Tip Flow | ✅ Complete | `/resolve/{loser_item_id}`: standalone page linked from handoff SMS. States: question → tip (Stripe inline, $5/$10/$20, skip) → done/tipped. Marks both items inactive + closes reunion record on confirm. In-app tip (`screen-reunion`) restored while Twilio A2P pending — resolve page activates automatically once SMS works. |
 | 17b — UI Cleanup | ✅ Complete | Dynamic Island placeholder removed (HTML, CSS, JS function + all call sites — 127 lines deleted). Green circle check icons removed from `screen-finder-done` and `screen-confirmed` — both screens now lead directly with DM Serif Display title. |
+| 18 — Lifecycle Notifications | ✅ Complete | Day-7 encouragement SMS + day-28 auto-extend SMS for unmatched loser items. No expiry concept exposed to users. Items with active reunions skipped. Multi-item users stagger across daily runs (one message per phone per run). GitHub Actions cron — no external services beyond what's already running. |
 
 ---
 
@@ -83,6 +84,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `GET /connect/return` | Post-onboarding redirect → back to frontend *(dormant)* |
 | `GET /connect/refresh` | Re-generate expired onboarding link *(dormant)* |
 | `GET /health` | Returns `{"status":"ok"}` after `SELECT 1` DB ping — used by UptimeRobot keep-alive |
+| `GET /cron/lifecycle?key=` | Daily lifecycle cron — sends day-7 encouragement + day-28 auto-extend SMS to unmatched loser items; key-protected via `CRON_SECRET` env var; triggered by GitHub Actions |
 | `GET /admin` | Serves `admin.html` (protected via JWT in page) |
 | `POST /admin/login` | Validates username/password against `ADMIN_USERS` env var; returns 24h JWT |
 | `GET /admin/stats?period=` | Stat card data: active_lost, active_found, reunions, tips_cents, expiring_7d |
@@ -120,7 +122,9 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | finder_payout_handle | varchar | Optional — e.g. `'@username'`, `'$cashtag'`, email, phone |
 | photo_url | varchar | Optional — public Supabase Storage URL for finder's photo (Phase 14a) |
 | status | varchar | Default `'active'` |
-| expires_at | timestamptz | Default 30 days from creation |
+| expires_at | timestamptz | Default 30 days from creation; auto-extended 30 days by lifecycle cron at day-28 |
+| notif_week1_at | timestamptz | Set when day-7 encouragement SMS is sent; prevents re-send |
+| notif_week2_at | timestamptz | Set when day-28 auto-extend SMS is sent; prevents re-send |
 | created_at | timestamptz | Auto-set |
 
 **Table: `secret_verifications`** *(legacy — no longer written to since Phase 9a)*
@@ -183,7 +187,9 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | Twilio console | console.twilio.com |
 | All API keys | `.env` on local machine only |
 
-**Railway environment variables:** `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `TWILIO_VERIFY_SID`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `ADMIN_USERS`
+**Railway environment variables:** `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `TWILIO_VERIFY_SID`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `ADMIN_USERS`, `CRON_SECRET`
+
+**GitHub Secret (for lifecycle cron):** `LIFECYCLE_CRON_URL` = `https://lofo-ai-production.up.railway.app/cron/lifecycle?key=YOUR_CRON_SECRET`
 
 **`ADMIN_USERS` format** (JSON string in Railway Variables):
 ```
@@ -263,9 +269,9 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 > 2. Consider moving the in-app tip back to post-reunion (Direction 2 from the design discussion) — or keep both as a belt-and-suspenders approach (in-app tip + resolve page as second chance)
 > 3. The resolve page also handles **item closure** (marks both items inactive) — this is the only way items currently get closed before their 30-day expiry, so it's worth making prominent in the SMS copy once it works
 
-### Candidates for Phase 17b+
+### Candidates for Phase 18+
 
-- **Item lifecycle UI — extend** — loser-side "Still looking — extend 30 days" action. Phase 17a handles closure; extension is the other half. Could live on the resolve page as a second CTA ("Not yet — extend my report 30 days") or a separate SMS reminder flow.
+- **Item lifecycle UI — extend** — *(Phase 18 handles this automatically via cron — no user action needed. Resolved.)*
 - **Loser location post-submit correction** — `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact. Small backend + small UI addition.
 - **Map in app flow** — Leaflet pin-drop screen in the loser flow between `screen-lost-prompt` and submission, for users who type vague locations ("somewhere near downtown"). Would improve geocoding accuracy. Medium effort.
 - **Admin map enhancements** — filter map pins by time period (matching the dashboard's time filter), draw a 10-mile radius circle around a selected pin to visualize the match zone, show a line between matched finder+loser pairs.
@@ -285,9 +291,9 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 > **What's complete and deployed (Phases 1–17b):**
 > Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Admin dashboard at `/admin`, live map at `/map`. UptimeRobot keep-alive on GET /health every 10 min — no cold starts.
 >
-> **Phase 17 (last session):**
-> - `resolve.html` built and deployed at `/resolve/{loser_item_id}` — standalone post-reunion page: "Did you get your item back?" → tip (Stripe inline) → marks both items inactive + closes reunion record. Linked from handoff SMS. In-app tip (`screen-reunion`) kept active while Twilio A2P pending — resolve page activates automatically once SMS works.
-> - UI cleanup: Dynamic Island placeholder fully removed (HTML, CSS, JS). Green circle check icons removed from finder-done and confirmed screens.
+> **Phase 18 (last session):**
+> - Lifecycle notifications: `GET /cron/lifecycle?key=` endpoint added to `main.py`. Day-7 encouragement SMS + day-28 auto-extend SMS for unmatched loser items. Items with active reunions skipped. Multi-item users stagger across daily runs. GitHub Actions cron at `.github/workflows/lifecycle-cron.yml` (10am ET daily, `workflow_dispatch` for manual runs). `CRON_SECRET` env var added.
+> - **Still needs:** DB migration (2 columns), `CRON_SECRET` in Railway + `.env`, `LIFECYCLE_CRON_URL` GitHub Secret, redeploy.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
 >
@@ -306,6 +312,50 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 ---
 
 ## Session History
+
+### Phase 18 — Lifecycle Notifications — March 12, 2026
+
+**What changed:** Automated SMS lifecycle touchpoints for unmatched loser items. No expiry concept exposed to users.
+
+**Design decisions:**
+- Users never see the words "expiry" or "expires" — items just silently auto-extend
+- No reply mechanic (KEEP/STOP was considered and rejected — breaks with multiple active items)
+- Multi-item users: one message per phone per cron run; subsequent items picked up next day's run, naturally staggered
+- Items with an active reunion record are skipped (they're already in the connected flow)
+- GitHub Actions for scheduling — free, no new external services, manually triggerable from the Actions UI
+
+**Backend (`main.py`):**
+- `_CRON_SECRET = os.getenv("CRON_SECRET", "")` added to module-level env vars
+- `GET /cron/lifecycle?key=` endpoint — key-protected, returns `{ok, sent_week1, sent_week2, skipped_multi_item}`
+- Day-7 query: active loser items, phone set, `notif_week1_at IS NULL`, created 6–9 days ago, no active reunion
+- Day-28 query: active loser items, phone set, `notif_week2_at IS NULL`, created 27–31 days ago, no active reunion
+- Day-28 send also runs `UPDATE items SET expires_at = expires_at + INTERVAL '30 days'`
+- `phones_messaged` set prevents same phone getting two messages in one run
+
+**DB migration (run in Supabase SQL editor):**
+```sql
+ALTER TABLE items
+  ADD COLUMN IF NOT EXISTS notif_week1_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS notif_week2_at TIMESTAMPTZ;
+```
+
+**GitHub Actions (`.github/workflows/lifecycle-cron.yml`):**
+- Schedule: `0 14 * * *` (10am ET / 2pm UTC daily)
+- `workflow_dispatch` enabled for manual test runs
+- `LIFECYCLE_CRON_URL` stored as GitHub Secret (never in code)
+- Non-200 response fails the run (visible in Actions tab)
+
+**SMS copy:**
+- Day 7: `"LOFO: Still on it. Your [wallet] report is active and we're watching. Good things take time — we'll reach out the moment something turns up."`
+- Day 28: `"LOFO: One month in on your [wallet] — still no match, but we've extended your search automatically. Miracles happen. Got it back another way? Close your report: [resolve_link]"`
+
+**Setup required (one-time):**
+1. Run DB migration in Supabase SQL editor
+2. Add `CRON_SECRET=your-random-secret` to Railway env vars + local `.env`
+3. Add GitHub Secret: `LIFECYCLE_CRON_URL` = `https://lofo-ai-production.up.railway.app/cron/lifecycle?key=your-random-secret`
+4. Deploy to Railway
+
+---
 
 ### Phase 17b — UI Cleanup — March 11, 2026
 

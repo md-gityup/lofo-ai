@@ -36,6 +36,8 @@ _TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN", "")
 _TWILIO_VERIFY_SID   = os.getenv("TWILIO_VERIFY_SID", "")
 _TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
+_CRON_SECRET = os.getenv("CRON_SECRET", "")
+
 _twilio_client = None
 if _TWILIO_ACCOUNT_SID and _TWILIO_AUTH_TOKEN:
     from twilio.rest import Client as TwilioClient
@@ -1695,6 +1697,126 @@ def resolve_confirm(loser_item_id: uuid.UUID, body: ResolveConfirmRequest = Reso
             conn.commit()
 
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# Lifecycle Cron                                                               #
+# --------------------------------------------------------------------------- #
+
+@app.get("/cron/lifecycle", include_in_schema=False)
+def cron_lifecycle(key: str = Query("")):
+    """
+    Daily lifecycle notifications for unmatched loser items.
+
+    Day 7  — warm encouragement SMS, no action required.
+    Day 28 — auto-extend expires_at 30 days + SMS with resolve link.
+
+    If a phone has multiple items hitting the same milestone on the same run,
+    only the first is messaged — the rest are picked up on the next daily run.
+
+    Triggered by GitHub Actions (schedule: daily). Key-protected via CRON_SECRET.
+    """
+    if not _CRON_SECRET or key != _CRON_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    phones_messaged: set[str] = set()
+    sent_week1 = 0
+    sent_week2 = 0
+    skipped = 0
+
+    # --- Week-1 candidates: created 6–9 days ago, not yet notified, no active reunion ---
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, phone, item_type
+                FROM items
+                WHERE type = 'loser'
+                  AND status = 'active'
+                  AND phone IS NOT NULL
+                  AND notif_week1_at IS NULL
+                  AND created_at BETWEEN NOW() - INTERVAL '9 days' AND NOW() - INTERVAL '6 days'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM reunions
+                      WHERE loser_item_id = items.id AND status = 'active'
+                  )
+                ORDER BY created_at ASC
+            """)
+            week1_items = cur.fetchall()
+
+    for item in week1_items:
+        phone = item["phone"]
+        if phone in phones_messaged:
+            skipped += 1
+            continue
+        phones_messaged.add(phone)
+
+        label = item["item_type"] or "item"
+        _sms(
+            phone,
+            f"LOFO: Still on it. Your {label} report is active and we're watching. "
+            f"Good things take time — we'll reach out the moment something turns up."
+        )
+
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE items SET notif_week1_at = NOW() WHERE id = %s",
+                    (str(item["id"]),),
+                )
+            conn.commit()
+        sent_week1 += 1
+
+    # --- Week-2 candidates: created 27–31 days ago, not yet notified, no active reunion ---
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, phone, item_type
+                FROM items
+                WHERE type = 'loser'
+                  AND status = 'active'
+                  AND phone IS NOT NULL
+                  AND notif_week2_at IS NULL
+                  AND created_at BETWEEN NOW() - INTERVAL '31 days' AND NOW() - INTERVAL '27 days'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM reunions
+                      WHERE loser_item_id = items.id AND status = 'active'
+                  )
+                ORDER BY created_at ASC
+            """)
+            week2_items = cur.fetchall()
+
+    for item in week2_items:
+        phone = item["phone"]
+        if phone in phones_messaged:
+            skipped += 1
+            continue
+        phones_messaged.add(phone)
+
+        label = item["item_type"] or "item"
+        resolve_link = f"{_RAILWAY_URL}/resolve/{item['id']}"
+        _sms(
+            phone,
+            f"LOFO: One month in on your {label} — still no match, but we've extended "
+            f"your search automatically. Miracles happen. "
+            f"Got it back another way? Close your report: {resolve_link}"
+        )
+
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE items
+                    SET notif_week2_at = NOW(),
+                        expires_at     = expires_at + INTERVAL '30 days'
+                    WHERE id = %s
+                    """,
+                    (str(item["id"]),),
+                )
+            conn.commit()
+        sent_week2 += 1
+
+    print(f"[LOFO cron] lifecycle: sent_week1={sent_week1} sent_week2={sent_week2} skipped_multi={skipped}")
+    return {"ok": True, "sent_week1": sent_week1, "sent_week2": sent_week2, "skipped_multi_item": skipped}
 
 
 @app.post("/admin/debug/match", include_in_schema=False)

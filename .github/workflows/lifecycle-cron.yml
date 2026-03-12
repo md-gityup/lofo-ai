@@ -1,0 +1,22 @@
+name: LOFO Lifecycle Cron
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # 10am ET / 2pm UTC daily
+  workflow_dispatch:       # allows manual trigger from GitHub Actions UI
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger lifecycle cron
+        run: |
+          response=$(curl -s -w "\n%{http_code}" "${{ secrets.LIFECYCLE_CRON_URL }}")
+          http_code=$(echo "$response" | tail -1)
+          body=$(echo "$response" | head -1)
+          echo "Response: $body"
+          echo "HTTP Status: $http_code"
+          if [ "$http_code" != "200" ]; then
+            echo "Cron failed with status $http_code"
+            exit 1
+          fi
