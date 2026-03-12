@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 12, 2026 — Phase 20: In-app menu drawer (gear icon)*
+*Last updated: March 12, 2026 — Phase 21: Bug fixes, XSS hardening, admin UX*
 
 ---
 
@@ -41,7 +41,8 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 17b — UI Cleanup | ✅ Complete | Dynamic Island placeholder removed (HTML, CSS, JS function + all call sites — 127 lines deleted). Green circle check icons removed from `screen-finder-done` and `screen-confirmed` — both screens now lead directly with DM Serif Display title. |
 | 18 — Lifecycle Notifications | ✅ Complete | Day-7 encouragement SMS + day-28 auto-extend SMS for unmatched loser items. No expiry concept exposed to users. Items with active reunions skipped. Multi-item users stagger across daily runs (one message per phone per run). GitHub Actions cron — no external services beyond what's already running. |
 | 19 — Map as Admin Tab + Enhancements | ✅ Complete | Live map embedded as 6th tab in admin dashboard. Period filter drives map pins + pairs. 10-mile radius circle on pin click. Dashed green lines connecting matched reunion pairs (toggleable). No separate page navigation — all in one auth context. Admin table rows clickable — expand inline to show full item detail (photo, all attributes, GPS, full timestamps, phone, payout, item ID). |
-| 20 — In-App Menu Drawer | ✅ Complete | Gear icon (white circle) top-right of home screen. Slide-up sheet: Usage (live lost/found/reunited counts), Support (FAQ accordion + Contact Us email form), Information (Terms, Privacy, About, App Version). Backend: `GET /terms`, `GET /privacy`, `GET /stats/public`. App Store ready. |
+| 20 — In-App Menu Drawer | ✅ Complete | Gear icon (white circle) top-right of home screen. Slide-up sheet: My Usage (user-level lost/found/reunited from localStorage item IDs), Support (FAQ accordion + Contact Us email form), Information (Terms, Privacy, About, App Version). Backend: `GET /terms`, `GET /privacy`, `GET /stats/by-items`. App Store ready. |
+| 21 — Bug Fixes & Hardening | ✅ Complete | 8 bugs fixed: loser phone normalization, DB pool corruption, resolve page false-success, unbounded stats IDs, JWT_SECRET crash, XSS hardening (all frontends), photo URL validation, absolute API paths in admin/map. Admin UX: minimal underline tabs, clickable geo coords zoom to item on map. |
 
 ---
 
@@ -99,6 +100,9 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `GET /map` | Serves `map.html` (protected via JWT in page) |
 | `GET /admin/map-pins?period=` | Active items with GPS coords for map, period-filtered; includes no_gps_count |
 | `GET /admin/map-pairs?period=` | Reunion pairs where both items have GPS, for drawing match lines on map |
+| `GET /terms` | Serves `terms.html` — Terms of Service |
+| `GET /privacy` | Serves `privacy-policy.html` — Privacy Policy |
+| `GET /stats/by-items?ids=` | User-level stats: `{lost_count, found_count, reunited_count}` for comma-separated item UUIDs (no auth) |
 
 ---
 
@@ -258,9 +262,9 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 19+
+## What's Next: Phase 21+
 
-**Phases 1–20 complete and deployed.**
+**Phases 1–21 complete and deployed.**
 
 ### Pre-Launch Requirements
 
@@ -272,12 +276,8 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 > 2. Consider moving the in-app tip back to post-reunion (Direction 2 from the design discussion) — or keep both as a belt-and-suspenders approach (in-app tip + resolve page as second chance)
 > 3. The resolve page also handles **item closure** (marks both items inactive) — this is the only way items currently get closed before their 30-day expiry, so it's worth making prominent in the SMS copy once it works
 
-### Candidates for Phase 20+
+### Candidates for Phase 22+
 
-- **Item lifecycle UI — extend** — *(Phase 18 handles this automatically via cron — no user action needed. Resolved.)*
-- **Map as admin tab + enhancements** — *(Phase 19 complete. Resolved.)*
-- **Admin row expansion** — *(Phase 19 complete. Resolved.)*
-- **In-app menu drawer** — *(Phase 20 complete. Resolved.)*
 - **Loser location post-submit correction** — `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact. Small backend + small UI addition.
 - **Map in app flow** — Leaflet pin-drop screen in the loser flow between `screen-lost-prompt` and submission, for users who type vague locations ("somewhere near downtown"). Would improve geocoding accuracy. Medium effort.
 
@@ -292,19 +292,15 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–20):**
+> **What's complete and deployed (Phases 1–21):**
 > Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Admin dashboard at `/admin`, live map at `/map`. UptimeRobot keep-alive on GET /health every 10 min — no cold starts. Lifecycle cron running daily via GitHub Actions.
 >
-> **Phase 20 (last session):**
-> - Gear icon (white circle) in top-right of home screen. Tap opens slide-up menu drawer.
-> - Menu sections: Usage (live lost/found/reunited counts), Support (FAQ accordion + Contact Us email form), Information (Terms, Privacy, About, App Version 1.0.0).
-> - Backend: `GET /terms`, `GET /privacy`, `GET /stats/public` (no auth).
->
-> **Phase 19:**
-> - Live map embedded as 6th tab in admin dashboard (`admin.html`). Header "🗺 Map" button activates the tab — no separate page navigation. Period filter (Today/Week/Month/All) drives map pins + pair lines. 10-mile radius circle drawn on pin click. Dashed green lines connecting matched reunion pairs, toggleable via legend checkbox.
-> - Admin table rows (Lost Items, Found Items) now clickable — expands inline detail panel with full photo, all attributes, GPS, full timestamps, unmasked phone, payout info, item ID. One row open at a time.
-> - Backend: `GET /admin/map-pins` now accepts `?period=` filter. New `GET /admin/map-pairs?period=` endpoint (GPS-paired reunions for map lines).
-> - Twilio A2P 10DLC: Campaign SID `CM50255157d8c0965b92369a1f90b3ab2b`, status In Progress with TCR. Awaiting carrier approval — no code changes needed when approved.
+> **Phase 21 (last session) — Bug fixes & hardening:**
+> - Deep-dive bug audit: 8 bugs found and fixed across `main.py`, `database.py`, `security.py`, and all frontend files.
+> - Critical: loser phone not normalized to E.164 before DB write; DB connection pool corruption when replacing dead connections.
+> - Medium: resolve page showed success even when API call failed; `handleYes()` no-finder path not awaited; `/stats/by-items` had unbounded ID list (now capped at 100).
+> - Low: `security.py` crashed with `KeyError` if `JWT_SECRET` missing (now `RuntimeError` with message); XSS risk from user-controlled content (added `esc()` HTML escaping + `https://` URL validation across all 4 frontend files); admin/map pages used relative API paths (broke on GitHub Pages — now use absolute `API` base URL).
+> - Admin UX: tabs restyled to minimal underline (no dark background bar); clickable geo coordinates in tables zoom directly to item on map and open its popup.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
 >
@@ -316,13 +312,53 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 >
 > **Keep-alive:** UptimeRobot pings `GET /health` every 10 min — Railway stays warm, no cold starts.
 >
-> **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 19+' section in the progress doc before starting.
+> **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 21+' section in the progress doc before starting.
 >
 > Start by reading `main.py` and `LOFO_AI_Progress.md`, then discuss before building."
 
 ---
 
 ## Session History
+
+### Phase 21 — Bug Fixes, XSS Hardening, Admin UX — March 12, 2026
+
+**What changed:** Deep-dive codebase audit found 8 bugs. All fixed. Admin tabs and geo links improved.
+
+**Bug fixes (`main.py`):**
+- `PATCH /items/{id}/loser-info` now normalizes phone to E.164 via `_normalize_phone()` before DB write. Previously stored raw user input, breaking SMS matching.
+- `GET /stats/by-items` capped at 100 IDs (`_STATS_BY_ITEMS_MAX_IDS`) to prevent DoS via oversized query strings.
+
+**Bug fixes (`database.py`):**
+- `get_connection()` pool corruption: when a dead pooled connection was replaced with a fresh `psycopg2.connect()`, the replacement was returned to the pool via `putconn()` — corrupting pool state. Now tracks `used_replacement` flag; replacement connections are closed directly in `finally`, pooled connections returned normally.
+
+**Bug fixes (`security.py`):**
+- `os.environ["JWT_SECRET"]` → `os.getenv("JWT_SECRET", "")` + explicit `RuntimeError` if empty. Prevents cryptic `KeyError` crash on startup.
+
+**Bug fixes (`resolve.html`):**
+- `doConfirm()` now returns `true`/`false` based on API response. `submitTip()`, `skipTip()`, and `handleYes()` (no-finder path) all check the result before showing success state. On failure: `showConfirmError()` displays error message with retry option.
+- `handleYes()` made `async` so the no-finder path properly `await`s `doConfirm(0)`.
+
+**XSS hardening (all 4 frontend files):**
+- Added `esc()` helper (escapes `&<>"'`) to `resolve.html`, `admin.html`, `LOFO_MVP.html`, `map.html`.
+- Applied to all user-controlled text rendered via `innerHTML` or template literals.
+- Photo URLs validated with `startsWith('https://')` before use in `<img src>` — blocks `javascript:` and `data:` schemes.
+
+**Absolute API paths (`admin.html`, `map.html`):**
+- Added `const API = 'https://lofo-ai-production.up.railway.app'` to both files.
+- All `fetch()` calls and `window.location.href` redirects updated from relative `/admin/...` to `${API}/admin/...`.
+- Static `href="/admin"` links updated via JS on page load.
+
+**Admin tabs (`admin.html`):**
+- Removed dark background bar, borders, border-radius, and box-shadow from `.panel-tabs`.
+- Tabs now use flat text with a 2px accent-colored underline on the active tab via `::after` pseudo-element.
+- Clean separation from table column headers (which use uppercase + letter-spacing).
+
+**Clickable geo coordinates (`admin.html`):**
+- Table location columns and detail panel GPS field render green clickable `<span class="loc-link">` when latitude is present.
+- `focusMapOnItem(itemId)` sets `_adminMapFocusItemId` and switches to map tab.
+- `renderMapPins()` stores each marker in `_adminMarkerById[item.id]`. After rendering, if a focus item is pending, calls `_adminClusters.zoomToShowLayer(marker, callback)` to zoom in (unclustering if needed) and opens the popup automatically.
+
+---
 
 ### Phase 20 — In-App Menu Drawer — March 12, 2026
 
@@ -335,14 +371,14 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 **Menu drawer (`LOFO_MVP.html`):**
 - Slides up from bottom, dark semi-transparent backdrop (tap to close), handle bar + close ✕ button
 - Three sections:
-  - **Usage** — Live `active_lost`, `active_found`, `reunions_total` fetched from `GET /stats/public` on open. DM Serif Display numerals.
+  - **My Usage** — User-level stats: Lost Reports, Found Reports, Reunited. Fetched from `GET /stats/by-items?ids=` on open using item IDs stored in `localStorage` (`lofo_my_item_ids`) when user creates finder or loser items. DM Serif Display numerals. Shows "–" when no items yet.
   - **Support** — FAQs (expand/collapse section, then per-question accordion for 5 FAQs). Contact Us (expand-in-place form → `mailto:support@lofo.ai`).
   - **Information** — Terms of Service, Privacy Policy (both open `/terms` and `/privacy` in new tab), About LOFO (expand-in-place blurb), App Version `1.0.0`.
 
 **Backend (`main.py`):**
 - `GET /terms` — serves `terms.html`
 - `GET /privacy` — serves `privacy-policy.html`
-- `GET /stats/public` — returns `{active_lost, active_found, reunions_total}`, no auth required
+- `GET /stats/by-items?ids=` — returns `{lost_count, found_count, reunited_count}` for comma-separated item UUIDs; user-level stats (no auth)
 
 ---
 
@@ -825,4 +861,4 @@ Foundation → AI ingestion → matching engine → security → UI → API wiri
 
 ---
 
-*Built with Cursor + Claude. Zero prior coding experience. March 5–9, 2026.*
+*Built with Cursor + Claude. Zero prior coding experience. March 5–12, 2026.*
