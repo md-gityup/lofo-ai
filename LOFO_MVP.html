@@ -2931,10 +2931,29 @@
           <polyline points="23,37 32,46 50,28" stroke="rgba(255,255,255,0.75)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
         </svg>
       </div>
-      <div class="reunion-title s-item" data-delay="140" id="reunion-title">You're all set.<br><em>We'll be in touch.</em></div>
+      <div class="reunion-title s-item" data-delay="140" id="reunion-title">Your item<br><em>is on its way.</em></div>
       <div class="reunion-rule s-item" data-delay="190"></div>
-      <div class="reunion-sub s-item" data-delay="220">Both parties have been notified. We'll text you a link to close the report — and tip if you'd like — once you have your <span id="reunion-item-label">item</span> back.</div>
-      <button class="btn-white s-item" data-delay="360" onclick="go('home')">Done →</button>
+      <div class="reunion-sub s-item" data-delay="220">A stranger did something kind today.<br>Want to say thank you?</div>
+      <div class="tip-card s-item" data-delay="290">
+        <div class="tip-label">Send a tip</div>
+        <div class="tip-amounts">
+          <button class="tip-btn" id="tip-5" onclick="selectTip('5')">$5</button>
+          <button class="tip-btn selected" id="tip-10" onclick="selectTip('10')">$10</button>
+          <button class="tip-btn" id="tip-20" onclick="selectTip('20')">$20</button>
+        </div>
+        <div class="tip-charity">or <u>donate to charity instead</u></div>
+      </div>
+      <button class="btn-white s-item" data-delay="360" id="tip-send-btn" onclick="sendTip()">Send $10 thank you →</button>
+      <button class="skip-btn s-item" data-delay="420" id="tip-skip-btn" onclick="go('home')">Skip for now</button>
+
+      <div class="card-payment-panel" id="card-payment-panel" style="display:none">
+        <div class="card-panel-label">Card details</div>
+        <div class="card-panel-amount" id="card-panel-amount">$10</div>
+        <div class="stripe-card-wrap" id="stripe-card-element"></div>
+        <div class="card-error" id="card-error"></div>
+        <button class="btn-white" id="confirm-pay-btn" onclick="confirmTip()">Pay $10 →</button>
+        <div class="card-cancel-link" onclick="cancelTip()">← Change amount</div>
+      </div>
     </div>
   </div>
 
@@ -3353,9 +3372,10 @@
       if (bar) bar.style.width = '0%';
     }
     if (name === 'reunion') {
-      const labelEl = document.getElementById('reunion-item-label');
-      if (labelEl && state.matchedItem) {
-        labelEl.textContent = cleanType(state.matchedItem.item_type);
+      const titleEl = document.getElementById('reunion-title');
+      if (titleEl && state.matchedItem) {
+        const label = cleanType(state.matchedItem.item_type);
+        titleEl.innerHTML = `Your ${label}<br><em>is on its way.</em>`;
       }
     }
     if (name === 'handoff') {
