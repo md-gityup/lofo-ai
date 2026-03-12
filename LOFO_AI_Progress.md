@@ -255,13 +255,13 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 17+
+## What's Next: Phase 18+
 
-**Phase 17b complete and deployed.** Resolve page built + UI cleanup done.
+**Phase 18 complete and deployed.** Lifecycle notifications live. All setup steps done.
 
 ### Pre-Launch Requirements
 
-- **Twilio A2P 10DLC registration:** Submitted March 9, 2026. Must be approved before SMS relay/notifications work for real users. Status: *In progress — approval expected mid-to-late March 2026.* Once approved, `+15175136672` will send to any US number without carrier filtering. No code changes needed.
+- **Twilio A2P 10DLC registration:** Campaign SID `CM50255157d8c0965b92369a1f90b3ab2b` — status **In progress** with TCR/carrier review as of March 12, 2026. Was already submitted previously (not lost). Approval expected within 2–3 weeks. Once approved, `+15175136672` will send to any US number without carrier filtering. No code changes needed.
 
 > **⚠️ When A2P is approved — revisit the tip flow:**
 > `resolve.html` and its backend endpoints (`GET /resolve/{id}`, `GET /resolve/{id}/data`, `POST /resolve/{id}/confirm`) are already built and deployed. The handoff SMS already includes the resolve link. Once SMS delivery works:
@@ -288,24 +288,24 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–17b):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Admin dashboard at `/admin`, live map at `/map`. UptimeRobot keep-alive on GET /health every 10 min — no cold starts.
+> **What's complete and deployed (Phases 1–18):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Admin dashboard at `/admin`, live map at `/map`. UptimeRobot keep-alive on GET /health every 10 min — no cold starts. Lifecycle cron running daily via GitHub Actions.
 >
 > **Phase 18 (last session):**
-> - Lifecycle notifications: `GET /cron/lifecycle?key=` endpoint added to `main.py`. Day-7 encouragement SMS + day-28 auto-extend SMS for unmatched loser items. Items with active reunions skipped. Multi-item users stagger across daily runs. GitHub Actions cron at `.github/workflows/lifecycle-cron.yml` (10am ET daily, `workflow_dispatch` for manual runs). `CRON_SECRET` env var added.
-> - **Still needs:** DB migration (2 columns), `CRON_SECRET` in Railway + `.env`, `LIFECYCLE_CRON_URL` GitHub Secret, redeploy.
+> - Lifecycle notifications fully built and deployed: `GET /cron/lifecycle?key=` endpoint, day-7 encouragement SMS + day-28 auto-extend SMS for unmatched loser items. GitHub Actions cron (`.github/workflows/lifecycle-cron.yml`, 10am ET daily). DB migration done (`notif_week1_at`, `notif_week2_at` columns on items). All env vars set. First manual test run: green ✅.
+> - Twilio A2P 10DLC: campaign was already submitted (not lost). Campaign SID `CM50255157d8c0965b92369a1f90b3ab2b`, status In Progress with TCR. Awaiting carrier approval — no code changes needed when approved.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
 >
 > **Frontend:** `LOFO_MVP.html` (app), `admin.html` (ops dashboard), `map.html` (live map), `resolve.html` (post-reunion closure page).
 >
-> **DB schema:** `items` (includes `photo_url`), `tips`, `reunions`.
+> **DB schema:** `items` (includes `photo_url`, `notif_week1_at`, `notif_week2_at`), `tips`, `reunions`.
 >
-> **SMS relay:** Code-complete, pending Twilio A2P 10DLC approval (submitted March 9, 2026 — expected mid-to-late March). Read the ⚠️ block in 'Pre-Launch Requirements' for what to do when it's approved.
+> **SMS:** Code-complete, pending Twilio A2P carrier approval. Read the ⚠️ block in 'Pre-Launch Requirements' for what to do when approved.
 >
 > **Keep-alive:** UptimeRobot pings `GET /health` every 10 min — Railway stays warm, no cold starts.
 >
-> **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 17+' section in the progress doc before starting.
+> **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 18+' section in the progress doc before starting.
 >
 > Start by reading `main.py` and `LOFO_AI_Progress.md`, then discuss before building."
 
