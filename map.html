@@ -239,7 +239,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'DM Sans'
 <div id="no-auth">
   <div class="auth-icon">🔒</div>
   <div class="auth-title" style="font-family:'DM Sans',sans-serif">Admin access required</div>
-  <a href="/admin" class="auth-link">Go to Admin Login →</a>
+  <a id="auth-admin-link" href="/admin" class="auth-link">Go to Admin Login →</a>
 </div>
 
 <!-- Header -->
@@ -262,7 +262,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'DM Sans'
   <div class="mh-divider"></div>
   <span id="mh-refresh-txt">—</span>
   <button class="mh-btn mh-btn-blue" onclick="refreshMap()">↻ Refresh</button>
-  <a href="/admin" class="mh-btn">← Admin</a>
+  <a id="header-admin-link" href="/admin" class="mh-btn">← Admin</a>
 </div>
 
 <!-- Legend -->
@@ -318,6 +318,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'DM Sans'
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
 // ── State ──
+const API = 'https://lofo-ai-production.up.railway.app';
 let map, clusters;
 let allPins = [];
 let _retryCount = 0;
@@ -370,13 +371,13 @@ async function loadPins() {
 
     if (_retryCount === 0 && lt) lt.textContent = 'Loading map data…';
 
-    const res = await fetch('/admin/map-pins', {
+    const res = await fetch(`${API}/admin/map-pins`, {
       headers: { 'Authorization': `Bearer ${token}` },
       signal: controller.signal,
     });
     clearTimeout(timeout);
 
-    if (res.status === 401) { window.location.href = '/admin'; return; }
+    if (res.status === 401) { window.location.href = `${API}/admin`; return; }
     if (!res.ok) throw new Error(`Server returned ${res.status}`);
 
     _retryCount = 0;
@@ -405,7 +406,7 @@ async function loadPins() {
             font-family:'DM Sans',sans-serif;cursor:pointer">
             Try Again
           </button>
-          <div style="margin-top:14px"><a href="/admin" style="font-size:12px;color:#6b9090;text-decoration:none">← Back to Admin</a></div>
+          <div style="margin-top:14px"><a href="${API}/admin" style="font-size:12px;color:#6b9090;text-decoration:none">← Back to Admin</a></div>
         </div>`;
     }
   }
@@ -465,7 +466,7 @@ function renderPins(pins) {
     marker._itemData = item;
 
     // Hover tooltip
-    marker.bindTooltip(cap(item.item_type || 'item'), {
+    marker.bindTooltip(esc(cap(item.item_type || 'item')), {
       className: 'lf-tt',
       direction: 'top',
       offset: [0, -6],
@@ -491,18 +492,19 @@ function renderPins(pins) {
 
 // ── Popup HTML ──
 function buildPopup(item) {
-  const colors   = (item.color || []).map(cap).join(', ');
-  const attrs    = [colors, cap(item.material), cap(item.size)].filter(Boolean).join(' · ');
-  const features = (item.features || []).slice(0, 3).map(cap).join(', ');
+  const colors   = (item.color || []).map(c => esc(cap(c))).join(', ');
+  const attrs    = [colors, esc(cap(item.material)), esc(cap(item.size))].filter(Boolean).join(' · ');
+  const features = (item.features || []).slice(0, 3).map(c => esc(cap(c))).join(', ');
   const verb     = item.type === 'finder' ? 'Found' : 'Lost';
-  const photo    = item.photo_url
-    ? `<img class="popup-photo" src="${item.photo_url}" onclick="window.open('${item.photo_url}','_blank')" />`
+  const photoUrl = item.photo_url && String(item.photo_url).startsWith('https://') ? item.photo_url : '';
+  const photo    = photoUrl
+    ? `<img class="popup-photo" src="${photoUrl}" onclick="window.open(this.src,'_blank')" />`
     : '';
 
   return `<div class="map-popup">
     <div class="popup-badge ${item.type === 'finder' ? 'pb-finder' : 'pb-loser'}">${item.type === 'finder' ? 'FINDER' : 'LOSER'}</div>
     ${photo}
-    <div class="popup-item">${cap(item.item_type) || 'Item'}</div>
+    <div class="popup-item">${esc(cap(item.item_type) || 'Item')}</div>
     ${attrs    ? `<div class="popup-desc">${attrs}</div>` : ''}
     ${features ? `<div class="popup-features">${features}</div>` : ''}
     <div class="popup-divider"></div>
@@ -515,7 +517,7 @@ function buildPopup(item) {
       <span class="popup-meta-text">${(+item.latitude).toFixed(4)}, ${(+item.longitude).toFixed(4)}</span>
     </div>
     ${item.has_phone ? `<div class="popup-meta-row"><span class="popup-meta-icon">📱</span><span class="popup-meta-text" style="color:#34D399">Contact available</span></div>` : ''}
-    <div class="popup-id">${item.id}</div>
+    <div class="popup-id">${esc(item.id)}</div>
   </div>`;
 }
 
@@ -557,6 +559,10 @@ async function refreshMap() {
 }
 
 // ── Helpers ──
+function esc(s) {
+  if (s == null || s === '') return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
 
 function timeAgo(iso) {

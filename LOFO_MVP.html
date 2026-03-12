@@ -3149,7 +3149,7 @@
 
       <!-- USAGE -->
       <div class="menu-section">
-        <div class="menu-section-label">Usage</div>
+        <div class="menu-section-label">MY USAGE</div>
         <div class="menu-stat-row">
           <span class="menu-stat-label">Lost Reports</span>
           <span class="menu-stat-value" id="menu-stat-lost">–</span>
@@ -3253,6 +3253,14 @@
   const API = window.location.hostname === 'lofo-ai-production.up.railway.app'
     ? ''
     : 'https://lofo-ai-production.up.railway.app';
+
+  function _addMyItemId(id) {
+    try {
+      const key = 'lofo_my_item_ids';
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!existing.includes(id)) { existing.push(id); localStorage.setItem(key, JSON.stringify(existing)); }
+    } catch (_) {}
+  }
 
   // ── App state ──
   const state = {
@@ -3472,7 +3480,7 @@
       const sub = document.getElementById('loser-wait-sub');
       if (sub) {
         const label = state.loserItemType ? cleanType(state.loserItemType) : 'item';
-        sub.innerHTML = `People do good things.<br>We'll text you the moment<br>someone finds your ${label}.`;
+        sub.innerHTML = `People do good things.<br>We'll text you the moment<br>someone finds your ${esc(label)}.`;
       }
     }
     if (name === 'match') {
@@ -3497,7 +3505,7 @@
           const matchThumb = document.querySelector('#screen-match .item-thumb');
           if (matchThumb) {
             const photoHint = document.getElementById('match-photo-hint');
-            if (m.photo_url) {
+            if (m.photo_url && m.photo_url.startsWith('https://')) {
               matchThumb.innerHTML = `<img src="${m.photo_url}" alt="Found item">`;
               matchThumb.classList.add('tappable');
               matchThumb.style.cursor = 'pointer';
@@ -3577,7 +3585,7 @@
           const reasonsEl = document.getElementById('match-reasons');
           if (reasonsEl) {
             reasonsEl.innerHTML = reasons.map((r, i) =>
-              `<div class="reason s-check" data-delay="${340 + i * 60}"><div class="check-dot">✓</div>${r}</div>`
+              `<div class="reason s-check" data-delay="${340 + i * 60}"><div class="check-dot">✓</div>${esc(r)}</div>`
             ).join('');
             triggerStagger(reasonsEl);
           }
@@ -3593,7 +3601,7 @@
           const itemLabel   = state.matchedItem ? cleanType(state.matchedItem.item_type) : 'item';
           const hasSecret   = state.matchedItem?.has_secret ?? false;
           eyebrow.textContent = 'Good news';
-          headline.innerHTML  = `We may have<br><em>found your ${itemLabel}.</em>`;
+          headline.innerHTML  = `We may have<br><em>found your ${esc(itemLabel)}.</em>`;
           cta.textContent     = 'This is mine →';
           // If finder added a secret detail, verify ownership first; otherwise go straight to confirmed
           cta.onclick         = hasSecret ? () => go('ownership-verify') : () => go('confirmed');
@@ -3608,7 +3616,7 @@
       const titleEl = document.getElementById('reunion-title');
       if (titleEl && state.matchedItem) {
         const label = cleanType(state.matchedItem.item_type);
-        titleEl.innerHTML = `Your ${label}<br><em>is on its way.</em>`;
+        titleEl.innerHTML = `Your ${esc(label)}<br><em>is on its way.</em>`;
       }
     }
     if (name === 'handoff') {
@@ -3645,7 +3653,7 @@
 
         // Large photo preview
         if (photoWrap && photoImg) {
-          if (m.photo_url) {
+          if (m.photo_url && m.photo_url.startsWith('https://')) {
             photoImg.src = m.photo_url;
             photoWrap.style.display = 'block';
           } else {
@@ -3655,7 +3663,7 @@
 
         // Card thumb — photo if available, otherwise emoji
         if (thumb) {
-          if (m.photo_url) {
+          if (m.photo_url && m.photo_url.startsWith('https://')) {
             thumb.innerHTML = `<img src="${m.photo_url}" alt="Found item">`;
           } else {
             thumb.textContent = itemEmoji(m.item_type);
@@ -3723,6 +3731,7 @@
       if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || `Error ${res.status}`);
       const item = await res.json();
       state.finderItemId = item.id;
+      _addMyItemId(item.id);
       renderFinderDone(item);
       go('finder-done');
     } catch (err) {
@@ -3748,7 +3757,7 @@
         item.material, item.size,
         ...(item.features || []).slice(0, 3),
       ].filter(Boolean);
-      tagsEl.innerHTML = allTags.map(t => `<span class="tag">${cap(t)}</span>`).join('');
+      tagsEl.innerHTML = allTags.map(t => `<span class="tag">${esc(cap(t))}</span>`).join('');
     }
 
     // Reset edit panel if it was open from a previous submission
@@ -4012,7 +4021,7 @@
 
       // Update waiting title to reflect corrected item type
       const waitTitle = document.querySelector('#screen-waiting .waiting-title');
-      if (waitTitle) waitTitle.innerHTML = `Looking for<br><em>your ${cleanType(updated.item_type)}.</em>`;
+      if (waitTitle) waitTitle.innerHTML = `Looking for<br><em>your ${esc(cleanType(updated.item_type))}.</em>`;
 
       // Close panel, refresh summary row
       _loserEditAttrs = null;
@@ -4092,6 +4101,7 @@
       state.loserItemId   = item.id;
       state.loserItemType = item.item_type || null;
       state.loserItem     = item;
+      _addMyItemId(item.id);
 
       // 6c — POST /match
       showLoading('Searching for your item…');
@@ -4111,7 +4121,7 @@
         go('match', 'loser');
       } else {
         const waitTitle = document.querySelector('#screen-waiting .waiting-title');
-        if (waitTitle) waitTitle.innerHTML = `Looking for<br><em>your ${cleanType(item.item_type)}.</em>`;
+        if (waitTitle) waitTitle.innerHTML = `Looking for<br><em>your ${esc(cleanType(item.item_type))}.</em>`;
         updateWaitingPills();
         go('waiting');
       }
@@ -4235,6 +4245,10 @@
 
   // ── Helpers ──
   function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+  function esc(s) {
+    if (s == null || s === '') return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
 
   function timeAgo(isoString) {
     if (!isoString) return 'Found recently';
@@ -4274,7 +4288,7 @@
   // ── Photo lightbox ──
   function openLightbox() {
     const m = state.matchedItem;
-    if (!m?.photo_url) return;
+    if (!m?.photo_url || !m.photo_url.startsWith('https://')) return;
 
     const lb       = document.getElementById('photo-lightbox');
     const img      = document.getElementById('lightbox-img');
@@ -4294,7 +4308,7 @@
 
     // Title: item label
     const label = cleanType(m.item_type || 'item');
-    title.innerHTML = `Is this <em>your ${label}?</em>`;
+    title.innerHTML = `Is this <em>your ${esc(label)}?</em>`;
 
     // Claim button wires to the same logic as the main CTA
     const hasSecret = m.has_secret ?? false;
@@ -4838,13 +4852,25 @@
   }
 
   async function loadMenuStats() {
+    const ids = [];
     try {
-      const r = await fetch(`${API}/stats/public`);
+      const raw = localStorage.getItem('lofo_my_item_ids') || '[]';
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) ids.push(...parsed.filter(Boolean));
+    } catch (_) {}
+    if (ids.length === 0) {
+      document.getElementById('menu-stat-lost').textContent = '–';
+      document.getElementById('menu-stat-found').textContent = '–';
+      document.getElementById('menu-stat-reunited').textContent = '–';
+      return;
+    }
+    try {
+      const r = await fetch(`${API}/stats/by-items?ids=${ids.join(',')}`);
       if (!r.ok) return;
       const d = await r.json();
-      document.getElementById('menu-stat-lost').textContent     = d.active_lost     ?? '–';
-      document.getElementById('menu-stat-found').textContent    = d.active_found    ?? '–';
-      document.getElementById('menu-stat-reunited').textContent = d.reunions_total  ?? '–';
+      document.getElementById('menu-stat-lost').textContent     = d.lost_count     ?? '–';
+      document.getElementById('menu-stat-found').textContent      = d.found_count    ?? '–';
+      document.getElementById('menu-stat-reunited').textContent   = d.reunited_count ?? '–';
     } catch (_) {}
   }
 

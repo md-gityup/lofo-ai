@@ -875,11 +875,12 @@ def update_finder_info(item_id: uuid.UUID, body: FinderInfoUpdate):
 
 @app.patch("/items/{item_id}/loser-info", status_code=200)
 def update_loser_info(item_id: uuid.UUID, body: LoserInfoUpdate):
+    phone = _normalize_phone(body.phone)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "UPDATE items SET phone = %s WHERE id = %s AND type = 'loser' RETURNING id",
-                (body.phone, str(item_id)),
+                (phone, str(item_id)),
             )
             row = cur.fetchone()
         conn.commit()
@@ -1439,17 +1440,26 @@ def serve_privacy():
     return FileResponse(os.path.join(os.path.dirname(__file__), "privacy-policy.html"))
 
 
-@app.get("/stats/public", include_in_schema=False)
-def public_stats():
-    """Public-facing stats for the in-app menu — no auth required."""
+_STATS_BY_ITEMS_MAX_IDS = 100
+
+
+@app.get("/stats/by-items", include_in_schema=False)
+def stats_by_items(ids: str = Query("")):
+    """User-level stats — counts for items the user has created (passed as comma-separated UUIDs)."""
+    id_list = [x.strip() for x in ids.split(",") if x.strip()][:_STATS_BY_ITEMS_MAX_IDS]
+    if not id_list:
+        return {"lost_count": 0, "found_count": 0, "reunited_count": 0}
+
+    placeholders = ",".join("%s" for _ in id_list)
+    params = id_list + id_list + id_list + id_list
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT
-                    (SELECT COUNT(*) FROM items WHERE type='loser'  AND status='active') AS active_lost,
-                    (SELECT COUNT(*) FROM items WHERE type='finder' AND status='active') AS active_found,
-                    (SELECT COUNT(*) FROM reunions) AS reunions_total
-            """)
+                    (SELECT COUNT(*) FROM items WHERE id::text IN ({placeholders}) AND type='loser'  AND status='active') AS lost_count,
+                    (SELECT COUNT(*) FROM items WHERE id::text IN ({placeholders}) AND type='finder' AND status='active') AS found_count,
+                    (SELECT COUNT(*) FROM reunions WHERE finder_item_id::text IN ({placeholders}) OR loser_item_id::text IN ({placeholders})) AS reunited_count
+            """, params)
             row = cur.fetchone()
     return dict(row)
 

@@ -37,6 +37,7 @@ def _is_conn_alive(conn) -> bool:
 @contextmanager
 def get_connection():
     conn = _pool.getconn()
+    used_replacement = False
     # If the pooled connection is closed or the socket is dead, replace it
     if conn.closed or not _is_conn_alive(conn):
         try:
@@ -51,6 +52,7 @@ def get_connection():
             keepalives_interval=5,
             keepalives_count=5,
         )
+        used_replacement = True
     try:
         yield conn
     except Exception:
@@ -60,7 +62,13 @@ def get_connection():
             pass
         raise
     finally:
-        try:
-            _pool.putconn(conn)
-        except Exception:
-            conn.close()
+        if used_replacement:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        else:
+            try:
+                _pool.putconn(conn)
+            except Exception:
+                conn.close()

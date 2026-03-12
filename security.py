@@ -53,7 +53,11 @@ def _normalise(value: str) -> str:
 # JWT handoff tokens                                                           #
 # --------------------------------------------------------------------------- #
 
-_JWT_SECRET = os.environ["JWT_SECRET"]
+_JWT_SECRET = os.getenv("JWT_SECRET", "")
+if not _JWT_SECRET:
+    raise RuntimeError(
+        "JWT_SECRET environment variable is required. Set it in .env or your deployment environment."
+    )
 _ALGORITHM = "HS256"
 _TOKEN_TTL_MINUTES = 15
 

@@ -316,6 +316,16 @@
     let stripeClient = null;
     let cardEl = null;
 
+    function esc(s) {
+      if (s == null || s === '') return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     // ── State machine ──
     function showState(id) {
       document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
@@ -352,20 +362,30 @@
     }
 
     // ── "Yes, got it back" ──
-    function handleYes() {
+    async function handleYes() {
       if (itemData?.finder_item_id) {
         // Show tip flow
         if (itemData.finder_payout_handle && itemData.finder_payout_app) {
           const pill = document.getElementById('payout-pill');
           const appLabel = { venmo: 'Venmo', paypal: 'PayPal', cashapp: 'Cash App', zelle: 'Zelle' }[itemData.finder_payout_app] || itemData.finder_payout_app;
-          pill.innerHTML = `Tip goes to <strong>${appLabel} ${itemData.finder_payout_handle}</strong>`;
+          pill.innerHTML = `Tip goes to <strong>${esc(appLabel)} ${esc(itemData.finder_payout_handle)}</strong>`;
           pill.style.display = 'block';
         }
         showState('tip');
         mountCard();
       } else {
         // No finder linked — just close
-        doConfirm(0);
+        const btn = document.querySelector('#state-question .btn-primary');
+        btn.disabled = true;
+        btn.textContent = 'Closing…';
+        const ok = await doConfirm(0);
+        if (ok) {
+          showState('done');
+        } else {
+          showConfirmError();
+          btn.disabled = false;
+          btn.textContent = 'Yes, I got it back →';
+        }
       }
     }
 
@@ -413,8 +433,14 @@
 
         // Payment succeeded — close report and show done
         document.getElementById('tip-display').textContent = `$${selectedTipAmt}`;
-        await doConfirm(amtCents);
-        showState('tipped');
+        const ok = await doConfirm(amtCents);
+        if (ok) {
+          showState('tipped');
+        } else {
+          showConfirmError();
+          btn.disabled = false;
+          btn.textContent = `Pay $${selectedTipAmt} →`;
+        }
 
       } catch (err) {
         errEl.textContent = err.message || 'Something went wrong. Please try again.';
@@ -425,21 +451,30 @@
 
     // ── Skip tip, just close ──
     async function skipTip() {
-      await doConfirm(0);
+      const ok = await doConfirm(0);
+      if (ok) showState('done');
+      else showConfirmError();
     }
 
     // ── POST confirm (marks items inactive) ──
+    // Returns true if API succeeded, false otherwise. Caller must show success/error state.
     async function doConfirm(tipAmtCents) {
       try {
-        await fetch(`${API}/resolve/${loserItemId}/confirm`, {
+        const res = await fetch(`${API}/resolve/${loserItemId}/confirm`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tip_amount_cents: tipAmtCents }),
         });
+        return res.ok;
       } catch (_) {
-        // Best-effort — don't block the done state on a network blip
+        return false;
       }
-      if (tipAmtCents === 0) showState('done');
+    }
+
+    function showConfirmError() {
+      document.getElementById('error-msg').textContent =
+        "Couldn't close the report. Check your connection and try again.";
+      showState('error');
     }
 
     // ── Init: load item data ──

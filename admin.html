@@ -155,15 +155,30 @@ main { padding: 28px 36px; }
   border-radius: 16px; backdrop-filter: blur(12px); overflow: hidden;
 }
 .panel-header { padding: 20px 24px 0; }
-.panel-tabs { display: flex; gap: 2px; }
+.panel-tabs {
+  display: flex; gap: 0;
+  background: rgba(0,0,0,0.25);
+  border-radius: 12px 12px 0 0;
+  padding: 6px 8px 0 8px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+}
 .tab-btn {
-  padding: 9px 20px; border-radius: 8px 8px 0 0; border: none; cursor: pointer;
+  padding: 10px 18px; border-radius: 8px 8px 0 0; border: none; cursor: pointer;
   font-size: 13px; font-weight: 600; font-family: inherit;
   background: transparent; color: var(--muted); transition: all 0.2s;
-  border-bottom: 2px solid transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  margin-bottom: -1px;
 }
-.tab-btn:hover:not(.active) { color: var(--text); }
-.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.04); }
+.tab-btn.active {
+  color: var(--accent);
+  background: var(--card);
+  border-color: var(--border);
+  border-bottom: 1px solid var(--card);
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+}
 .tab-divider { height: 1px; background: var(--border); }
 
 .table-wrap { overflow-x: auto; }
@@ -242,6 +257,20 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
   cursor: pointer; border: 1px solid var(--border); transition: transform 0.15s;
 }
 .thumb:hover { transform: scale(1.08); }
+
+/* Clickable geo coords — view on map */
+.loc-link {
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  color: var(--accent); transition: color 0.15s;
+}
+.loc-link:hover { color: #8fc4ff; }
+
+/* Clickable geo coords — view on map */
+.loc-link {
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+  color: var(--accent); transition: color 0.15s;
+}
+.loc-link:hover { color: var(--abright); }
 
 /* ── Debug Panel ── */
 #debug-container { display: none; padding: 28px 24px 32px; }
@@ -556,6 +585,8 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
+const API = 'https://lofo-ai-production.up.railway.app';
+
 // ── State ──
 let token     = sessionStorage.getItem('lofo_admin_token');
 let username  = sessionStorage.getItem('lofo_admin_user');
@@ -589,7 +620,7 @@ async function api(method, path, body = null) {
   };
   if (body) opts.body = JSON.stringify(body);
   try {
-    const res = await fetch(path, opts);
+    const res = await fetch(path.startsWith('http') ? path : `${API}${path}`, opts);
     if (res.status === 401) { logout(); return null; }
     if (!res.ok) {
       const e = await res.json().catch(() => ({}));
@@ -611,7 +642,7 @@ async function login() {
   if (!u || !p) { err.textContent = 'Please enter username and password.'; return; }
   btn.textContent = 'Logging in…'; btn.disabled = true; err.textContent = '';
   try {
-    const res = await fetch('/admin/login', {
+    const res = await fetch(`${API}/admin/login`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: u, password: p }),
     });
@@ -807,12 +838,15 @@ function renderItemsBody(type, data) {
       const desc     = [item.color?.join('/'), item.material, item.size].filter(Boolean).join(' · ');
       const features = (item.features || []).slice(0,2).join(', ') || '—';
       const loc      = item.latitude ? `${(+item.latitude).toFixed(3)}, ${(+item.longitude).toFixed(3)}` : '—';
+      const locCell  = item.latitude
+        ? `<span class="loc-link" onclick="event.stopPropagation();focusMapOnItem('${item.id}')" title="View on map">${esc(loc)}</span>`
+        : '—';
       const isActive = item.status === 'active';
       return `<tr id="row-${item.id}" class="data-row${isActive ? '' : ' row-inactive'}" onclick="toggleRowDetail(event,'${item.id}')">
-        <td class="item-type">${item.item_type || '—'}</td>
-        <td class="muted">${desc || '—'}</td>
-        <td class="small">${features}</td>
-        <td class="muted">${loc}</td>
+        <td class="item-type">${esc(item.item_type) || '—'}</td>
+        <td class="muted">${esc(desc) || '—'}</td>
+        <td class="small">${esc(features)}</td>
+        <td class="muted">${locCell}</td>
         <td class="muted">${timeAgo(item.created_at)}</td>
         <td class="muted">${timeUntil(item.expires_at)}</td>
         <td><span class="status-pill ${statusCls(item.status)}">${item.status}</span></td>
@@ -824,19 +858,23 @@ function renderItemsBody(type, data) {
     tbody.innerHTML = data.map(item => {
       const desc     = [item.color?.join('/'), item.material, item.size].filter(Boolean).join(' · ');
       const loc      = item.latitude ? `${(+item.latitude).toFixed(3)}, ${(+item.longitude).toFixed(3)}` : '—';
-      const photo    = item.photo_url
-        ? `<img class="thumb" src="${item.photo_url}" onclick="event.stopPropagation();window.open('${item.photo_url}','_blank')" />`
+      const locCell  = item.latitude
+        ? `<span class="loc-link" onclick="event.stopPropagation();focusMapOnItem('${item.id}')" title="View on map">${esc(loc)}</span>`
+        : '—';
+      const photoUrl = item.photo_url && item.photo_url.startsWith('https://') ? item.photo_url : '';
+      const photo    = photoUrl
+        ? `<img class="thumb" src="${esc(photoUrl)}" onclick="event.stopPropagation();window.open('${esc(photoUrl).replace(/&amp;/g,'&')}','_blank')" />`
         : '<span class="muted">—</span>';
-      const payout   = item.finder_payout_app ? `${cap(item.finder_payout_app)} ${item.finder_payout_handle || ''}` : '—';
+      const payout   = item.finder_payout_app ? `${esc(cap(item.finder_payout_app))} ${esc(item.finder_payout_handle || '')}` : '—';
       const isActive = item.status === 'active';
       return `<tr id="row-${item.id}" class="data-row${isActive ? '' : ' row-inactive'}" onclick="toggleRowDetail(event,'${item.id}')">
-        <td class="item-type">${item.item_type || '—'}</td>
-        <td class="muted">${desc || '—'}</td>
+        <td class="item-type">${esc(item.item_type) || '—'}</td>
+        <td class="muted">${esc(desc) || '—'}</td>
         <td>${photo}</td>
-        <td class="muted">${loc}</td>
+        <td class="muted">${locCell}</td>
         <td class="muted">${timeAgo(item.created_at)}</td>
         <td class="muted">${timeUntil(item.expires_at)}</td>
-        <td><span class="status-pill ${statusCls(item.status)}">${item.status}</span></td>
+        <td><span class="status-pill ${statusCls(item.status)}">${esc(item.status)}</span></td>
         <td class="small">${payout}</td>
         <td class="actions-cell">${isActive ? rowActions(item.id) : '<span class="muted">—</span>'}</td>
       </tr>`;
@@ -866,9 +904,9 @@ function renderReunionsBody(data) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No reunions found.</td></tr>`; return;
   }
   tbody.innerHTML = data.map(r => `<tr>
-    <td class="item-type">${r.item_type || '—'}</td>
-    <td class="muted">${maskPhone(r.finder_phone)}</td>
-    <td class="muted">${maskPhone(r.loser_phone)}</td>
+    <td class="item-type">${esc(r.item_type || '—')}</td>
+    <td class="muted">${esc(maskPhone(r.finder_phone))}</td>
+    <td class="muted">${esc(maskPhone(r.loser_phone))}</td>
     <td class="muted">${timeAgo(r.created_at)}</td>
     <td class="muted">${timeUntil(r.expires_at)}</td>
     <td><span class="status-pill ${r.status === 'active' ? 's-active' : 's-expired'}">${r.status}</span></td>
@@ -893,8 +931,8 @@ function renderTipsBody(data) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No tips found.</td></tr>`; return;
   }
   tbody.innerHTML = data.map(t => `<tr>
-    <td class="small">${t.finder_item_type || t.finder_item_id?.substring(0,8) + '…' || '—'}</td>
-    <td class="small">${t.loser_item_type  || t.loser_item_id?.substring(0,8)  + '…' || '—'}</td>
+    <td class="small">${esc(t.finder_item_type || t.finder_item_id?.substring(0,8) + '…' || '—')}</td>
+    <td class="small">${esc(t.loser_item_type  || t.loser_item_id?.substring(0,8)  + '…' || '—')}</td>
     <td style="color:var(--green);font-weight:700">$${(t.amount_cents / 100).toFixed(2)}</td>
     <td><span class="status-pill ${t.status === 'completed' ? 's-active' : 's-pending'}">${t.status}</span></td>
     <td class="muted">${timeAgo(t.created_at)}</td>
@@ -946,8 +984,8 @@ async function runDebug() {
   const sc = (data.similarity_score ?? 0) >= 0.78 ? 'var(--accent)' : 'var(--red)';
   const cc = data.colors_compatible ? 'var(--green)' : 'var(--red)';
   const dc = data.within_radius     ? 'var(--green)' : 'var(--red)';
-  const aColors = (data.a_color_groups||[]).map(g=>`${g.color} (${g.group_name})`).join(', ')||'—';
-  const bColors = (data.b_color_groups||[]).map(g=>`${g.color} (${g.group_name})`).join(', ')||'—';
+  const aColors = (data.a_color_groups||[]).map(g=>`${esc(g.color)} (${esc(g.group_name)})`).join(', ')||'—';
+  const bColors = (data.b_color_groups||[]).map(g=>`${esc(g.color)} (${esc(g.group_name)})`).join(', ')||'—';
 
   out.innerHTML = `
     <div class="verdict ${data.would_match ? 'verdict-yes' : 'verdict-no'}">
@@ -974,20 +1012,20 @@ async function runDebug() {
     ${data.block_reasons.length ? `
       <div class="debug-reasons">
         <div class="debug-reasons-title">Why it wouldn't match</div>
-        ${data.block_reasons.map(r=>`<div class="debug-reason">• ${r}</div>`).join('')}
+        ${data.block_reasons.map(r=>`<div class="debug-reason">• ${esc(r)}</div>`).join('')}
       </div>` : ''}
     <div class="debug-items">
       <div class="debug-item-card">
         <div class="dic-label">Item A &nbsp;<span class="type-pill ${data.item_a.type==='finder'?'type-found':'type-lost'}">${data.item_a.type}</span></div>
-        <div class="dic-type">${data.item_a.item_type||'—'}</div>
-        <div class="dic-attr">${(data.item_a.color||[]).join(', ')}${data.item_a.material?' · '+data.item_a.material:''}</div>
-        <div class="dic-id muted">${data.item_a.id}</div>
+        <div class="dic-type">${esc(data.item_a.item_type||'—')}</div>
+        <div class="dic-attr">${(data.item_a.color||[]).map(esc).join(', ')}${data.item_a.material?' · '+esc(data.item_a.material):''}</div>
+        <div class="dic-id muted">${esc(data.item_a.id)}</div>
       </div>
       <div class="debug-item-card">
-        <div class="dic-label">Item B &nbsp;<span class="type-pill ${data.item_b.type==='finder'?'type-found':'type-lost'}">${data.item_b.type}</span></div>
-        <div class="dic-type">${data.item_b.item_type||'—'}</div>
-        <div class="dic-attr">${(data.item_b.color||[]).join(', ')}${data.item_b.material?' · '+data.item_b.material:''}</div>
-        <div class="dic-id muted">${data.item_b.id}</div>
+        <div class="dic-label">Item B &nbsp;<span class="type-pill ${data.item_b.type==='finder'?'type-found':'type-lost'}">${esc(data.item_b.type)}</span></div>
+        <div class="dic-type">${esc(data.item_b.item_type||'—')}</div>
+        <div class="dic-attr">${(data.item_b.color||[]).map(esc).join(', ')}${data.item_b.material?' · '+esc(data.item_b.material):''}</div>
+        <div class="dic-id muted">${esc(data.item_b.id)}</div>
       </div>
     </div>`;
 }
@@ -1033,29 +1071,33 @@ function toggleRowDetail(event, id) {
 
 function buildDetailPanel(item) {
   const isLoser  = item.type === 'loser';
-  const colors   = (item.color || []).map(cap).join(', ') || '—';
-  const features = (item.features || []).join(', ') || '—';
-  const gps      = item.latitude ? `${(+item.latitude).toFixed(6)}, ${(+item.longitude).toFixed(6)}` : 'No GPS';
+  const colors   = (item.color || []).map(c => esc(cap(c))).join(', ') || '—';
+  const features = (item.features || []).map(f => esc(f)).join(', ') || '—';
+  const gpsVal   = item.latitude ? `${(+item.latitude).toFixed(6)}, ${(+item.longitude).toFixed(6)}` : 'No GPS';
+  const gps      = item.latitude
+    ? `<span class="loc-link" onclick="event.stopPropagation();focusMapOnItem('${item.id}')" title="View on map">${esc(gpsVal)}</span>`
+    : 'No GPS';
   const created  = item.created_at ? new Date(item.created_at).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) : '—';
   const expires  = item.expires_at ? new Date(item.expires_at).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—';
-  const photo    = item.photo_url
-    ? `<div class="detail-photo-col"><img class="detail-photo" src="${item.photo_url}" onclick="window.open('${item.photo_url}','_blank')" title="Click to open full size" /></div>`
+  const photoUrl = item.photo_url && String(item.photo_url).startsWith('https://') ? item.photo_url : '';
+  const photo    = photoUrl
+    ? `<div class="detail-photo-col"><img class="detail-photo" src="${esc(photoUrl)}" onclick="window.open(this.src,'_blank')" title="Click to open full size" /></div>`
     : '';
 
   const fields = [
-    df('Type',     `<span class="nocap">${item.item_type ? cap(item.item_type) : '—'}</span>`),
+    df('Type',     `<span class="nocap">${item.item_type ? esc(cap(item.item_type)) : '—'}</span>`),
     df('Color',    colors),
-    df('Material', cap(item.material || '—')),
-    df('Size',     cap(item.size || '—')),
+    df('Material', esc(cap(item.material || '—'))),
+    df('Size',     esc(cap(item.size || '—'))),
     df('Features', `<span class="nocap">${features}</span>`),
-    df('Status',   `<span class="status-pill ${statusCls(item.status)}">${item.status}</span>`),
+    df('Status',   `<span class="status-pill ${statusCls(item.status)}">${esc(item.status)}</span>`),
     df('Reported', `<span class="nocap">${created}</span>`),
     df('Expires',  `<span class="nocap">${expires}</span>`),
     df('GPS',      `<span class="nocap">${gps}</span>`),
-    df('Phone',    `<span class="nocap">${item.phone || '—'}</span>`),
-    ...(!isLoser && item.finder_payout_app ? [df('Payout', `<span class="nocap">${cap(item.finder_payout_app)} ${item.finder_payout_handle || ''}</span>`)] : []),
+    df('Phone',    `<span class="nocap">${esc(item.phone || '—')}</span>`),
+    ...(!isLoser && item.finder_payout_app ? [df('Payout', `<span class="nocap">${esc(cap(item.finder_payout_app))} ${esc(item.finder_payout_handle || '')}</span>`)] : []),
     ...(!isLoser ? [df('Secret', item.has_secret ? '✓ Set' : '—')] : []),
-    df('Item ID', `<span class="mono">${item.id}</span>`),
+    df('Item ID', `<span class="mono">${esc(item.id)}</span>`),
   ];
 
   return `<div class="row-detail-wrap">
@@ -1071,6 +1113,11 @@ function df(label, value) {
 }
 
 // ── Live Map Tab ──────────────────────────────────────────────────────────── //
+
+async function focusMapOnItem(itemId) {
+  _adminMapFocusItemId = itemId;
+  await setTab('map');
+}
 
 async function loadMapTab() {
   if (!_adminMap) initAdminMap();
@@ -1117,9 +1164,14 @@ async function loadMapPairs() {
 
 function renderMapPins(pins) {
   _adminClusters.clearLayers();
+  _adminMarkerById = {};
   if (_adminRadiusCircle) { _adminMap.removeLayer(_adminRadiusCircle); _adminRadiusCircle = null; }
 
-  if (!pins.length) { _adminMap.setView([39.5, -98.35], 4); return; }
+  if (!pins.length) {
+    if (_adminMapFocusItemId) _adminMapFocusItemId = null;
+    _adminMap.setView([39.5, -98.35], 4);
+    return;
+  }
 
   const markers = pins.map(item => {
     const isLoser = item.type === 'loser';
@@ -1211,23 +1263,24 @@ async function refreshAdminMap() {
 }
 
 function buildMapPopup(item) {
-  const colors = (item.color || []).map(mapCap).join(', ');
-  const attrs  = [colors, mapCap(item.material), mapCap(item.size)].filter(Boolean).join(' · ');
-  const verb   = item.type === 'finder' ? 'Found' : 'Lost';
-  const photo  = item.photo_url
-    ? `<img class="popup-photo" src="${item.photo_url}" onclick="window.open('${item.photo_url}','_blank')" />`
+  const colors   = (item.color || []).map(c => esc(mapCap(c))).join(', ');
+  const attrs    = [colors, esc(mapCap(item.material)), esc(mapCap(item.size))].filter(Boolean).join(' · ');
+  const verb     = item.type === 'finder' ? 'Found' : 'Lost';
+  const photoUrl = item.photo_url && String(item.photo_url).startsWith('https://') ? item.photo_url : '';
+  const photo    = photoUrl
+    ? `<img class="popup-photo" src="${photoUrl}" onclick="window.open(this.src,'_blank')" />`
     : '';
   return `<div class="map-popup">
     <div class="popup-badge ${item.type === 'finder' ? 'pb-finder' : 'pb-loser'}">${item.type === 'finder' ? 'FINDER' : 'LOSER'}</div>
     ${photo}
-    <div class="popup-item">${mapCap(item.item_type) || 'Item'}</div>
+    <div class="popup-item">${esc(mapCap(item.item_type) || 'Item')}</div>
     ${attrs ? `<div class="popup-desc">${attrs}</div>` : ''}
     <div class="popup-divider"></div>
     <div class="popup-meta-row"><span class="popup-meta-icon">🕐</span><span class="popup-meta-text">${verb} ${timeAgo(item.created_at)}</span></div>
     <div class="popup-meta-row"><span class="popup-meta-icon">📍</span><span class="popup-meta-text">${(+item.latitude).toFixed(4)}, ${(+item.longitude).toFixed(4)}</span></div>
     <div class="popup-meta-row"><span class="popup-meta-icon">◎</span><span class="popup-meta-text" style="color:${item.type==='finder'?'#60A5FA':'#FF6B6B'}">10-mile match radius shown</span></div>
     ${item.has_phone ? `<div class="popup-meta-row"><span class="popup-meta-icon">📱</span><span class="popup-meta-text" style="color:#34D399">Contact on file</span></div>` : ''}
-    <div class="popup-id">${item.id}</div>
+    <div class="popup-id">${esc(item.id)}</div>
   </div>`;
 }
 
@@ -1278,6 +1331,16 @@ function statusCls(s) {
   return s==='active' ? 's-active' : s==='inactive' ? 's-inactive' : 's-expired';
 }
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+
+function esc(s) {
+  if (s == null || s === '') return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 </script>
 </body>
 </html>
