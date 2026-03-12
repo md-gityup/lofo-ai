@@ -156,30 +156,24 @@ main { padding: 28px 36px; }
 }
 .panel-header { padding: 20px 24px 0; }
 .panel-tabs {
-  display: flex; gap: 0;
-  background: rgba(0,0,0,0.25);
-  border-radius: 12px 12px 0 0;
-  padding: 6px 8px 0 8px;
-  border: 1px solid var(--border);
-  border-bottom: none;
+  display: flex; gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
 }
 .tab-btn {
-  padding: 10px 18px; border-radius: 8px 8px 0 0; border: none; cursor: pointer;
-  font-size: 13px; font-weight: 600; font-family: inherit;
-  background: transparent; color: var(--muted); transition: all 0.2s;
-  border: 1px solid transparent;
-  border-bottom: none;
-  margin-bottom: -1px;
+  padding: 12px 16px; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 500; font-family: inherit;
+  background: transparent; color: var(--muted); transition: color 0.2s;
+  position: relative;
 }
-.tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.04); }
-.tab-btn.active {
-  color: var(--accent);
-  background: var(--card);
-  border-color: var(--border);
-  border-bottom: 1px solid var(--card);
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
+.tab-btn::after {
+  content: ''; position: absolute; bottom: -1px; left: 0; right: 0;
+  height: 2px; background: transparent; transition: background 0.2s;
 }
-.tab-divider { height: 1px; background: var(--border); }
+.tab-btn:hover:not(.active) { color: var(--text); }
+.tab-btn.active { color: var(--accent); }
+.tab-btn.active::after { background: var(--accent); }
+.tab-divider { display: none; }
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; min-width: 700px; }
