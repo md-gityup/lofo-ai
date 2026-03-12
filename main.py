@@ -1563,6 +1563,74 @@ def admin_stats(period: str = "all", admin=Depends(_verify_admin)):
     return dict(row)
 
 
+@app.get("/admin/charts", include_in_schema=False)
+def admin_charts(admin=Depends(_verify_admin)):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    d::date AS day,
+                    COALESCE(SUM(CASE WHEN i.type = 'loser' THEN 1 ELSE 0 END), 0)::int AS lost,
+                    COALESCE(SUM(CASE WHEN i.type = 'finder' THEN 1 ELSE 0 END), 0)::int AS found
+                FROM generate_series(
+                    DATE_TRUNC('week', NOW()),
+                    DATE_TRUNC('week', NOW()) + INTERVAL '6 days',
+                    INTERVAL '1 day'
+                ) d
+                LEFT JOIN items i ON DATE_TRUNC('day', i.created_at) = d::date
+                GROUP BY d ORDER BY d
+            """)
+            daily_rows = cur.fetchall()
+
+            cur.execute("""
+                SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (r.created_at - li.created_at)) / 86400), 0) AS avg_days
+                FROM reunions r JOIN items li ON li.id = r.loser_item_id
+                WHERE r.created_at >= NOW() - INTERVAL '30 days'
+            """)
+            avg_current = float(cur.fetchone()["avg_days"])
+
+            cur.execute("""
+                SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (r.created_at - li.created_at)) / 86400), 0) AS avg_days
+                FROM reunions r JOIN items li ON li.id = r.loser_item_id
+                WHERE r.created_at BETWEEN NOW() - INTERVAL '60 days' AND NOW() - INTERVAL '30 days'
+            """)
+            avg_prev = float(cur.fetchone()["avg_days"])
+
+            cur.execute("""
+                SELECT
+                    DATE_TRUNC('week', r.created_at)::date AS week_start,
+                    AVG(EXTRACT(EPOCH FROM (r.created_at - li.created_at)) / 86400) AS avg_days
+                FROM reunions r JOIN items li ON li.id = r.loser_item_id
+                WHERE r.created_at >= NOW() - INTERVAL '35 days'
+                GROUP BY week_start ORDER BY week_start
+            """)
+            weekly_rows = cur.fetchall()
+
+            cur.execute("SELECT COUNT(*) AS cnt FROM reunions WHERE status = 'active' AND expires_at > NOW()")
+            active = int(cur.fetchone()["cnt"])
+
+    day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    daily_items = [
+        {"day": day_names[i] if i < 7 else "?", "lost": int(r["lost"]), "found": int(r["found"])}
+        for i, r in enumerate(daily_rows)
+    ]
+    reunion_weekly = [
+        {"week": f"W{i+1}", "avg_days": round(float(r["avg_days"]), 1)}
+        for i, r in enumerate(weekly_rows)
+    ]
+    avg_cur = round(avg_current, 1)
+    avg_prv = round(avg_prev, 1)
+    diff = round(avg_prv - avg_cur, 1) if avg_prv > 0 else 0
+
+    return {
+        "daily_items": daily_items,
+        "reunion_avg_days": avg_cur if avg_current > 0 else None,
+        "reunion_diff_vs_prev": diff,
+        "active_matches": active,
+        "reunion_weekly": reunion_weekly,
+    }
+
+
 @app.get("/admin/items", include_in_schema=False)
 def admin_items(type: Optional[str] = None, period: str = "all", admin=Depends(_verify_admin)):
     period = period if period in ("today", "week", "month", "all") else "all"

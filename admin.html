@@ -387,9 +387,30 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
 .lf-tt { background: rgba(12,22,36,0.95) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; color: #e8f0f0 !important; font-family: 'DM Sans', sans-serif !important; font-size: 12px !important; font-weight: 600 !important; padding: 5px 11px !important; white-space: nowrap !important; box-shadow: 0 4px 18px rgba(0,0,0,0.45) !important; }
 .lf-tt::before { display: none !important; }
 
+/* ── Chart Cards ── */
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+.chart-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 22px 24px; backdrop-filter: blur(12px);
+}
+.chart-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.chart-title { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.chart-sub { font-size: 12px; color: var(--muted); }
+.chart-legend { display: flex; gap: 14px; flex-shrink: 0; padding-top: 2px; }
+.chart-leg-item { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.chart-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.chart-canvas { width: 100%; display: block; }
+.reunion-hero { font-size: 42px; font-weight: 800; color: #fff; letter-spacing: -1.5px; margin: 6px 0 4px; line-height: 1; }
+.reunion-hero span { font-size: 18px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
+.reunion-badges { display: flex; gap: 18px; margin: 8px 0 14px; flex-wrap: wrap; }
+.reunion-badge { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.rb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.chart-empty { text-align: center; color: var(--muted2); font-size: 12px; padding: 30px 0; }
+
 /* ── Responsive ── */
 @media (max-width: 900px) {
   .cards-grid { grid-template-columns: repeat(2, 1fr); }
+  .charts-grid { grid-template-columns: 1fr; }
   header { padding: 14px 18px; flex-wrap: wrap; gap: 10px; }
   .time-filters { order: 3; width: 100%; justify-content: center; }
   main { padding: 20px 18px; }
@@ -414,6 +435,13 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
   .greeting h1 { font-size: 20px; }
   .login-card { padding: 28px 22px; }
   .card-nav-hint { display: none; }
+  .chart-card { padding: 16px 14px; border-radius: 12px; }
+  .chart-title { font-size: 14px; }
+  .chart-header { flex-direction: column; gap: 4px; }
+  .reunion-hero { font-size: 34px; }
+  .reunion-hero span { font-size: 15px; }
+  .reunion-badges { gap: 10px; }
+  .reunion-badge { font-size: 11px; }
   .cards-grid { gap: 10px; }
   .card { padding: 14px 16px; border-radius: 12px; }
   .card-value { font-size: 24px; }
@@ -547,6 +575,33 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
         <div class="card-value" id="stat-tips">—</div>
         <div class="card-sub" id="stat-tips-sub">completed payments</div>
         <div class="card-nav-hint">View tips →</div>
+      </div>
+    </div>
+
+    <!-- Chart Cards -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Lost vs Found</div>
+            <div class="chart-sub">Items per day this week</div>
+          </div>
+          <div class="chart-legend">
+            <span class="chart-leg-item"><span class="chart-leg-dot" style="background:var(--red)"></span> Lost</span>
+            <span class="chart-leg-item"><span class="chart-leg-dot" style="background:var(--blue)"></span> Found</span>
+          </div>
+        </div>
+        <canvas id="chart-daily" class="chart-canvas" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Avg. Time to Reunion</div>
+        <div class="chart-sub">Weekly trend</div>
+        <div class="reunion-hero" id="reunion-hero">— <span>days</span></div>
+        <div class="reunion-badges">
+          <span class="reunion-badge"><span class="rb-dot" style="background:var(--green)"></span> <span id="reunion-diff">—</span></span>
+          <span class="reunion-badge"><span class="rb-dot" style="background:var(--yellow)"></span> <span id="reunion-active">—</span></span>
+        </div>
+        <canvas id="chart-reunion" class="chart-canvas" height="120"></canvas>
       </div>
     </div>
 
@@ -780,9 +835,9 @@ async function setTab(tab) {
 
 async function loadAll() {
   if (activeTab === 'map') {
-    await Promise.all([loadStats(), loadMapTab()]);
+    await Promise.all([loadStats(), loadCharts(), loadMapTab()]);
   } else {
-    await Promise.all([loadStats(), loadTab(activeTab)]);
+    await Promise.all([loadStats(), loadCharts(), loadTab(activeTab)]);
   }
 }
 
@@ -1371,6 +1426,204 @@ function mapClusterIcon(cluster) {
 }
 
 function mapCap(s) { return s ? s[0].toUpperCase() + s.slice(1) : (s || ''); }
+
+// ── Charts ──────────────────────────────────────────────────────────────── //
+
+async function loadCharts() {
+  const data = await api('GET', '/admin/charts');
+  if (!data) return;
+
+  drawBarChart('chart-daily', data.daily_items || []);
+
+  const hero = document.getElementById('reunion-hero');
+  if (data.reunion_avg_days != null) {
+    hero.innerHTML = `${data.reunion_avg_days} <span>days</span>`;
+  } else {
+    hero.innerHTML = `— <span>days</span>`;
+  }
+
+  const diffEl = document.getElementById('reunion-diff');
+  const diff = data.reunion_diff_vs_prev;
+  if (diff > 0) {
+    diffEl.innerHTML = `<span style="color:var(--green)">↓ ${diff}</span> vs last month`;
+  } else if (diff < 0) {
+    diffEl.innerHTML = `<span style="color:var(--red)">↑ ${Math.abs(diff)}</span> vs last month`;
+  } else {
+    diffEl.textContent = data.reunion_avg_days != null ? 'No change vs last month' : '—';
+  }
+
+  document.getElementById('reunion-active').innerHTML =
+    `<span style="color:var(--yellow)">${data.active_matches}</span> active matches`;
+
+  drawLineChart('chart-reunion', data.reunion_weekly || []);
+}
+
+function _chartSetup(canvasId, heightOverride) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const W = rect.width;
+  const H = heightOverride || rect.height;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { canvas, ctx, W, H };
+}
+
+function drawBarChart(canvasId, data) {
+  const s = _chartSetup(canvasId, 180);
+  if (!s || !data.length) return;
+  const { ctx, W, H } = s;
+  const pad = { top: 10, right: 10, bottom: 28, left: 34 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  const maxVal = Math.max(...data.flatMap(d => [d.lost, d.found]), 1);
+  const niceMax = Math.ceil(maxVal / 5) * 5 || 5;
+
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + cH - (i / 4) * cH;
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+    ctx.fillStyle = '#4a7070';
+    ctx.font = '10px DM Sans, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(niceMax * i / 4), pad.left - 7, y);
+  }
+
+  const groupW = cW / data.length;
+  const barW = Math.min(groupW * 0.28, 18);
+  const gap = Math.max(barW * 0.15, 2);
+
+  data.forEach((d, i) => {
+    const cx = pad.left + groupW * i + groupW / 2;
+    _roundBar(ctx, cx - barW - gap / 2, pad.top + cH, barW, (d.lost / niceMax) * cH, '#FF6B6B');
+    _roundBar(ctx, cx + gap / 2, pad.top + cH, barW, (d.found / niceMax) * cH, '#60A5FA');
+    ctx.fillStyle = '#6b9090';
+    ctx.font = '11px DM Sans, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(d.day, cx, H - 18);
+  });
+}
+
+function _roundBar(ctx, x, baseline, w, h, color) {
+  if (h < 1) return;
+  const r = Math.min(3, h / 2, w / 2);
+  const y = baseline - h;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, baseline);
+  ctx.lineTo(x, baseline);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawLineChart(canvasId, data) {
+  const s = _chartSetup(canvasId, 120);
+  if (!s) return;
+  const { ctx, W, H } = s;
+
+  if (!data.length) {
+    ctx.fillStyle = '#4a7070';
+    ctx.font = '12px DM Sans, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('No reunion data yet', W / 2, H / 2);
+    return;
+  }
+
+  const pad = { top: 10, right: 12, bottom: 28, left: 34 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  const vals = data.map(d => d.avg_days);
+  const margin = 0.3;
+  const rawMin = Math.min(...vals);
+  const rawMax = Math.max(...vals);
+  const minV = Math.max(0, Math.floor((rawMin - margin) * 2) / 2);
+  const maxV = Math.ceil((rawMax + margin) * 2) / 2;
+  const range = maxV - minV || 1;
+
+  const steps = 4;
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= steps; i++) {
+    const y = pad.top + cH - (i / steps) * cH;
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+    ctx.fillStyle = '#4a7070';
+    ctx.font = '10px DM Sans, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText((minV + range * i / steps).toFixed(1), pad.left - 7, y);
+  }
+
+  const pts = data.map((d, i) => ({
+    x: pad.left + (data.length === 1 ? cW / 2 : (i / (data.length - 1)) * cW),
+    y: pad.top + cH - ((d.avg_days - minV) / range) * cH,
+  }));
+
+  // Gradient fill under line
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH);
+  grad.addColorStop(0, 'rgba(52,211,153,0.18)');
+  grad.addColorStop(1, 'rgba(52,211,153,0)');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pad.top + cH);
+  _smoothLine(ctx, pts);
+  ctx.lineTo(pts[pts.length - 1].x, pad.top + cH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line stroke
+  ctx.beginPath();
+  _smoothLine(ctx, pts);
+  ctx.strokeStyle = '#34D399';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Dots
+  pts.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#34D399';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(12,22,36,0.85)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+
+  // X labels
+  ctx.fillStyle = '#6b9090';
+  ctx.font = '11px DM Sans, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  data.forEach((d, i) => ctx.fillText(d.week, pts[i].x, H - 18));
+}
+
+function _smoothLine(ctx, pts) {
+  pts.forEach((p, i) => {
+    if (i === 0) { ctx.moveTo(p.x, p.y); return; }
+    const prev = pts[i - 1];
+    const cpx = (prev.x + p.x) / 2;
+    ctx.bezierCurveTo(cpx, prev.y, cpx, p.y, p.x, p.y);
+  });
+}
+
+let _chartResizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_chartResizeTimer);
+  _chartResizeTimer = setTimeout(() => loadCharts(), 200);
+});
 
 // ── Shared Helpers ──
 function timeAgo(iso) {
