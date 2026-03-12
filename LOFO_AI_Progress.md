@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 12, 2026 — Phase 18: Lifecycle notifications (day-7 encouragement + day-28 auto-extend)*
+*Last updated: March 12, 2026 — Phase 19: Map as admin tab + map enhancements + admin row expansion*
 
 ---
 
@@ -40,6 +40,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 17a — Post-Reunion Resolve Page + Tip Flow | ✅ Complete | `/resolve/{loser_item_id}`: standalone page linked from handoff SMS. States: question → tip (Stripe inline, $5/$10/$20, skip) → done/tipped. Marks both items inactive + closes reunion record on confirm. In-app tip (`screen-reunion`) restored while Twilio A2P pending — resolve page activates automatically once SMS works. |
 | 17b — UI Cleanup | ✅ Complete | Dynamic Island placeholder removed (HTML, CSS, JS function + all call sites — 127 lines deleted). Green circle check icons removed from `screen-finder-done` and `screen-confirmed` — both screens now lead directly with DM Serif Display title. |
 | 18 — Lifecycle Notifications | ✅ Complete | Day-7 encouragement SMS + day-28 auto-extend SMS for unmatched loser items. No expiry concept exposed to users. Items with active reunions skipped. Multi-item users stagger across daily runs (one message per phone per run). GitHub Actions cron — no external services beyond what's already running. |
+| 19 — Map as Admin Tab + Enhancements | ✅ Complete | Live map embedded as 6th tab in admin dashboard. Period filter drives map pins + pairs. 10-mile radius circle on pin click. Dashed green lines connecting matched reunion pairs (toggleable). No separate page navigation — all in one auth context. Admin table rows clickable — expand inline to show full item detail (photo, all attributes, GPS, full timestamps, phone, payout, item ID). |
 
 ---
 
@@ -95,7 +96,8 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `PATCH /admin/items/{id}/extend` | Adds 30 days to item expires_at |
 | `POST /admin/debug/match` | Takes two item UUIDs; returns similarity, color groups, distance, block reasons, would_match |
 | `GET /map` | Serves `map.html` (protected via JWT in page) |
-| `GET /admin/map-pins` | All active items with GPS coords for map; includes no_gps_count |
+| `GET /admin/map-pins?period=` | Active items with GPS coords for map, period-filtered; includes no_gps_count |
+| `GET /admin/map-pairs?period=` | Reunion pairs where both items have GPS, for drawing match lines on map |
 
 ---
 
@@ -255,13 +257,13 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ---
 
-## What's Next: Phase 18+
+## What's Next: Phase 19+
 
-**Phase 18 complete and deployed.** Lifecycle notifications live. All setup steps done.
+**Phases 1–19 complete and deployed.**
 
 ### Pre-Launch Requirements
 
-- **Twilio A2P 10DLC registration:** Campaign SID `CM50255157d8c0965b92369a1f90b3ab2b` — status **In progress** with TCR/carrier review as of March 12, 2026. Was already submitted previously (not lost). Approval expected within 2–3 weeks. Once approved, `+15175136672` will send to any US number without carrier filtering. No code changes needed.
+- **Twilio A2P 10DLC registration:** Campaign SID `CM50255157d8c0965b92369a1f90b3ab2b` — status **In progress** with TCR/carrier review as of March 12, 2026. Approval expected within 2–3 weeks. Once approved, `+15175136672` will send to any US number without carrier filtering. No code changes needed.
 
 > **⚠️ When A2P is approved — revisit the tip flow:**
 > `resolve.html` and its backend endpoints (`GET /resolve/{id}`, `GET /resolve/{id}/data`, `POST /resolve/{id}/confirm`) are already built and deployed. The handoff SMS already includes the resolve link. Once SMS delivery works:
@@ -269,13 +271,13 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 > 2. Consider moving the in-app tip back to post-reunion (Direction 2 from the design discussion) — or keep both as a belt-and-suspenders approach (in-app tip + resolve page as second chance)
 > 3. The resolve page also handles **item closure** (marks both items inactive) — this is the only way items currently get closed before their 30-day expiry, so it's worth making prominent in the SMS copy once it works
 
-### Candidates for Phase 18+
+### Candidates for Phase 20+
 
 - **Item lifecycle UI — extend** — *(Phase 18 handles this automatically via cron — no user action needed. Resolved.)*
+- **Map as admin tab + enhancements** — *(Phase 19 complete. Resolved.)*
+- **Admin row expansion** — *(Phase 19 complete. Resolved.)*
 - **Loser location post-submit correction** — `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact. Small backend + small UI addition.
 - **Map in app flow** — Leaflet pin-drop screen in the loser flow between `screen-lost-prompt` and submission, for users who type vague locations ("somewhere near downtown"). Would improve geocoding accuracy. Medium effort.
-- **Admin map enhancements** — filter map pins by time period (matching the dashboard's time filter), draw a 10-mile radius circle around a selected pin to visualize the match zone, show a line between matched finder+loser pairs.
-- **Map as admin tab** — embed the live map as a 6th tab in the admin dashboard instead of a separate page. Eliminates auth/sessionStorage issues entirely and keeps everything in one place.
 
 ### Known Intentional Limitations
 
@@ -288,16 +290,18 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–18):**
+> **What's complete and deployed (Phases 1–19):**
 > Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Admin dashboard at `/admin`, live map at `/map`. UptimeRobot keep-alive on GET /health every 10 min — no cold starts. Lifecycle cron running daily via GitHub Actions.
 >
-> **Phase 18 (last session):**
-> - Lifecycle notifications fully built and deployed: `GET /cron/lifecycle?key=` endpoint, day-7 encouragement SMS + day-28 auto-extend SMS for unmatched loser items. GitHub Actions cron (`.github/workflows/lifecycle-cron.yml`, 10am ET daily). DB migration done (`notif_week1_at`, `notif_week2_at` columns on items). All env vars set. First manual test run: green ✅.
-> - Twilio A2P 10DLC: campaign was already submitted (not lost). Campaign SID `CM50255157d8c0965b92369a1f90b3ab2b`, status In Progress with TCR. Awaiting carrier approval — no code changes needed when approved.
+> **Phase 19 (last session):**
+> - Live map embedded as 6th tab in admin dashboard (`admin.html`). Header "🗺 Map" button activates the tab — no separate page navigation. Period filter (Today/Week/Month/All) drives map pins + pair lines. 10-mile radius circle drawn on pin click. Dashed green lines connecting matched reunion pairs, toggleable via legend checkbox.
+> - Admin table rows (Lost Items, Found Items) now clickable — expands inline detail panel with full photo, all attributes, GPS, full timestamps, unmasked phone, payout info, item ID. One row open at a time.
+> - Backend: `GET /admin/map-pins` now accepts `?period=` filter. New `GET /admin/map-pairs?period=` endpoint (GPS-paired reunions for map lines).
+> - Twilio A2P 10DLC: Campaign SID `CM50255157d8c0965b92369a1f90b3ab2b`, status In Progress with TCR. Awaiting carrier approval — no code changes needed when approved.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
 >
-> **Frontend:** `LOFO_MVP.html` (app), `admin.html` (ops dashboard), `map.html` (live map), `resolve.html` (post-reunion closure page).
+> **Frontend:** `LOFO_MVP.html` (app), `admin.html` (ops dashboard), `map.html` (live map standalone), `resolve.html` (post-reunion closure page).
 >
 > **DB schema:** `items` (includes `photo_url`, `notif_week1_at`, `notif_week2_at`), `tips`, `reunions`.
 >
@@ -305,13 +309,46 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 >
 > **Keep-alive:** UptimeRobot pings `GET /health` every 10 min — Railway stays warm, no cold starts.
 >
-> **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 18+' section in the progress doc before starting.
+> **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 19+' section in the progress doc before starting.
 >
 > Start by reading `main.py` and `LOFO_AI_Progress.md`, then discuss before building."
 
 ---
 
 ## Session History
+
+### Phase 19 — Map as Admin Tab + Map Enhancements + Admin Row Expansion — March 12, 2026
+
+**What changed:** Live map moved from a separate page (`/map`) to a 6th tab inside the admin dashboard panel. Period filter, 10-mile radius circles, and match pair lines added. Admin table rows made clickable with inline detail expansion.
+
+**Admin row expansion (`admin.html`):**
+- Lost Items and Found Items rows are now clickable — expand an animated inline panel below the row
+- Panel shows: full photo (160px, click to open original), all attributes (color, material, size, full features list), status pill, full reported/expiry timestamps, GPS (6 decimal places), unmasked phone number, payout app+handle (finder only), secret indicator (finder only), item ID (monospace)
+- One row open at a time — clicking another row collapses the previous
+- Click same row again to collapse
+- Action buttons (Deactivate/+30d) and photo thumbnail use `event.stopPropagation()` — don't trigger expand
+- Full item data stored in `rowDataMap` keyed by ID; no extra API calls on expand
+
+**Why:** Eliminates the JWT/sessionStorage hand-off between `/admin` and `/map`. Everything stays in one auth context. Also makes the map a real ops tool.
+
+**Backend (`main.py`):**
+- `GET /admin/map-pins` now accepts `?period=` — filters items by `created_at` (Today/Week/Month/All)
+- `GET /admin/map-pairs` — new endpoint returning reunion pairs where both items have GPS coords; used for drawing match lines. Also accepts `?period=` filtering on `r.created_at`.
+
+**Frontend (`admin.html`):**
+- Leaflet + MarkerCluster CSS/JS loaded in `<head>`
+- 6th tab "🗺 Map" added to the panel tab row
+- Header "🗺 Live Map" `<a>` → `<button onclick="setTab('map')">` (activates tab, no page nav)
+- `#map-tab-container` added inside panel alongside `#table-container` and `#debug-container`
+- `setTab('map')` shows map container, sets `panel.style.overflow = 'visible'` (lets Leaflet popups extend above panel edge), calls `loadMapTab()`
+- `setPeriod()` → `loadAll()` → `loadMapTab()` when on map tab — period filter auto-refreshes map
+- Map lazily initializes Leaflet on first tab visit
+- 10-mile radius circle (`L.circle`, 16093.4m): drawn on `popupopen`, removed on `popupclose`
+- Match pair lines: dashed green `L.polyline` for each reunion pair with GPS on both sides. Tooltip shows item types. Toggle in legend.
+- Floating overlays (legend, stats, refresh button) positioned inside `#map-tab-container`
+- `map.html` and `GET /map` route kept intact as standalone fallback
+
+---
 
 ### Phase 18 — Lifecycle Notifications — March 12, 2026
 
