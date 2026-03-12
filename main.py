@@ -1429,6 +1429,31 @@ class AdminDebugMatchRequest(BaseModel):
     item_b_id: uuid.UUID
 
 
+@app.get("/terms", include_in_schema=False)
+def serve_terms():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "terms.html"))
+
+
+@app.get("/privacy", include_in_schema=False)
+def serve_privacy():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "privacy-policy.html"))
+
+
+@app.get("/stats/public", include_in_schema=False)
+def public_stats():
+    """Public-facing stats for the in-app menu — no auth required."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    (SELECT COUNT(*) FROM items WHERE type='loser'  AND status='active') AS active_lost,
+                    (SELECT COUNT(*) FROM items WHERE type='finder' AND status='active') AS active_found,
+                    (SELECT COUNT(*) FROM reunions) AS reunions_total
+            """)
+            row = cur.fetchone()
+    return dict(row)
+
+
 @app.get("/admin", include_in_schema=False)
 def serve_admin():
     return FileResponse(os.path.join(os.path.dirname(__file__), "admin.html"))

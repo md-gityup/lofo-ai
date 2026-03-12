@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 12, 2026 — Phase 19: Map as admin tab + map enhancements + admin row expansion*
+*Last updated: March 12, 2026 — Phase 20: In-app menu drawer (gear icon)*
 
 ---
 
@@ -41,6 +41,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 17b — UI Cleanup | ✅ Complete | Dynamic Island placeholder removed (HTML, CSS, JS function + all call sites — 127 lines deleted). Green circle check icons removed from `screen-finder-done` and `screen-confirmed` — both screens now lead directly with DM Serif Display title. |
 | 18 — Lifecycle Notifications | ✅ Complete | Day-7 encouragement SMS + day-28 auto-extend SMS for unmatched loser items. No expiry concept exposed to users. Items with active reunions skipped. Multi-item users stagger across daily runs (one message per phone per run). GitHub Actions cron — no external services beyond what's already running. |
 | 19 — Map as Admin Tab + Enhancements | ✅ Complete | Live map embedded as 6th tab in admin dashboard. Period filter drives map pins + pairs. 10-mile radius circle on pin click. Dashed green lines connecting matched reunion pairs (toggleable). No separate page navigation — all in one auth context. Admin table rows clickable — expand inline to show full item detail (photo, all attributes, GPS, full timestamps, phone, payout, item ID). |
+| 20 — In-App Menu Drawer | ✅ Complete | Gear icon (white circle) top-right of home screen. Slide-up sheet: Usage (live lost/found/reunited counts), Support (FAQ accordion + Contact Us email form), Information (Terms, Privacy, About, App Version). Backend: `GET /terms`, `GET /privacy`, `GET /stats/public`. App Store ready. |
 
 ---
 
@@ -259,7 +260,7 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ## What's Next: Phase 19+
 
-**Phases 1–19 complete and deployed.**
+**Phases 1–20 complete and deployed.**
 
 ### Pre-Launch Requirements
 
@@ -276,6 +277,7 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 - **Item lifecycle UI — extend** — *(Phase 18 handles this automatically via cron — no user action needed. Resolved.)*
 - **Map as admin tab + enhancements** — *(Phase 19 complete. Resolved.)*
 - **Admin row expansion** — *(Phase 19 complete. Resolved.)*
+- **In-app menu drawer** — *(Phase 20 complete. Resolved.)*
 - **Loser location post-submit correction** — `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact. Small backend + small UI addition.
 - **Map in app flow** — Leaflet pin-drop screen in the loser flow between `screen-lost-prompt` and submission, for users who type vague locations ("somewhere near downtown"). Would improve geocoding accuracy. Medium effort.
 
@@ -290,10 +292,15 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–19):**
+> **What's complete and deployed (Phases 1–20):**
 > Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Admin dashboard at `/admin`, live map at `/map`. UptimeRobot keep-alive on GET /health every 10 min — no cold starts. Lifecycle cron running daily via GitHub Actions.
 >
-> **Phase 19 (last session):**
+> **Phase 20 (last session):**
+> - Gear icon (white circle) in top-right of home screen. Tap opens slide-up menu drawer.
+> - Menu sections: Usage (live lost/found/reunited counts), Support (FAQ accordion + Contact Us email form), Information (Terms, Privacy, About, App Version 1.0.0).
+> - Backend: `GET /terms`, `GET /privacy`, `GET /stats/public` (no auth).
+>
+> **Phase 19:**
 > - Live map embedded as 6th tab in admin dashboard (`admin.html`). Header "🗺 Map" button activates the tab — no separate page navigation. Period filter (Today/Week/Month/All) drives map pins + pair lines. 10-mile radius circle drawn on pin click. Dashed green lines connecting matched reunion pairs, toggleable via legend checkbox.
 > - Admin table rows (Lost Items, Found Items) now clickable — expands inline detail panel with full photo, all attributes, GPS, full timestamps, unmasked phone, payout info, item ID. One row open at a time.
 > - Backend: `GET /admin/map-pins` now accepts `?period=` filter. New `GET /admin/map-pairs?period=` endpoint (GPS-paired reunions for map lines).
@@ -316,6 +323,28 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 ---
 
 ## Session History
+
+### Phase 20 — In-App Menu Drawer — March 12, 2026
+
+**What changed:** Gear icon on home screen opens a slide-up menu drawer covering App Store legal/support requirements.
+
+**Gear button (`LOFO_MVP.html`):**
+- White circle button (SVG gear icon, 36px) in top-right of home screen, positioned via `.home-topbar` flex row alongside the LOFO wordmark
+- Same visual treatment as the reference iOS weather app screenshot
+
+**Menu drawer (`LOFO_MVP.html`):**
+- Slides up from bottom, dark semi-transparent backdrop (tap to close), handle bar + close ✕ button
+- Three sections:
+  - **Usage** — Live `active_lost`, `active_found`, `reunions_total` fetched from `GET /stats/public` on open. DM Serif Display numerals.
+  - **Support** — FAQs (expand/collapse section, then per-question accordion for 5 FAQs). Contact Us (expand-in-place form → `mailto:support@lofo.ai`).
+  - **Information** — Terms of Service, Privacy Policy (both open `/terms` and `/privacy` in new tab), About LOFO (expand-in-place blurb), App Version `1.0.0`.
+
+**Backend (`main.py`):**
+- `GET /terms` — serves `terms.html`
+- `GET /privacy` — serves `privacy-policy.html`
+- `GET /stats/public` — returns `{active_lost, active_found, reunions_total}`, no auth required
+
+---
 
 ### Phase 19 — Map as Admin Tab + Map Enhancements + Admin Row Expansion — March 12, 2026
 

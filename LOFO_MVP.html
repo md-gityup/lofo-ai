@@ -353,11 +353,254 @@
   #screen-home .status {
     background: var(--cream);
   }
+  .home-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
   #screen-home .wordmark {
     font-size: 12px;
     letter-spacing: 0.18em;
     color: var(--rust);
   }
+  .gear-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04);
+    color: var(--navy);
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .gear-btn:active { opacity: 0.75; transform: scale(0.94); }
+
+  /* ─────────────────────────────────────────
+     MENU DRAWER
+  ───────────────────────────────────────── */
+  .menu-drawer {
+    position: absolute;
+    inset: 0;
+    z-index: 400;
+    pointer-events: none;
+  }
+  .menu-drawer.open {
+    pointer-events: all;
+  }
+  .menu-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0);
+    transition: background 0.3s ease;
+  }
+  .menu-drawer.open .menu-backdrop {
+    background: rgba(0,0,0,0.42);
+  }
+  .menu-sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-radius: 24px 24px 0 0;
+    max-height: 80%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateY(100%);
+    transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .menu-drawer.open .menu-sheet {
+    transform: translateY(0);
+  }
+  .menu-handle {
+    width: 36px;
+    height: 4px;
+    background: #E0DBD1;
+    border-radius: 2px;
+    margin: 12px auto 0;
+  }
+  .menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 22px 6px;
+  }
+  .menu-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 21px;
+    color: var(--navy);
+  }
+  .menu-close-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #F0EDE8;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .menu-close-btn:active { opacity: 0.7; }
+  .menu-section {
+    padding: 0 22px;
+  }
+  .menu-section-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 14px 0 6px;
+    border-top: 1px solid var(--border);
+    margin-top: 2px;
+  }
+  .menu-stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-bottom: 1px solid #F5F2EC;
+  }
+  .menu-stat-row:last-child { border-bottom: none; }
+  .menu-stat-label {
+    font-size: 14px;
+    color: #666;
+  }
+  .menu-stat-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    color: var(--navy);
+  }
+  .menu-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 0;
+    border-bottom: 1px solid #F5F2EC;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .menu-row:active { opacity: 0.65; }
+  .menu-row:last-child { border-bottom: none; }
+  .menu-row-label {
+    font-size: 15px;
+    color: var(--navy);
+  }
+  .menu-row-value {
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .menu-row-chevron {
+    font-size: 16px;
+    color: #C4BFB6;
+    transition: transform 0.2s ease;
+    line-height: 1;
+  }
+  .menu-row-chevron.rotated { transform: rotate(90deg); }
+  /* FAQ accordion */
+  .faq-list { padding-bottom: 4px; }
+  .faq-item { border-bottom: 1px solid #F5F2EC; }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-question {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--navy);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .faq-question:active { opacity: 0.7; }
+  .faq-chevron {
+    font-size: 13px;
+    color: #C4BFB6;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+  .faq-item.open .faq-chevron { transform: rotate(180deg); }
+  .faq-answer {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.65;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.28s ease, padding 0.28s ease;
+  }
+  .faq-item.open .faq-answer {
+    max-height: 200px;
+    padding-bottom: 13px;
+  }
+  /* Contact form */
+  .contact-form-wrap {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  .contact-form-wrap.open { max-height: 300px; }
+  .contact-form-inner { padding: 4px 0 12px; }
+  .contact-field { margin-bottom: 10px; }
+  .contact-field label {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .contact-field input,
+  .contact-field textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: var(--navy);
+    background: var(--cream);
+    outline: none;
+  }
+  .contact-field input:focus,
+  .contact-field textarea:focus { border-color: var(--navy); }
+  .contact-field textarea { resize: none; height: 76px; }
+  .contact-send-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .contact-send-btn:active { opacity: 0.85; }
+  /* About blurb */
+  .about-wrap {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.28s ease;
+  }
+  .about-wrap.open { max-height: 150px; }
+  .about-text {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.65;
+    padding: 4px 0 14px;
+  }
+  .menu-bottom-pad { height: 28px; }
   #screen-home .head {
     margin-top: 32px;
     margin-bottom: auto;
@@ -2321,7 +2564,15 @@
       <div class="status-icons"><span>●●●</span></div>
     </div>
     <div class="content">
-      <span class="wordmark">LOFO</span>
+      <div class="home-topbar">
+        <span class="wordmark">LOFO</span>
+        <button class="gear-btn" onclick="openMenu()" aria-label="Open menu">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
       <div class="head">
         <h1>Lost<br>something?<br><em>Found<br>something?</em></h1>
         <div class="rule"></div>
@@ -2883,6 +3134,113 @@
 
   <!-- Error toast -->
   <div id="error-toast"></div>
+
+  <!-- ═══════════════════════════════════════
+       MENU DRAWER (gear icon → slide-up sheet)
+  ═══════════════════════════════════════ -->
+  <div class="menu-drawer" id="menu-drawer">
+    <div class="menu-backdrop" onclick="closeMenu()"></div>
+    <div class="menu-sheet">
+      <div class="menu-handle"></div>
+      <div class="menu-header">
+        <span class="menu-title">LOFO</span>
+        <button class="menu-close-btn" onclick="closeMenu()">✕</button>
+      </div>
+
+      <!-- USAGE -->
+      <div class="menu-section">
+        <div class="menu-section-label">Usage</div>
+        <div class="menu-stat-row">
+          <span class="menu-stat-label">Lost Reports</span>
+          <span class="menu-stat-value" id="menu-stat-lost">–</span>
+        </div>
+        <div class="menu-stat-row">
+          <span class="menu-stat-label">Found Reports</span>
+          <span class="menu-stat-value" id="menu-stat-found">–</span>
+        </div>
+        <div class="menu-stat-row">
+          <span class="menu-stat-label">Reunited</span>
+          <span class="menu-stat-value" id="menu-stat-reunited">–</span>
+        </div>
+      </div>
+
+      <!-- SUPPORT -->
+      <div class="menu-section">
+        <div class="menu-section-label">Support</div>
+        <div class="menu-row" onclick="toggleFaqSection()">
+          <span class="menu-row-label">FAQs</span>
+          <span class="menu-row-chevron" id="faq-section-chevron">›</span>
+        </div>
+        <div id="faq-section" style="display:none">
+          <div class="faq-list">
+            <div class="faq-item" id="faq-0">
+              <div class="faq-question" onclick="toggleFaq(0)">How does LOFO work?<span class="faq-chevron">▾</span></div>
+              <div class="faq-answer">A finder snaps a photo of something they found. A loser describes what they lost. AI matches them by description and location, verifies ownership, then connects both parties to arrange the return.</div>
+            </div>
+            <div class="faq-item" id="faq-1">
+              <div class="faq-question" onclick="toggleFaq(1)">Is LOFO free?<span class="faq-chevron">▾</span></div>
+              <div class="faq-answer">Yes — LOFO is completely free for both finders and losers. Finders can optionally receive a tip from the owner after a reunion, but tips are never required.</div>
+            </div>
+            <div class="faq-item" id="faq-2">
+              <div class="faq-question" onclick="toggleFaq(2)">How long are reports active?<span class="faq-chevron">▾</span></div>
+              <div class="faq-answer">Reports are active for 30 days and automatically extended if no match is found. We'll keep searching as long as there's a chance of reunion.</div>
+            </div>
+            <div class="faq-item" id="faq-3">
+              <div class="faq-question" onclick="toggleFaq(3)">How does a finder get paid?<span class="faq-chevron">▾</span></div>
+              <div class="faq-answer">Finders can enter a Venmo, PayPal, Cash App, or Zelle handle when submitting. After a successful reunion, the owner receives the option to send a tip directly to that handle.</div>
+            </div>
+            <div class="faq-item" id="faq-4">
+              <div class="faq-question" onclick="toggleFaq(4)">Is my info safe?<span class="faq-chevron">▾</span></div>
+              <div class="faq-answer">Your phone number is only used for match notifications and coordination — it's never shared directly with the other party. All communication is relayed anonymously through LOFO.</div>
+            </div>
+          </div>
+        </div>
+        <div class="menu-row" onclick="toggleContactForm()">
+          <span class="menu-row-label">Contact Us</span>
+          <span class="menu-row-chevron" id="contact-chevron">›</span>
+        </div>
+        <div class="contact-form-wrap" id="contact-form-wrap">
+          <div class="contact-form-inner">
+            <div class="contact-field">
+              <label>Your email</label>
+              <input type="email" id="contact-email" placeholder="you@example.com">
+            </div>
+            <div class="contact-field">
+              <label>Message</label>
+              <textarea id="contact-message" placeholder="What can we help with?"></textarea>
+            </div>
+            <button class="contact-send-btn" onclick="sendContactEmail()">Send message →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- INFORMATION -->
+      <div class="menu-section">
+        <div class="menu-section-label">Information</div>
+        <div class="menu-row" onclick="window.open('https://lofo-ai-production.up.railway.app/terms','_blank')">
+          <span class="menu-row-label">Terms of Service</span>
+          <span class="menu-row-chevron">›</span>
+        </div>
+        <div class="menu-row" onclick="window.open('https://lofo-ai-production.up.railway.app/privacy','_blank')">
+          <span class="menu-row-label">Privacy Policy</span>
+          <span class="menu-row-chevron">›</span>
+        </div>
+        <div class="menu-row" onclick="toggleAbout()">
+          <span class="menu-row-label">About LOFO</span>
+          <span class="menu-row-chevron" id="about-chevron">›</span>
+        </div>
+        <div class="about-wrap" id="about-wrap">
+          <p class="about-text">LOFO.AI is a lost and found matching app built on the belief that people do good things. A finder snaps a photo. A loser describes what they lost. AI handles the rest — ten seconds of effort, everything else is the engine.</p>
+        </div>
+        <div class="menu-row" style="cursor:default">
+          <span class="menu-row-label">App Version</span>
+          <span class="menu-row-value">1.0.0</span>
+        </div>
+      </div>
+
+      <div class="menu-bottom-pad"></div>
+    </div>
+  </div>
 
 </div><!-- /device -->
 <div class="desktop-hint">Tap through the full LOFO.AI user journey ↑</div>
@@ -4466,6 +4824,65 @@
     document.getElementById('card-payment-panel').style.display = 'none';
     document.getElementById('tip-send-btn').style.display = '';
     document.getElementById('tip-skip-btn').style.display = '';
+  }
+
+  // ── MENU DRAWER ────────────────────────────────────────────────────────────
+
+  function openMenu() {
+    document.getElementById('menu-drawer').classList.add('open');
+    loadMenuStats();
+  }
+
+  function closeMenu() {
+    document.getElementById('menu-drawer').classList.remove('open');
+  }
+
+  async function loadMenuStats() {
+    try {
+      const r = await fetch(`${API}/stats/public`);
+      if (!r.ok) return;
+      const d = await r.json();
+      document.getElementById('menu-stat-lost').textContent     = d.active_lost     ?? '–';
+      document.getElementById('menu-stat-found').textContent    = d.active_found    ?? '–';
+      document.getElementById('menu-stat-reunited').textContent = d.reunions_total  ?? '–';
+    } catch (_) {}
+  }
+
+  function toggleFaqSection() {
+    const section  = document.getElementById('faq-section');
+    const chevron  = document.getElementById('faq-section-chevron');
+    const isOpen   = section.style.display !== 'none';
+    section.style.display = isOpen ? 'none' : 'block';
+    chevron.classList.toggle('rotated', !isOpen);
+  }
+
+  function toggleFaq(idx) {
+    document.getElementById(`faq-${idx}`).classList.toggle('open');
+  }
+
+  function toggleContactForm() {
+    const wrap    = document.getElementById('contact-form-wrap');
+    const chevron = document.getElementById('contact-chevron');
+    const isOpen  = wrap.classList.contains('open');
+    wrap.classList.toggle('open', !isOpen);
+    chevron.classList.toggle('rotated', !isOpen);
+  }
+
+  function sendContactEmail() {
+    const email   = (document.getElementById('contact-email').value   || '').trim();
+    const message = (document.getElementById('contact-message').value || '').trim();
+    if (!email || !message) { showError('Please add your email and message.'); return; }
+    const subject = encodeURIComponent('LOFO Support Request');
+    const body    = encodeURIComponent(`From: ${email}\n\n${message}`);
+    window.open(`mailto:support@lofo.ai?subject=${subject}&body=${body}`, '_blank');
+  }
+
+  function toggleAbout() {
+    const wrap    = document.getElementById('about-wrap');
+    const chevron = document.getElementById('about-chevron');
+    const isOpen  = wrap.classList.contains('open');
+    wrap.classList.toggle('open', !isOpen);
+    chevron.classList.toggle('rotated', !isOpen);
   }
 </script>
 </body>
