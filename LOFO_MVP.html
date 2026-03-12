@@ -44,71 +44,6 @@
       0 8px 24px rgba(25,25,45,0.10);
   }
 
-  /* Dynamic Island */
-  .dynamic-island {
-    position: absolute;
-    top: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 120px;
-    height: 36px;
-    background: #000;
-    border-radius: 20px;
-    z-index: 999;
-    pointer-events: none;
-    transition: width 0.4s cubic-bezier(0.32, 0.72, 0, 1),
-                height 0.4s cubic-bezier(0.32, 0.72, 0, 1),
-                border-radius 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-  }
-  /* Island content — hidden by default, shown on expand */
-  .island-content {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    opacity: 0;
-    transition: opacity 0.2s ease 0.15s;
-    padding: 0 12px;
-    white-space: nowrap;
-    overflow: hidden;
-  }
-  .dynamic-island.expanded .island-content {
-    opacity: 1;
-  }
-  .dynamic-island.expanded {
-    width: 240px;
-    height: 44px;
-    border-radius: 24px;
-  }
-  .island-dot {
-    width: 7px;
-    height: 7px;
-    background: #4ADE80;
-    border-radius: 50%;
-    flex-shrink: 0;
-    box-shadow: 0 0 6px rgba(74,222,128,0.8);
-    animation: islandPip 2s ease-in-out infinite;
-  }
-  @keyframes islandPip {
-    0%,100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-  .island-text {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    font-weight: 400;
-    color: rgba(255,255,255,0.85);
-    letter-spacing: -0.1px;
-  }
-  .island-text em {
-    font-style: normal;
-    color: rgba(255,255,255,0.45);
-    font-size: 12px;
-    margin-left: 2px;
-  }
-
   /* ── SCREEN TRANSITIONS ── */
   .screen {
     position: absolute;
@@ -687,21 +622,6 @@
   ───────────────────────────────────────── */
   #screen-finder-done {
     background: var(--cream);
-  }
-  .done-icon {
-    width: 52px;
-    height: 52px;
-    background: #E6F5ED;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    margin-bottom: 24px;
-    margin-top: 36px;
-    color: #3A9E6A;
-    font-weight: 500;
-    flex-shrink: 0;
   }
   .done-title {
     font-family: 'DM Serif Display', serif;
@@ -2349,21 +2269,6 @@
   #screen-confirmed {
     background: var(--cream);
   }
-  .confirmed-icon {
-    width: 64px;
-    height: 64px;
-    background: #E6F5ED;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
-    margin-top: 48px;
-    margin-bottom: 24px;
-    flex-shrink: 0;
-    color: #3A9E6A;
-    box-shadow: 0 0 0 8px rgba(58,158,106,0.08), 0 0 0 16px rgba(58,158,106,0.04);
-  }
   .confirmed-phone-label {
     font-size: 11px;
     font-weight: 500;
@@ -2385,11 +2290,6 @@
 
 <div style="display:flex;flex-direction:column;align-items:center">
 <div class="device">
-
-  <!-- Dynamic Island -->
-  <div class="dynamic-island" id="dynamic-island">
-    <div class="island-content" id="island-content"></div>
-  </div>
 
   <!-- ═══════════════════════════════════════
        PHOTO LIGHTBOX (above all screens)
@@ -2509,8 +2409,7 @@
       <span class="status-time">9:41</span>
     </div>
     <div class="content">
-      <div class="done-icon s-pop" data-delay="0">✓</div>
-      <div class="done-title s-item" data-delay="80">Nice one.<br><em>We've got it.</em></div>
+      <div class="done-title s-item" data-delay="0">Nice one.<br><em>We've got it.</em></div>
       <div class="done-rule s-item" data-delay="130"></div>
       <div class="done-sub s-item" data-delay="160">We're scanning for a match now. You'll hear from us the moment someone claims this as theirs.</div>
       <div class="item-card s-item" data-delay="220">
@@ -2843,8 +2742,7 @@
       <div class="status-icons"><span>●●●</span></div>
     </div>
     <div class="content">
-      <div class="confirmed-icon s-pop" data-delay="0">✓</div>
-      <div class="done-title s-item" data-delay="80">It's yours.<br><em>Confirmed.</em></div>
+      <div class="done-title s-item" data-delay="0">It's yours.<br><em>Confirmed.</em></div>
       <div class="done-rule s-item" data-delay="130"></div>
       <div class="done-sub s-item" data-delay="160">Ownership verified. Enter your number and we'll notify you both — you can text each other through LOFO without sharing your real number.</div>
 
@@ -3113,23 +3011,6 @@
     });
   }
 
-  // ── Dynamic Island ──
-  function setIsland(mode, pct) {
-    const island  = document.getElementById('dynamic-island');
-    const content = document.getElementById('island-content');
-    if (mode === 'location') {
-      content.innerHTML = '<div class="island-dot"></div><span class="island-text">Location on<em>· live</em></span>';
-      island.classList.add('expanded');
-    } else if (mode === 'match') {
-      const label = pct ? `· ${pct}%` : '· found';
-      content.innerHTML = `<div class="island-dot"></div><span class="island-text">Match found<em>${label}</em></span>`;
-      island.classList.add('expanded');
-    } else {
-      island.classList.remove('expanded');
-      setTimeout(() => { content.innerHTML = ''; }, 400);
-    }
-  }
-
   // ── Loading & error UI ──
   function showLoading(msg) {
     document.getElementById('global-overlay-text').textContent = msg || 'Working on it…';
@@ -3170,7 +3051,6 @@
   function onScreenEnter(name) {
     if (name === 'home') {
       triggerStagger(document.getElementById('screen-home'));
-      setIsland('off');
     }
     if (name === 'finder-camera') {
       // Pre-fetch GPS while user composes the shot — resolves permission prompt early
@@ -3208,9 +3088,6 @@
         }
       });
     }
-    if (name !== 'match') {
-      setIsland('off');
-    }
     if (name === 'waiting') {
       startPolling();
       _renderWaitingAttrSummary();
@@ -3247,8 +3124,6 @@
         if (bar) bar.style.width = pct + '%';
         const lbl = document.querySelector('#screen-match .bar-label');
         if (lbl) lbl.textContent = pct + '% confidence';
-        setIsland('match', pct);
-        setTimeout(() => setIsland('off'), 3500);
       }, 300);
 
       const headline = document.getElementById('match-headline');
