@@ -256,6 +256,12 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 - **Twilio A2P 10DLC registration:** Submitted March 9, 2026. Must be approved before SMS relay/notifications work for real users. Status: *In progress — approval expected mid-to-late March 2026.* Once approved, `+15175136672` will send to any US number without carrier filtering. No code changes needed.
 
+> **⚠️ When A2P is approved — revisit the tip flow:**
+> `resolve.html` and its backend endpoints (`GET /resolve/{id}`, `GET /resolve/{id}/data`, `POST /resolve/{id}/confirm`) are already built and deployed. The handoff SMS already includes the resolve link. Once SMS delivery works:
+> 1. Test the full resolve flow end-to-end (see Phase 17a session notes for test steps)
+> 2. Consider moving the in-app tip back to post-reunion (Direction 2 from the design discussion) — or keep both as a belt-and-suspenders approach (in-app tip + resolve page as second chance)
+> 3. The resolve page also handles **item closure** (marks both items inactive) — this is the only way items currently get closed before their 30-day expiry, so it's worth making prominent in the SMS copy once it works
+
 ### Candidates for Phase 17b+
 
 - **Item lifecycle UI — extend** — loser-side "Still looking — extend 30 days" action. Phase 17a handles closure; extension is the other half. Could live on the resolve page as a second CTA ("Not yet — extend my report 30 days") or a separate SMS reminder flow.
