@@ -597,6 +597,8 @@ let _adminMap         = null;
 let _adminClusters    = null;
 let _adminPairLines   = null;
 let _adminRadiusCircle = null;
+let _adminMarkerById   = {};
+let _adminMapFocusItemId = null;
 let _showPairs        = true;
 let _lastPairsData    = [];
 
@@ -1203,12 +1205,23 @@ function renderMapPins(pins) {
       if (_adminRadiusCircle) { _adminMap.removeLayer(_adminRadiusCircle); _adminRadiusCircle = null; }
     });
 
+    _adminMarkerById[item.id] = marker;
     return marker;
   });
 
   _adminClusters.addLayers(markers);
-  const bounds = _adminClusters.getBounds();
-  if (bounds.isValid()) _adminMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 13, animate: true });
+
+  if (_adminMapFocusItemId && _adminMarkerById[_adminMapFocusItemId]) {
+    const fm = _adminMarkerById[_adminMapFocusItemId];
+    _adminMapFocusItemId = null;
+    _adminClusters.zoomToShowLayer(fm, () => {
+      fm.openPopup();
+    });
+  } else {
+    _adminMapFocusItemId = null;
+    const bounds = _adminClusters.getBounds();
+    if (bounds.isValid()) _adminMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 13, animate: true });
+  }
 }
 
 function renderMapPairs(pairs) {
