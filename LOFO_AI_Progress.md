@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 11, 2026 — Phase 16 complete: admin dashboard + live map, deployed*
+*Last updated: March 11, 2026 — Phase 16 complete + keep-alive infrastructure + map bug fixes*
 
 ---
 
@@ -80,6 +80,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `POST /connect/onboard` | Create Stripe Connect Express account for finder; return onboarding URL *(dormant — not used in UI)* |
 | `GET /connect/return` | Post-onboarding redirect → back to frontend *(dormant)* |
 | `GET /connect/refresh` | Re-generate expired onboarding link *(dormant)* |
+| `GET /health` | Returns `{"status":"ok"}` after `SELECT 1` DB ping — used by UptimeRobot keep-alive |
 | `GET /admin` | Serves `admin.html` (protected via JWT in page) |
 | `POST /admin/login` | Validates username/password against `ADMIN_USERS` env var; returns 24h JWT |
 | `GET /admin/stats?period=` | Stat card data: active_lost, active_found, reunions, tips_cents, expiring_7d |
@@ -260,7 +261,7 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 - **Loser location post-submit correction** — `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact. Small backend + small UI addition.
 - **Map in app flow** — Leaflet pin-drop screen in the loser flow between `screen-lost-prompt` and submission, for users who type vague locations ("somewhere near downtown"). Would improve geocoding accuracy. Medium effort.
 - **Admin map enhancements** — filter map pins by time period (matching the dashboard's time filter), draw a 10-mile radius circle around a selected pin to visualize the match zone, show a line between matched finder+loser pairs.
-- **Railway keep-alive** — the free Railway tier sleeps after inactivity, causing 30s cold starts. Options: upgrade to paid ($5/mo), add a cron job pinging the health endpoint every 10 min, or add a `GET /health` endpoint and use an external uptime monitor (UptimeRobot free tier).
+- **Map as admin tab** — embed the live map as a 6th tab in the admin dashboard instead of a separate page. Eliminates auth/sessionStorage issues entirely and keeps everything in one place.
 
 ### Known Intentional Limitations
 
@@ -286,6 +287,8 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 >
 > **SMS relay:** Code-complete, pending Twilio A2P 10DLC approval (submitted March 9, 2026 — expected mid-to-late March).
 >
+> **Keep-alive:** UptimeRobot pings `GET /health` every 10 min — Railway stays warm, no cold starts.
+>
 > **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 17+' section in the progress doc before starting.
 >
 > Start by reading `main.py` and `LOFO_AI_Progress.md`, then discuss before building."
@@ -293,6 +296,27 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 ---
 
 ## Session History
+
+### Keep-alive + Map Bug Fixes — March 11, 2026
+
+**What changed:** Infrastructure fixes to keep Railway alive and resolve the map not loading.
+
+**Keep-alive (`main.py`):**
+- `GET /health` endpoint added — returns `{"status": "ok"}` after pinging the DB with `SELECT 1`. Used with UptimeRobot (free tier, 10-min interval) to prevent Railway cold starts.
+
+**DB connection resilience (`database.py`):**
+- TCP keepalives added to psycopg2 pool (`keepalives=1`, `keepalives_idle=30`, `keepalives_interval=5`, `keepalives_count=5`) so stale sockets after cold restarts are detected quickly.
+- `_is_conn_alive()` check added to `get_connection()` — validates pooled connection with `SELECT 1` before use; replaces dead connection with a fresh one rather than hanging.
+
+**Map cold-start UX (`map.html`):**
+- Auto-retry loop: up to 4 attempts, 30s timeout each (Railway cold start measured at ~23s). Shows "Server waking up… retrying (Xs)" during retries. Manual "Try Again" button only appears after all retries exhausted.
+
+**Map TDZ crash fix (`map.html`):**
+- Root cause of map never loading: `let map`, `let clusters`, `let allPins`, `let _retryCount`, `const _MAX_RETRIES` were all declared *after* `initMap()` was called — hitting JavaScript's temporal dead zone. Safari threw `ReferenceError: Cannot access 'map' before initialization` immediately, preventing any fetch from ever running. Fixed by hoisting all `let`/`const` declarations to the top of the script block.
+
+**UptimeRobot:** configured at `https://lofo-ai-production.up.railway.app/health`, 10-minute interval, email alerts on.
+
+---
 
 ### Phase 16 — Admin Dashboard — March 11, 2026
 
