@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 11, 2026 — Phase 17a complete: post-reunion resolve page + tip flow*
+*Last updated: March 11, 2026 — Phase 17a + UI cleanup (Dynamic Island removed, green check icons removed)*
 
 ---
 
@@ -17,7 +17,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 2 — AI Ingestion | ✅ Complete | Claude Vision + text → structured item profile + Voyage embeddings |
 | 3 — Matching Engine | ✅ Complete | Cosine similarity matching with confidence scoring |
 | 4 — Security | ✅ Complete | Argon2id secret hashing, JWT handoff tokens, brute-force lockout |
-| 5 — UI Polish | ✅ Complete | 13-screen interactive prototype, iOS animations, Dynamic Island |
+| 5 — UI Polish | ✅ Complete | 13-screen interactive prototype, iOS animations |
 | 6 — API Wiring | ✅ Complete | All screens wired to real backend with live API calls |
 | 7 — Tip Flow | ✅ Complete | Stripe inline card payment, finder email capture, tips table |
 | 8 — GPS & Proximity | ✅ Complete | Real location capture, proximity-filtered matching |
@@ -37,7 +37,8 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 14b — Attribute Correction + Loser Location | ✅ Complete | Inline attribute editor on finder-done screen; `PATCH /items/{id}/attributes` re-embeds on save; loser "Where?" field geocoded via Nominatim — no new screens, 0 extra taps in happy path |
 | 15 — Loser Attribute Correction | ✅ Complete | "Looking for: wallet · brown · leather" summary line on waiting screen; "Don't like description?" expands inline edit panel; saves via `PATCH /items/{id}/attributes`, re-embeds, updates title, fires immediate re-poll |
 | 16 — Admin / Ops Dashboard + Live Map | ✅ Complete | `/admin`: multi-user login (JWT, `ADMIN_USERS` env var), 4 stat cards, time filters, 5-tab table (Lost · Found · Reunions · Tips · Debug Matcher), Deactivate + Extend 30d actions, expiring-soon alert. `/map`: full-screen Leaflet dark map, blue finder pins, pulsing red loser pins, clustered markers, rich popups with photo/details. Both use DM Sans + DM Serif Display (same as app). |
-| 17a — Post-Reunion Resolve Page + Tip Flow | ✅ Complete | `/resolve/{loser_item_id}`: standalone page linked from handoff SMS. States: question → tip (Stripe inline, $5/$10/$20, skip) → done/tipped. Marks both items inactive + closes reunion record on confirm. In-app `screen-reunion` repurposed to simple "we'll text you" terminal — tip now lives exclusively after physical reunion. |
+| 17a — Post-Reunion Resolve Page + Tip Flow | ✅ Complete | `/resolve/{loser_item_id}`: standalone page linked from handoff SMS. States: question → tip (Stripe inline, $5/$10/$20, skip) → done/tipped. Marks both items inactive + closes reunion record on confirm. In-app tip (`screen-reunion`) restored while Twilio A2P pending — resolve page activates automatically once SMS works. |
+| 17b — UI Cleanup | ✅ Complete | Dynamic Island placeholder removed (HTML, CSS, JS function + all call sites — 127 lines deleted). Green circle check icons removed from `screen-finder-done` and `screen-confirmed` — both screens now lead directly with DM Serif Display title. |
 
 ---
 
@@ -250,7 +251,7 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ## What's Next: Phase 17+
 
-**Phase 17a complete and deployed.** Post-reunion resolve page live at `/resolve/{loser_item_id}`.
+**Phase 17b complete and deployed.** Resolve page built + UI cleanup done.
 
 ### Pre-Launch Requirements
 
@@ -281,18 +282,20 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–16):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working.
+> **What's complete and deployed (Phases 1–17b):**
+> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Admin dashboard at `/admin`, live map at `/map`. UptimeRobot keep-alive on GET /health every 10 min — no cold starts.
 >
-> **Phase 16 (this session):** Admin/ops dashboard at `/admin` — multi-user login (ADMIN_USERS env var), 4 stat cards, time filters, 5-tab table (Lost · Found · Reunions · Tips · Debug Matcher), Deactivate + Extend 30d actions, expiring-soon alert. Live map at `/map` — full-screen Leaflet, CartoDB dark tiles, blue finder pins, pulsing red loser pins, clustered markers, rich popups with photo/attributes/GPS. Both use DM Sans + DM Serif Display (matching the main app font).
+> **Phase 17 (last session):**
+> - `resolve.html` built and deployed at `/resolve/{loser_item_id}` — standalone post-reunion page: "Did you get your item back?" → tip (Stripe inline) → marks both items inactive + closes reunion record. Linked from handoff SMS. In-app tip (`screen-reunion`) kept active while Twilio A2P pending — resolve page activates automatically once SMS works.
+> - UI cleanup: Dynamic Island placeholder fully removed (HTML, CSS, JS). Green circle check icons removed from finder-done and confirmed screens.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
 >
-> **Frontend:** `LOFO_MVP.html` (16-screen user app), `admin.html` (ops dashboard), `map.html` (live map).
+> **Frontend:** `LOFO_MVP.html` (app), `admin.html` (ops dashboard), `map.html` (live map), `resolve.html` (post-reunion closure page).
 >
 > **DB schema:** `items` (includes `photo_url`), `tips`, `reunions`.
 >
-> **SMS relay:** Code-complete, pending Twilio A2P 10DLC approval (submitted March 9, 2026 — expected mid-to-late March).
+> **SMS relay:** Code-complete, pending Twilio A2P 10DLC approval (submitted March 9, 2026 — expected mid-to-late March). Read the ⚠️ block in 'Pre-Launch Requirements' for what to do when it's approved.
 >
 > **Keep-alive:** UptimeRobot pings `GET /health` every 10 min — Railway stays warm, no cold starts.
 >
@@ -303,6 +306,21 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 ---
 
 ## Session History
+
+### Phase 17b — UI Cleanup — March 11, 2026
+
+**What changed:** Visual polish and dead code removal. No backend changes.
+
+**Dynamic Island (`LOFO_MVP.html`):**
+- Removed the black pill placeholder entirely — HTML element, all CSS (`.dynamic-island`, `.island-content`, `.island-dot`, `.island-text`, `@keyframes islandPip`, expanded states), `setIsland()` JS function, and all 4 call sites (`setIsland('off')` on home, every non-match screen, and `setIsland('match', pct)` + dismiss timeout on match screen). 127 lines deleted.
+- Was always a design prop; no functional purpose. Will reconsider if/when a native Swift app is built.
+
+**Green check icons (`LOFO_MVP.html`):**
+- Removed `<div class="done-icon">✓</div>` from `screen-finder-done` — the green circle badge felt generic/Material Design against the cream background. DM Serif Display title ("Nice one. We've got it.") leads directly now.
+- Removed `<div class="confirmed-icon">✓</div>` from `screen-confirmed` — same issue, same fix. Title ("It's yours. Confirmed.") leads directly.
+- Removed `.done-icon` and `.confirmed-icon` CSS blocks.
+
+---
 
 ### Phase 17a — Post-Reunion Resolve Page + Tip Flow — March 11, 2026
 
