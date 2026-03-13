@@ -8,6 +8,7 @@ from typing import Optional
 from datetime import datetime, timezone, timedelta
 import math
 import uuid
+import asyncio
 import base64
 import json
 
@@ -719,8 +720,10 @@ async def create_item_from_photo(
 
     image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
 
+    # Run sync Claude SDK in a thread so it doesn't block the uvicorn event loop.
     try:
-        message = claude_client.messages.create(
+        message = await asyncio.to_thread(
+            claude_client.messages.create,
             model="claude-sonnet-4-6",
             max_tokens=1024,
             system=_VISION_SYSTEM_PROMPT,
@@ -769,7 +772,8 @@ async def create_item_from_photo(
         conn.commit()
 
     item = dict(row)
-    _store_embedding(item["id"], extracted)
+    # Run sync Voyage embedding in a thread (same reason as Claude above).
+    await asyncio.to_thread(_store_embedding, item["id"], extracted)
 
     # Upload the photo and persist the public URL
     photo_url = await _upload_photo(item["id"], image_bytes)
