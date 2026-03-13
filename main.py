@@ -38,6 +38,20 @@ _TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
 _CRON_SECRET = os.getenv("CRON_SECRET", "")
 
+# APNs push notifications (iOS Phase F)
+# Set these in Railway env vars to enable push alongside SMS.
+# APNS_AUTH_KEY: full content of the .p8 file downloaded from Apple Developer Portal → Keys
+# APNS_ENVIRONMENT: "production" (default) or "sandbox" (for Simulator / dev testing)
+_APNS_KEY_ID    = os.getenv("APNS_KEY_ID", "")
+_APNS_TEAM_ID   = os.getenv("APNS_TEAM_ID", "")
+_APNS_AUTH_KEY  = os.getenv("APNS_AUTH_KEY", "")   # PEM string, newlines as \n
+_APNS_BUNDLE_ID = os.getenv("APNS_BUNDLE_ID", "ai.lofo.app")
+_APNS_HOST = (
+    "api.sandbox.push.apple.com"
+    if os.getenv("APNS_ENVIRONMENT", "production") == "sandbox"
+    else "api.push.apple.com"
+)
+
 _twilio_client = None
 if _TWILIO_ACCOUNT_SID and _TWILIO_AUTH_TOKEN:
     from twilio.rest import Client as TwilioClient
@@ -116,8 +130,68 @@ def _sms(to: str, body: str) -> None:
         print(f"[LOFO SMS error] {to}: {exc}")
 
 
+def _get_device_tokens(phone: str) -> list:
+    """Return all APNs device tokens registered for the given E.164 phone number."""
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT device_token FROM device_tokens WHERE phone = %s AND platform = 'ios'",
+                    (phone,),
+                )
+                rows = cur.fetchall()
+        return [row["device_token"] for row in rows]
+    except Exception as exc:
+        print(f"[LOFO APNs token lookup] {exc}")
+        return []
+
+
+def _push_apns(device_token: str, title: str, body: str, screen: str = "") -> None:
+    """Send an APNs push notification. Non-blocking — failures are swallowed.
+
+    Requires Railway env vars: APNS_KEY_ID, APNS_TEAM_ID, APNS_AUTH_KEY, APNS_BUNDLE_ID.
+    APNS_AUTH_KEY must be the full .p8 file contents (with header/footer, newlines as \\n).
+    APNS_ENVIRONMENT defaults to 'production'; set to 'sandbox' for Simulator testing.
+    """
+    if not (_APNS_KEY_ID and _APNS_TEAM_ID and _APNS_AUTH_KEY and _APNS_BUNDLE_ID):
+        print(f"[LOFO APNs] Not configured — skipping push: {title}")
+        return
+    try:
+        import time
+        auth_token = jwt.encode(
+            {"iss": _APNS_TEAM_ID, "iat": int(time.time())},
+            _APNS_AUTH_KEY,
+            algorithm="ES256",
+            headers={"kid": _APNS_KEY_ID},
+        )
+        payload: dict = {
+            "aps": {
+                "alert": {"title": title, "body": body},
+                "sound": "default",
+            }
+        }
+        if screen:
+            payload["screen"] = screen
+
+        with httpx.Client(http2=True, timeout=10.0) as client:
+            resp = client.post(
+                f"https://{_APNS_HOST}/3/device/{device_token}",
+                json=payload,
+                headers={
+                    "Authorization": f"bearer {auth_token}",
+                    "apns-topic": _APNS_BUNDLE_ID,
+                    "apns-push-type": "alert",
+                    "apns-priority": "10",
+                },
+            )
+            if resp.status_code != 200:
+                print(f"[LOFO APNs] Delivery failed ({resp.status_code}): {resp.text[:200]}")
+    except Exception as exc:
+        print(f"[LOFO APNs error] {device_token[:8]}...: {exc}")
+
+
 def _notify_waiting_losers(finder_item_id: uuid.UUID, finder_item_type: str) -> None:
-    """After a finder item is saved, SMS any waiting losers whose item matches."""
+    """After a finder item is saved, SMS + push any waiting losers whose item matches."""
     try:
         with get_connection() as conn:
             with conn.cursor() as cur:
@@ -125,15 +199,25 @@ def _notify_waiting_losers(finder_item_id: uuid.UUID, finder_item_type: str) -> 
                 rows = cur.fetchall()
         for row in rows:
             label = row["item_type"] or finder_item_type
-            _sms(row["phone"],
-                 f"LOFO: Your {label} may have been found nearby! "
-                 f"Open the app to claim it: {_APP_URL}")
+            phone = row["phone"]
+            sms_body = (
+                f"LOFO: Your {label} may have been found nearby! "
+                f"Open the app to claim it: {_APP_URL}"
+            )
+            _sms(phone, sms_body)
+            for token in _get_device_tokens(phone):
+                _push_apns(
+                    token,
+                    title="LOFO — possible match found",
+                    body=f"Your {label} may have been found nearby. Tap to claim it.",
+                    screen="waiting",
+                )
     except Exception as exc:
         print(f"[LOFO notify-losers error] {exc}")
 
 
 def _notify_matched_finder(loser_item_id: uuid.UUID, loser_item_type: str) -> None:
-    """After a loser item is saved and a match exists, SMS the finder."""
+    """After a loser item is saved and a match exists, SMS + push the finder."""
     try:
         with get_connection() as conn:
             with conn.cursor() as cur:
@@ -141,10 +225,20 @@ def _notify_matched_finder(loser_item_id: uuid.UUID, loser_item_type: str) -> No
                 rows = cur.fetchall()
         for row in rows:
             label = row["item_type"] or loser_item_type
-            _sms(row["phone"],
-                 f"LOFO: Someone is looking for a {label} you found! "
-                 f"They'll go through the app to verify ownership. "
-                 f"Check it out: {_APP_URL}")
+            phone = row["phone"]
+            sms_body = (
+                f"LOFO: Someone is looking for a {label} you found! "
+                f"They'll go through the app to verify ownership. "
+                f"Check it out: {_APP_URL}"
+            )
+            _sms(phone, sms_body)
+            for token in _get_device_tokens(phone):
+                _push_apns(
+                    token,
+                    title="LOFO — someone's looking",
+                    body=f"Someone is looking for a {label} you found. They'll verify ownership in the app.",
+                    screen="finder",
+                )
     except Exception as exc:
         print(f"[LOFO notify-finder error] {exc}")
 
@@ -318,6 +412,12 @@ class OtpVerifyRequest(BaseModel):
 
 class ConnectOnboardRequest(BaseModel):
     item_id: uuid.UUID
+
+
+class DeviceRegisterRequest(BaseModel):
+    phone: str
+    device_token: str
+    platform: str = "ios"
 
 
 # --------------------------------------------------------------------------- #
@@ -1251,6 +1351,42 @@ def verify_otp(body: OtpVerifyRequest):
     if check.status == "approved":
         return {"verified": True}
     return {"verified": False, "reason": "Incorrect code. Check your messages and try again."}
+
+
+@app.post("/devices/register", status_code=200)
+def register_device(body: DeviceRegisterRequest):
+    """
+    Register an APNs device token paired with a verified phone number.
+
+    Called by the iOS app after successful OTP verification. Upserts a row in
+    device_tokens so push notifications can be sent to this device alongside SMS.
+
+    DB migration required (run once in Supabase SQL editor):
+        CREATE TABLE IF NOT EXISTS device_tokens (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            phone VARCHAR NOT NULL,
+            device_token TEXT NOT NULL,
+            platform VARCHAR NOT NULL DEFAULT 'ios',
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(phone, device_token)
+        );
+    """
+    phone = _normalize_phone(body.phone)
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO device_tokens (phone, device_token, platform)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (phone, device_token) DO NOTHING
+                    """,
+                    (phone, body.device_token, body.platform),
+                )
+                conn.commit()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not register device: {exc}") from exc
+    return {"ok": True}
 
 
 _RAILWAY_URL = "https://lofo-ai-production.up.railway.app"

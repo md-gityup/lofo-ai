@@ -1,5 +1,10 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 12, 2026 — Phase 22: Admin chart cards, map fix, mobile responsive*
+*Last updated: March 13, 2026 — Phase 26 / iOS Phase G + visual polish complete. App icon, bundle ID ai.lofo.app, version 1.0.0, Stripe SPM wired (test key), Supabase migration done. Comprehensive visual upgrade: LOFOPressStyle button feedback, HomeView entrance animation, ItemCardView shadows, MatchView animated confidence bar, WaitingView radar pulse, LoserWaitView enhanced orb. BUILD SUCCEEDED. Pending: Apple Developer enrollment → App ID + APNs key + Merchant ID → Archive → TestFlight → App Store Connect.*
+
+> **Two numbering systems — here's how they work:**
+> - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
+> - **iOS Phases A–G** = the iOS-only build plan. Used in the "SwiftUI iOS App" section below. Each iOS phase maps to a project phase (iOS Phases A–D = Project Phase 23; iOS Phase E = Project Phase 24, etc.)
+> - When working on the **iOS app**, use the A–G labels. When talking about the **overall project**, use the 1–26 numbers.
 
 ---
 
@@ -44,6 +49,10 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | 20 — In-App Menu Drawer | ✅ Complete | Gear icon (white circle) top-right of home screen. Slide-up sheet: My Usage (user-level lost/found/reunited from localStorage item IDs), Support (FAQ accordion + Contact Us email form), Information (Terms, Privacy, About, App Version). Backend: `GET /terms`, `GET /privacy`, `GET /stats/by-items`. App Store ready. |
 | 21 — Bug Fixes & Hardening | ✅ Complete | 8 bugs fixed: loser phone normalization, DB pool corruption, resolve page false-success, unbounded stats IDs, JWT_SECRET crash, XSS hardening (all frontends), photo URL validation, absolute API paths in admin/map. Admin UX: minimal underline tabs, clickable geo coords zoom to item on map. |
 | 22 — Admin Charts & Mobile | ✅ Complete | Two chart cards: Lost vs Found bar chart (daily, current week) + Avg Time to Reunion line chart (weekly trend, month-over-month delta, active matches). `GET /admin/charts` endpoint. Blank map fix (Leaflet `invalidateSize`). Full mobile responsive layout (900px + 540px breakpoints). |
+| 23 — SwiftUI App Skeleton *(iOS Phases A–D)* | ✅ Complete | Native iOS app at `~/Desktop/LOFO/`. 28 Swift files: full design system, API client, all screens wired for both finder and loser flows. Targets iOS 17+. |
+| 24 — iOS Phase E: First Build *(iOS Phase E)* | ✅ Complete | LoserWaitView (breathing orb), TipView ($5/$10/$20 + skip → backend), DM Sans + DM Serif Display fonts bundled via Core Text, compile errors fixed, BUILD SUCCEEDED on iPhone 17 Pro simulator. |
+| 25 — iOS Phase F: Push Notifications + Stripe *(iOS Phase F)* | ✅ Complete | PushManager, AppDelegate, `POST /devices/register`, APNs push in notify helpers, Stripe PaymentSheet + Apple Pay wired with `#if canImport(StripePaymentSheet)` guard. |
+| 26 — iOS Phase G: App Store Prep *(iOS Phase G)* | ✅ Complete (manual steps remain) | App icon 1024×1024, LaunchScreen.storyboard, bundle ID `ai.lofo.app`, version `1.0.0`, portrait-only. Archive → TestFlight + App Store Connect: manual steps below. |
 
 ---
 
@@ -277,11 +286,216 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 > 2. Consider moving the in-app tip back to post-reunion (Direction 2 from the design discussion) — or keep both as a belt-and-suspenders approach (in-app tip + resolve page as second chance)
 > 3. The resolve page also handles **item closure** (marks both items inactive) — this is the only way items currently get closed before their 30-day expiry, so it's worth making prominent in the SMS copy once it works
 
-### Candidates for Phase 23+
+---
 
-- **SwiftUI native app** — Transition the HTML/JS frontend (`LOFO_MVP.html`) to a native iOS app in SwiftUI. The backend API stays as-is; the native app replaces the web frontend. Camera, GPS, haptics, and push notifications all become native. This is the big next step.
+## SwiftUI iOS App — Active Build Plan
+
+> **Full plan document:** `~/.cursor/plans/swiftui_native_app_transition_e4202362.plan.md`
+> This plan was created in session and is the authoritative reference for the native app build. Every future session working on the iOS app should treat this plan + this progress doc as the two sources of truth.
+
+**Project location:** `~/Desktop/LOFO/LOFO.xcodeproj`
+**Target:** iOS 17+, SwiftUI, `@Observable`
+**Backend:** Unchanged — same Railway API at `https://lofo-ai-production.up.railway.app`
+
+### Architecture (from plan)
+
+- `NavigationStack` with `AppState.path: NavigationPath` — mirrors `flowOrder` from web app. `appState.push(.screen)` = `go('screen-name')`
+- `FinderFlowState.shared` + `LoserFlowState.shared` — singleton `@Observable` objects holding per-flow data across screens (equivalent to `state` object in `LOFO_MVP.html`)
+- `APIClient.shared` — URLSession wrapper, all endpoints, async/await
+- No third-party state libraries. No WebView.
+- Admin dashboard + resolve page stay as web-only pages. Pure SwiftUI app.
+
+### Screen Map (HTML → SwiftUI)
+
+| HTML Screen | SwiftUI View | Notes |
+|---|---|---|
+| `screen-home` | `HomeView` | Root of NavigationStack |
+| `screen-finder-camera` | `FinderCameraView` | Push |
+| `screen-finder-done` | `FinderDoneView` | Push |
+| `screen-phone` | `PhoneVerifyView` | Push |
+| `screen-verify` | `OTPVerifyView` | Push |
+| `screen-allset` | `AllSetView` | Push |
+| `screen-lost-prompt` | `LostPromptView` | Push |
+| `screen-waiting` | `WaitingView` | Push |
+| `screen-loser-wait` | `LoserWaitView` | Sheet (not yet built) |
+| `screen-match` | `MatchView` | Push (match flow) |
+| `screen-ownership-verify` | `OwnershipVerifyView` | Push |
+| `screen-confirmed` | `ConfirmedView` | Push |
+| `screen-reunion` | `ReunionView` | Push |
+| Menu drawer | `MenuSheet` | Sheet from HomeView |
+| Photo lightbox | `PhotoLightboxView` | fullScreenCover |
+
+### iOS Build Phases (A–G) — Current Status
+
+> These map to overall project phases: A–D = Phase 23, E = Phase 24, F = Phase 25, G = Phase 26.
+> **We are currently at iOS Phase G.**
+
+| iOS Phase | Project Phase | Status | What |
+|---|---|---|---|
+| A — Foundation + Home | 23 | ✅ Done | APIClient, HomeView, MenuSheet, design system, shared components |
+| B — Finder Flow | 23 | ✅ Done | FinderCameraView, FinderDoneView, PhoneVerifyView, OTPVerifyView, AllSetView |
+| C — Loser Flow | 23 | ✅ Done | LostPromptView, WaitingView (5s polling) |
+| D — Match + Reunion | 23 | ✅ Done | MatchView, OwnershipVerifyView, ConfirmedView, ReunionView, PhotoLightboxView |
+| E — Stripe + Polish | 24 | ✅ Done | LoserWaitView (breathing orb), TipView ($5/$10/$20 + skip), DM Sans + DM Serif Display fonts, BUILD SUCCEEDED. Stripe PaymentSheet/Apple Pay deferred to Phase F. |
+| **F — Push Notifications + Stripe** | **25** | **✅ Done** | PushManager, AppDelegate, `POST /devices/register`, APNs push in notify helpers, Stripe PaymentSheet + Apple Pay via `#if canImport(StripePaymentSheet)` guard, deep link tap handling |
+| **G — App Store Prep** | **26** | **✅ Complete (manual steps remain)** | App icon 1024×1024, `LaunchScreen.storyboard`, bundle ID `ai.lofo.app`, version `1.0.0`, portrait-only. Stripe SPM + Apple Pay + APNs + Archive + App Store Connect: manual steps below. |
+
+### iOS Phase G Checklist (= Project Phase 26) — ✅ COMPLETE (file changes done; manual steps remain)
+
+**What was done by Cursor:**
+1. ✅ App icon — 1024×1024 PNG generated (`LOFO` wordmark, navy bg `#1A1A2E`, cream type `#F5F2EC`, Palatino serif, dotted arc motif). Placed in `Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`. `Contents.json` updated to reference it. Xcode auto-generates all required icon sizes from this single 1024×1024 file.
+2. ✅ `LaunchScreen.storyboard` — Created in `LOFO/LaunchScreen.storyboard`. Cream background (`#F5F2EC`), `LOFO` label centered in Palatino Roman 64pt, navy color. No spinner. `PBXFileSystemSynchronizedRootGroup` auto-includes it.
+3. ✅ `project.pbxproj` — Updated both Debug + Release target configs:
+   - `PRODUCT_BUNDLE_IDENTIFIER`: `com.lofo.LOFO` → **`ai.lofo.app`**
+   - `MARKETING_VERSION`: `1.0` → **`1.0.0`**
+   - `CURRENT_PROJECT_VERSION`: `1` (unchanged — this is the build number, correct)
+   - `INFOPLIST_KEY_UILaunchScreen_Generation = YES` → **`INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen`**
+   - `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone` → **`UIInterfaceOrientationPortrait`** (portrait-only; App Store requires this be intentional)
+
+**Manual steps before archiving — complete in this order:**
+
+**Step 1 — Supabase DB migration** (if not done from Phase F):
+```sql
+CREATE TABLE IF NOT EXISTS device_tokens (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    phone VARCHAR NOT NULL,
+    device_token TEXT NOT NULL,
+    platform VARCHAR NOT NULL DEFAULT 'ios',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(phone, device_token)
+);
+```
+
+**Step 2 — Apple Developer Portal setup:**
+- Go to [developer.apple.com](https://developer.apple.com) → Certificates, Identifiers & Profiles
+- **App ID**: Identifiers → `+` → App ID → Bundle ID = `ai.lofo.app`. Enable: Push Notifications, Apple Pay.
+- **APNs Key**: Keys → `+` → enable "Apple Push Notifications service (APNs)" → Download `.p8`. Note the 10-char Key ID. Note your 10-char Team ID (top-right of portal).
+- **Merchant ID**: Identifiers → `+` → Merchant IDs → ID = `merchant.ai.lofo`.
+- **Push certificate**: Not needed — backend uses token-based auth (JWT `.p8`) which is simpler and doesn't expire.
+
+**Step 3 — Railway env vars** (for APNs):
+Add to Railway → lofo-ai → Variables:
+- `APNS_KEY_ID` = your 10-char key ID
+- `APNS_TEAM_ID` = your 10-char team ID  
+- `APNS_AUTH_KEY` = full contents of the `.p8` file (paste with literal `\n` newlines, or escape them)
+- `APNS_BUNDLE_ID` = `ai.lofo.app`
+- `APNS_ENVIRONMENT` = `production` (use `sandbox` only for Simulator testing)
+Then redeploy Railway.
+
+**Step 4 — Xcode: Stripe SPM + Apple Pay:**
+1. Open `~/Desktop/LOFO/LOFO.xcodeproj` in Xcode 26.3
+2. **Stripe**: File → Add Package Dependencies → URL: `https://github.com/stripe/stripe-ios` → Add `StripePaymentSheet` target to LOFO
+3. In `LOFOApp.init()`, replace `"pk_test_YOUR_STRIPE_PUBLISHABLE_KEY"` with your Stripe live publishable key (`pk_live_...`)
+4. **Apple Pay**: Target LOFO → Signing & Capabilities → `+` → Apple Pay → add `merchant.ai.lofo`
+5. **Verify signing**: Signing & Capabilities → Team = your team (already in project as `45F4TH223D`). Bundle ID should auto-resolve to `ai.lofo.app`.
+
+**Step 5 — Build & Verify:**
+1. Product → Clean Build Folder
+2. Select any iPhone simulator → Build (⌘B) — confirm BUILD SUCCEEDED
+3. Check launch screen appears correctly on simulator start
+4. Check app icon shows in simulator home screen
+
+**Step 6 — Archive for TestFlight:**
+1. Select "Any iOS Device (arm64)" as destination (not a simulator)
+2. Product → Archive
+3. When Organizer opens → Distribute App → App Store Connect → Upload
+4. Select options: Strip Swift symbols ✓, Upload symbols ✓, Manage version and build number ✓
+5. Click Upload
+
+**Step 7 — App Store Connect listing** ([appstoreconnect.apple.com](https://appstoreconnect.apple.com)):
+- My Apps → `+` → New App → Platform: iOS → Name: **LOFO** → Primary Language: English (U.S.) → Bundle ID: `ai.lofo.app` → SKU: `ai.lofo.app`
+- **App Information:**
+  - Subtitle: `Lost & found, reunited by AI`
+  - Category: Utilities (Primary), Lifestyle (Secondary)
+  - Privacy Policy URL: `https://lofo-ai-production.up.railway.app/privacy`
+  - Support URL: `https://lofo-ai-production.up.railway.app`
+- **Description (App Store):**
+  ```
+  LOFO reunites lost things with their owners using AI.
+
+  Found something? Snap a photo. LOFO reads it in seconds.
+  Lost something? Describe it. LOFO watches for a match.
+
+  When the AI finds a connection, you both get notified instantly. Verify ownership, coordinate the return, and optionally tip the finder — all without sharing your number.
+
+  Ten seconds of effort. Everything else is the engine.
+  ```
+- **Keywords** (100 chars max): `lost,found,lost and found,reunite,missing,wallet,keys,phone,AI,match`
+- **What's New in This Version:** `Initial release.`
+- **Screenshots** (required: 6.7" iPhone — use iPhone 15 Pro Max or 16 Plus simulator at 1290×2796):
+  - Home screen (two CTAs on cream bg)
+  - Finder camera / AI result screen
+  - Match screen (navy banner + confidence bar)
+  - Ownership verify screen
+  - Confirmed screen
+  - Reunion / all set screen
+  - *(Optional: 6.1" — same screens at 1179×2556)*
+- **App Review Information:** Demo account not required (no login needed). Add a note: "App uses camera to submit found items and AI to match lost/found pairs. Push notifications alert users to matches. Twilio OTP verifies phone numbers."
+- **Build**: Select the build uploaded in Step 6
+- **Pricing**: Free
+- Submit for Review
+
+**Step 8 — TestFlight (optional, do before App Store submission):**
+- After upload in Step 6, the build appears in TestFlight tab in App Store Connect within ~15 min
+- Add yourself as Internal Tester → install on device → smoke-test full finder + loser flows
+- For External Testing: add group, export compliance (select "no encryption beyond what iOS provides"), submit for Beta App Review
+
+### iOS Phase F Checklist (= Project Phase 25) — ✅ COMPLETE
+
+1. ✅ `PushManager.swift` (new, `Services/`) — `@Observable` singleton. Requests push permission via `UNUserNotificationCenter`, receives APNs token via `AppDelegate`, registers `(phone, device_token)` pair with backend after phone verify. `UNUserNotificationCenterDelegate` shows banners in foreground + broadcasts `.lofoNotificationTap` on tap.
+2. ✅ `AppDelegate.swift` (new) — `UIApplicationDelegate` registered via `@UIApplicationDelegateAdaptor`. Receives `didRegisterForRemoteNotificationsWithDeviceToken` → forwards to `PushManager.shared`.
+3. ✅ `LOFOApp.swift` — Added `@UIApplicationDelegateAdaptor(AppDelegate.self)`, `.onAppear { PushManager.shared.requestPermission() }`, `.onReceive(.lofoNotificationTap)` deep link handler (pops to root; screen-specific routing via `screen` payload key). Also added Stripe publishable key init under `#if canImport(StripePaymentSheet)`.
+4. ✅ `APIClient.swift` — Added `registerDevice(phone:deviceToken:)` → `POST /devices/register`.
+5. ✅ `TipView.swift` — Full Stripe `PaymentSheet` + Apple Pay wired under `#if canImport(StripePaymentSheet)`. Uses `withCheckedContinuation` to bridge callback API into async/await. Falls back to direct navigation when Stripe SDK not linked. Merchant ID: `merchant.ai.lofo`.
+6. ✅ `OTPVerifyView.swift` — Calls `PushManager.shared.registerWithServer(phone:)` after successful OTP verify (finder flow).
+7. ✅ `WaitingView.swift` — Calls `PushManager.shared.registerWithServer(phone:)` after loser phone save.
+8. ✅ Backend `main.py` — `DeviceRegisterRequest` schema, `POST /devices/register` endpoint (upserts `device_tokens` table), `_push_apns()` helper (httpx HTTP/2 + PyJWT ES256 auth token), `_get_device_tokens(phone)` lookup, both `_notify_waiting_losers` and `_notify_matched_finder` now send APNs push alongside SMS. APNs payload includes `screen` key for deep linking.
+9. ✅ `requirements.txt` — `httpx` → `httpx[http2]` for APNs HTTP/2 transport.
+
+**Backend setup required (one-time) before APNs pushes work:**
+1. Run DB migration in Supabase SQL editor:
+   ```sql
+   CREATE TABLE IF NOT EXISTS device_tokens (
+       id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+       phone VARCHAR NOT NULL,
+       device_token TEXT NOT NULL,
+       platform VARCHAR NOT NULL DEFAULT 'ios',
+       created_at TIMESTAMPTZ DEFAULT NOW(),
+       UNIQUE(phone, device_token)
+   );
+   ```
+2. In Apple Developer Portal → Certificates, Identifiers & Profiles → Keys → create an APNs key (enable Apple Push Notifications). Download the `.p8` file.
+3. Add Railway env vars: `APNS_KEY_ID` (10-char key ID), `APNS_TEAM_ID` (10-char team ID), `APNS_AUTH_KEY` (full `.p8` file contents — paste with `\n` newlines), `APNS_BUNDLE_ID` (e.g. `ai.lofo.app`). Optionally `APNS_ENVIRONMENT=sandbox` for testing.
+4. Deploy to Railway.
+
+**Xcode setup required before Stripe PaymentSheet activates:**
+1. File → Add Package Dependencies → `https://github.com/stripe/stripe-ios` → add `StripePaymentSheet` target.
+2. In `LOFOApp.init()`, replace `"pk_test_YOUR_STRIPE_PUBLISHABLE_KEY"` with your real publishable key (`pk_live_...` for production).
+3. For Apple Pay: Signing & Capabilities → + → Apple Pay → add merchant ID `merchant.ai.lofo`. Register the merchant ID at developer.apple.com → Identifiers → Merchant IDs first.
+
+### iOS Phase E Checklist (= Project Phase 24) — ✅ COMPLETE
+
+1. ✅ Fix compile errors — `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` required removing `nonisolated` + `Sendable` from APIClient and models
+2. ✅ `LoserWaitView` — breathing orb animation (3 staggered concentric rings), navy fullScreenCover, shown after phone capture in WaitingView
+3. ✅ DM Sans + DM Serif Display fonts bundled — downloaded from Google Fonts CDN, placed in `LOFO/Fonts/`, registered via `CTFontManagerRegisterFontsForURL` in `LOFOApp.init()` (no Info.plist change needed)
+4. ✅ `TipView` — $5/$10/$20 + skip, calls `POST /tip/create-payment-intent`, then navigates to ReunionView. Stripe PaymentSheet wiring is a TODO comment for Phase F.
+5. ✅ `TipView` wired into flow: ConfirmedView → tip → reunion
+6. ✅ Stripe iOS SDK — NOT added via SPM (not needed for first build since TipView calls backend directly). Add via Xcode File > Add Package Dependencies when ready to wire Apple Pay.
+7. ✅ First simulator build: **BUILD SUCCEEDED** — iPhone 17 Pro, iOS 26.3.1
+
+### Known Intentional Differences from Web App
+
+- `TipView` activates full Stripe `PaymentSheet` + Apple Pay once `StripePaymentSheet` SDK is added via SPM. Without it, navigates to Reunion directly (same as Phase E placeholder). See Phase F checklist for setup steps.
+- Push notifications are code-complete but require APNs env vars + DB migration to activate on Railway (see Phase F checklist). Without them, `_push_apns()` logs and returns — SMS continues to work normally.
+- `LoserWaitView` is a `fullScreenCover` (not a `.sheet`) from `WaitingView` — deliberate; fits the "modal overlay" feel better than a sheet presentation.
+
+---
+
+### Post-Launch Candidates (Phase 26+)
+
 - **Loser location post-submit correction** — `PATCH /items/{id}/location` endpoint so the loser can update where they lost the item after the fact. Small backend + small UI addition.
-- **Map in app flow** — Leaflet pin-drop screen in the loser flow between `screen-lost-prompt` and submission, for users who type vague locations ("somewhere near downtown"). Would improve geocoding accuracy. Medium effort.
+- **Map in app flow** — Native pin-drop screen in the loser flow for users who type vague locations. Would improve geocoding accuracy. Medium effort.
+- **Finder payout automation** — Replace manual Venmo/PayPal handle lookup with Stripe Connect Express (dormant code in `main.py` already exists; needs business verification).
 
 ### Known Intentional Limitations
 
@@ -292,34 +506,251 @@ curl -X POST https://lofo-ai-production.up.railway.app/verify \
 
 ## Cursor Prompt for Next Session
 
+> Copy everything between the arrows into a new Cursor window.
+
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
-> **What's complete and deployed (Phases 1–22):**
-> Live API at `https://lofo-ai-production.up.railway.app`, frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Full end-to-end loop working. Admin dashboard at `/admin` (with chart cards, mobile responsive), live map at `/map`. UptimeRobot keep-alive on GET /health every 10 min — no cold starts. Lifecycle cron running daily via GitHub Actions.
+> **Numbering systems — important:**
+> - Phases 1–26+ = full project roadmap (backend + web + iOS). Backend/web phases 1–22 done and deployed.
+> - iOS Phases A–G = iOS-only build plan. All phases A–G complete. Use A–G labels when working on iOS.
 >
-> **Phase 22 (last session) — Admin charts & mobile:**
-> - Two chart cards added to admin dashboard: **Lost vs Found** (grouped bar chart, daily counts for current week) and **Avg. Time to Reunion** (line chart with weekly trend, hero number, month-over-month delta, active matches count).
-> - New `GET /admin/charts` backend endpoint (daily items via `generate_series`, reunion avg via epoch math, weekly trend, active reunion count).
-> - Blank map bug fixed: Leaflet `invalidateSize()` after container shown (geo-link clicks and tab switches both affected).
-> - Full mobile responsive layout: 900px breakpoint (2-col stat cards, wrapping header, scrollable tabs, stacking detail panels) + 540px breakpoint (tighter padding, smaller fonts, full-width debug button, adjusted map overlays).
+> **What's running (Phases 1–22 deployed):** Live API at `https://lofo-ai-production.up.railway.app`, web frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Admin at `/admin`, map at `/map`. UptimeRobot keep-alive. Lifecycle cron via GitHub Actions.
 >
-> **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Deployed on Railway.
+> **iOS app — ALL phases A–G complete + visual polish done:**
+> Native SwiftUI at `~/Desktop/LOFO/LOFO.xcodeproj`. **BUILD SUCCEEDED** — iPhone 17 Pro, iOS 26.3.1, Xcode 26.3. Full finder + loser + match + reunion + tip flows. Push notifications (PushManager + APNs). StripePaymentSheet v25.7.1 SPM added, test key `pk_test_51T7nErBOu...` wired. Supabase `device_tokens` migration done. Visual polish complete: `LOFOPressStyle` buttons, HomeView entrance animation, card shadows, MatchView animated confidence bar, WaitingView radar pulse, LoserWaitView enhanced orb.
+> Full iOS plan: `~/.cursor/plans/swiftui_native_app_transition_e4202362.plan.md`
 >
-> **Frontend:** `LOFO_MVP.html` (app), `admin.html` (ops dashboard), `map.html` (live map standalone), `resolve.html` (post-reunion closure page).
+> **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Railway.
 >
-> **DB schema:** `items` (includes `photo_url`, `notif_week1_at`, `notif_week2_at`), `tips`, `reunions`.
+> **DB schema:** `items`, `tips`, `reunions`, `device_tokens` (migration done). `used_tokens`, `secret_verifications` (legacy).
 >
-> **SMS:** Code-complete, pending Twilio A2P carrier approval. Read the ⚠️ block in 'Pre-Launch Requirements' for what to do when approved.
+> **SMS:** Code-complete, pending Twilio A2P carrier approval (Campaign SID `CM50255157...`, ~2–3 weeks from Mar 12).
 >
-> **Keep-alive:** UptimeRobot pings `GET /health` every 10 min — Railway stays warm, no cold starts.
+> **iOS app — 32 Swift files:**
+> - `Theme.swift` — colors, DM Sans + DM Serif Display, `LOFOPressStyle` ButtonStyle, `lofoCardShadow()` modifier
+> - `LOFOApp.swift` — `@main`, NavigationStack, AppDelegate adaptor, PushManager, deep link, Stripe key
+> - `AppDelegate.swift` — APNs token callbacks → PushManager
+> - `Models/Item.swift`, `Models/Match.swift` — all structs are `Sendable` (required for Stripe SDK strict concurrency)
+> - `Services/` — APIClient, LocationManager, HapticManager, PushManager
+> - `ViewModels/` — AppState, FinderFlowState, LoserFlowState, MenuViewModel
+> - `Views/Home/` — HomeView (staggered entrance animation), MenuSheet
+> - `Views/Finder/` — FinderCameraView, FinderDoneView, PhoneVerifyView, OTPVerifyView, AllSetView
+> - `Views/Loser/` — LostPromptView, WaitingView (radar pulse), LoserWaitView (enhanced orb), MatchView (animated bar), OwnershipVerifyView, ConfirmedView
+> - `Views/Shared/` — ItemCardView (card shadow), TagChipView, LOFOButton, ReunionView, TipView, PhotoLightboxView
+> - `Fonts/` — DMSans-Regular/Medium/Bold.ttf, DMSerifDisplay-Regular.ttf
 >
-> **Today's goal:** [describe what you want to work on]. Read the 'What's Next: Phase 22+' section in the progress doc before starting.
+> **Key arch note:** `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` — all types implicitly @MainActor. Model structs have `Sendable` (needed for Stripe SDK). APIClient methods do NOT have `nonisolated`. Do NOT change this pattern.
 >
-> Start by reading `main.py` and `LOFO_AI_Progress.md`, then discuss before building."
+> **Next priorities — waiting on Apple Developer enrollment to clear (~24-48h from Mar 13):**
+> 1. developer.apple.com → App ID `ai.lofo.app` (Push + Apple Pay caps) + APNs key (.p8) + Merchant ID `merchant.ai.lofo`
+> 2. Railway env vars: `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_AUTH_KEY`, `APNS_BUNDLE_ID=ai.lofo.app`, `APNS_ENVIRONMENT=production`
+> 3. Xcode → Signing & Capabilities → Apple Pay → add `merchant.ai.lofo`
+> 4. Product → Archive → Distribute → TestFlight upload
+> 5. App Store Connect — listing (name: LOFO, subtitle: Lost & found, reunited by AI), screenshots (6.7" 1290×2796), privacy URL `https://lofo-ai-production.up.railway.app/privacy`, submit for review
+> Full step-by-step in 'iOS Phase G Checklist' section of this progress doc.
+>
+> **Further polish candidates (next session):** Remaining screens (LostPromptView, AllSetView, ConfirmedView, ReunionView, FinderCameraView) haven't received the visual upgrade yet — same pattern as screens already done. Also: custom navigation transitions (iOS 18+ zoom transition for match reveal), TagChipView refinements, photo lightbox polish.
+>
+> Start by reading `LOFO_AI_Progress.md`, then continue."
 
 ---
 
 ## Session History
+
+### Phase 26b — iOS Visual Polish — March 13, 2026
+
+**What changed:** Comprehensive visual upgrade to close the aesthetic gap vs the HTML prototype.
+
+**New in `Theme.swift`:**
+- `LOFOPressStyle: ButtonStyle` — spring scale (0.965) + opacity (0.88) on press; applies to every `Button` in the app via `.buttonStyle(LOFOPressStyle())`
+- `lofoCardShadow()` view modifier — two-layer shadow (14px soft + 3px sharp) for white cards over cream background
+
+**`LOFOButton.swift`:** `.buttonStyle(LOFOPressStyle())` added; height bumped 52→54; icon weight `.medium`
+
+**`HomeView.swift`:** Three-phase staggered entrance — LOFO wordmark spring-scales from 88%→100% + fades (0ms), subtitle fades + lifts (180ms delay), buttons slide up 22px + fade (280ms delay). Gear button uses `LOFOPressStyle`. Both CTA buttons use `LOFOPressStyle` directly.
+
+**`ItemCardView.swift`:** Flat 1px border replaced with `lofoCardShadow()` — cards now float over the cream background.
+
+**`MatchView.swift`:** Full entrance sequence — navy banner fades+slides down from above (0ms), content spring-rises from below (200ms delay). `@State var barProgress: CGFloat = 0` animates from 0→score over 900ms with 450ms delay (easeOut). Confidence bar tracks `barProgress` instead of raw score. Reasons list checkmarks use cream rust-circle background. `lofoCardShadow()` on reasons card.
+
+**`WaitingView.swift`:** Radar pulse animation — 3 concentric rings (72/110/148px) with staggered `easeOut` repeat (no autoreverses, 2.4s, 0.72s delays) expand outward and fade to 0 continuously. Central `location.magnifyingglass` icon in a soft navy circle. Status pill transitions animated. Content entrance animation (fade+lift).
+
+**`LoserWaitView.swift`:** Orb upgraded — 4 rings (220/155/100/64px). Outer 3 are stroke rings with staggered easeInOut breathe (3.8–4.5s). Inner core uses `RadialGradient` fill (white 0.22→0.06). Center 10px white dot. Text entrance animates in 300ms after appear.
+
+**`LOFOApp.swift`:** Stripe test key `pk_test_51T7nEr...` wired in.
+
+**Build result:** BUILD SUCCEEDED — iPhone 17 Pro, iOS 26.3.1
+
+**Also in this session (Phase G file changes):**
+- `project.pbxproj`: bundle ID `ai.lofo.app`, version `1.0.0`, portrait-only, `UILaunchScreen_Generation = YES` with `LOFOCream` named color
+- `Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`: 1024×1024 app icon
+- `Assets.xcassets/LOFOCream.colorset`: cream `#F5F2EC` named color for launch screen
+- StripePaymentSheet SPM package added in Xcode (v25.7.1)
+- Supabase `device_tokens` table migration run
+
+**Remaining manual steps (pending Apple Developer enrollment):**
+1. developer.apple.com → App ID `ai.lofo.app` (enable Push + Apple Pay) + APNs key (.p8) + Merchant ID `merchant.ai.lofo`
+2. Railway: add `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_AUTH_KEY`, `APNS_BUNDLE_ID`
+3. Xcode: Signing & Capabilities → Apple Pay → `merchant.ai.lofo`
+4. Product → Archive → TestFlight upload
+5. App Store Connect: listing + screenshots + submit
+
+---
+
+### Phase 26 — iOS Phase G: App Store Prep — March 13, 2026
+
+**What changed:** iOS app prepared for App Store submission. No Swift code changes — all changes are in project configuration and assets.
+
+**New files:**
+- `LOFO/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` — 1024×1024 app icon. Navy (#1A1A2E) background, cream (#F5F2EC) LOFO wordmark in Palatino serif, subtle dotted arc motif below. Xcode auto-generates all required icon sizes (60×60, 120×120, 180×180, etc.) from this single file. `Contents.json` updated to reference `AppIcon-1024.png`.
+- `LOFO/LaunchScreen.storyboard` — Custom launch screen. Cream background (`#F5F2EC`), `LOFO` label centered in Palatino Roman 64pt, navy color. No spinner. Replaces the auto-generated plain white launch screen. Auto-included via `PBXFileSystemSynchronizedRootGroup`.
+
+**`project.pbxproj` changes (both Debug + Release target configs):**
+- `PRODUCT_BUNDLE_IDENTIFIER`: `com.lofo.LOFO` → `ai.lofo.app`
+- `MARKETING_VERSION`: `1.0` → `1.0.0`
+- `INFOPLIST_KEY_UILaunchScreen_Generation = YES` removed; `INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen` added
+- `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone`: restricted to `UIInterfaceOrientationPortrait` (portrait-only — standard for consumer apps, required by App Store if no landscape design exists)
+
+**What remains — manual steps in Xcode + Apple Developer + Railway:**
+1. Supabase migration for `device_tokens` table (if not done in Phase F)
+2. Apple Developer: create App ID `ai.lofo.app`, APNs key, Merchant ID `merchant.ai.lofo`
+3. Railway: add `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_AUTH_KEY`, `APNS_BUNDLE_ID` env vars
+4. Xcode: File → Add Package Dependencies → `https://github.com/stripe/stripe-ios` → `StripePaymentSheet`. Replace `pk_test_YOUR_STRIPE_PUBLISHABLE_KEY` in `LOFOApp.init()`. Add Apple Pay capability with `merchant.ai.lofo`.
+5. Archive → Product → Archive → Distribute App → App Store Connect → Upload
+6. App Store Connect: create listing with name "LOFO", subtitle "Lost & found, reunited by AI", description, keywords, screenshots (6.7" required at 1290×2796), privacy URL, support URL
+7. Submit for review
+
+---
+
+### Phase 25 — iOS Phase F: Push Notifications + Stripe PaymentSheet — March 13, 2026
+
+**What changed:** iOS app gains push notification infrastructure and full Stripe PaymentSheet/Apple Pay wiring. Backend adds APNs delivery alongside SMS in both notification helpers.
+
+**New iOS files:**
+- `AppDelegate.swift` — `UIApplicationDelegate` registered via `@UIApplicationDelegateAdaptor`. Receives `didRegisterForRemoteNotificationsWithDeviceToken` and `didFailToRegisterForRemoteNotificationsWithError` → forwards both to `PushManager`.
+- `Services/PushManager.swift` — `@Observable` singleton. `requestPermission()` calls `UNUserNotificationCenter.requestAuthorization` + `UIApplication.registerForRemoteNotifications()`. `handleDeviceToken()` stores the hex token string. `registerWithServer(phone:)` calls `POST /devices/register`. Implements `UNUserNotificationCenterDelegate` to show banners in foreground and broadcast `Notification.Name.lofoNotificationTap` on tap with `screen` key from payload.
+
+**Updated iOS files:**
+- `LOFOApp.swift` — Added `@UIApplicationDelegateAdaptor(AppDelegate.self)`, `.onAppear { PushManager.shared.requestPermission() }`, `.onReceive(NotificationCenter.default.publisher(for: .lofoNotificationTap))` for deep links (pops to root; extendable via `screen` key). Added Stripe publishable key set in `init()` under `#if canImport(StripePaymentSheet)`.
+- `APIClient.swift` — Added `registerDevice(phone:deviceToken:platform:)` → `POST /devices/register`.
+- `TipView.swift` — Full Stripe `PaymentSheet` + Apple Pay under `#if canImport(StripePaymentSheet)`. `startPayment()` calls backend for `client_secret`, then calls `presentPaymentSheet(clientSecret:)`. Uses `withCheckedContinuation` to bridge `PaymentSheet.present(from:completion:)` into async/await. Apple Pay config: `merchantId = "merchant.ai.lofo"`, `merchantCountryCode = "US"`. Root VC obtained via `UIApplication.connectedScenes` chain. Falls back to direct navigation when SDK not linked.
+- `OTPVerifyView.swift` — After OTP success, calls `await PushManager.shared.registerWithServer(phone:)` before navigating to `.allSet`.
+- `WaitingView.swift` — After loser phone save, calls `await PushManager.shared.registerWithServer(phone:)` before showing `LoserWaitView`.
+
+**Backend (`main.py`):**
+- `DeviceRegisterRequest` schema added.
+- `POST /devices/register` endpoint — normalizes phone to E.164, upserts `(phone, device_token, platform)` into `device_tokens` table via `INSERT … ON CONFLICT DO NOTHING`.
+- `_get_device_tokens(phone)` helper — queries `device_tokens` table by phone, returns `list[str]`.
+- `_push_apns(device_token, title, body, screen)` helper — uses `httpx.Client(http2=True)` for APNs HTTP/2 API. Authenticates via `PyJWT` ES256 token (`iss=APNS_TEAM_ID`, `iat=now`, `kid=APNS_KEY_ID`). Payload: `{"aps": {"alert": {"title", "body"}, "sound": "default"}, "screen": screen}`. Falls back gracefully (prints + returns) if env vars not configured.
+- `_notify_waiting_losers()` — now sends APNs push (title: "LOFO — possible match found", screen: "waiting") for each registered token alongside existing SMS.
+- `_notify_matched_finder()` — now sends APNs push (title: "LOFO — someone's looking", screen: "finder") for each registered token alongside existing SMS.
+
+**`requirements.txt`:** `httpx` → `httpx[http2]` for HTTP/2 transport (required by APNs API).
+
+**DB migration required (run in Supabase SQL editor):**
+```sql
+CREATE TABLE IF NOT EXISTS device_tokens (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    phone VARCHAR NOT NULL,
+    device_token TEXT NOT NULL,
+    platform VARCHAR NOT NULL DEFAULT 'ios',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(phone, device_token)
+);
+```
+
+**Railway env vars to add:** `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_AUTH_KEY` (full .p8 file contents), `APNS_BUNDLE_ID` (e.g. `ai.lofo.app`). Optional: `APNS_ENVIRONMENT=sandbox` for Simulator testing.
+
+**Xcode steps before Stripe PaymentSheet activates:**
+1. File → Add Package Dependencies → `https://github.com/stripe/stripe-ios` → add `StripePaymentSheet` target.
+2. Replace `pk_test_YOUR_STRIPE_PUBLISHABLE_KEY` in `LOFOApp.init()`.
+3. Signing & Capabilities → Apple Pay → add merchant ID `merchant.ai.lofo` (register at developer.apple.com first).
+
+---
+
+### Phase 24 — iOS Phase E: First Simulator Build — March 12, 2026
+
+**What changed:** iOS app goes from skeleton to compilable. First successful build in iPhone 17 Pro simulator (iOS 26.3.1).
+
+**Compile error fix (`APIClient.swift`, `Item.swift`, `Match.swift`):**
+- Root cause: project has `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` + `SWIFT_APPROACHABLE_CONCURRENCY = YES` (Xcode 26.3 defaults). This made all types in the module implicitly `@MainActor`, meaning their `Codable` conformances were MainActor-isolated. The `nonisolated` generic methods in `APIClient` required `T: Sendable`, but `@MainActor`-isolated `Codable` conformances can't satisfy that.
+- Fix: removed `nonisolated` and `Sendable` from `APIClient` (class and all methods) + removed `Sendable` from all model structs (`Item`, `Match`, `VerifyResult`, `CoordinateRequest`, `PaymentIntentResult`, `UserStats`, `GenericOK`, `AttributesResult`). URLSession async/await works fine on MainActor — network I/O runs in background, only result handling is on main.
+
+**`LoserWaitView.swift` (new):**
+- Navy `fullScreenCover` shown after loser saves phone in `WaitingView`
+- 3 concentric ring circles with staggered pulse animations (4s ease-in-out, delays 0/1.33s/2.66s) — breathing orb effect matching web app `screen-loser-wait`
+- Copy: "Hang tight. Think positive." / "People do good things. We'll text you the moment someone finds your [item]."
+- "Got it" button dismisses; `WaitingView.savePhone()` triggers `showLoserWait = true` after success
+
+**`TipView.swift` (new):**
+- $5/$10/$20 amount picker (selection highlighted navy) + "Skip" underline link
+- On pay: calls `POST /tip/create-payment-intent` → stores `client_secret` → navigates to `.reunion`
+- Stripe `PaymentSheet` wiring deferred — `TODO (Phase E+)` comment marks the exact insertion point
+- `ConfirmedView` now navigates to `.tip` instead of `.reunion` after `coordinateHandoff`
+
+**Fonts (`LOFO/Fonts/` — new directory):**
+- Downloaded from Google Fonts CDN: `DMSans-Regular.ttf`, `DMSans-Medium.ttf`, `DMSans-Bold.ttf`, `DMSerifDisplay-Regular.ttf`
+- Registered at app launch via `CTFontManagerRegisterFontsForURL` in `LOFOApp.init()` — no `Info.plist` changes needed (project uses `GENERATE_INFOPLIST_FILE = YES`)
+- `Theme.swift` `sans()` function now uses `DMSans-Regular/Medium/Bold` with system font fallback
+- `PBXFileSystemSynchronizedRootGroup` auto-includes the Fonts folder in the bundle — no `.pbxproj` edits needed
+
+**`AppState.swift`:** Added `.tip` to `Screen` enum (between `.confirmed` and `.reunion`)
+
+**`LOFOApp.swift`:** Added `case .tip: TipView()` to `navigationDestination`; added `init()` that calls `LOFOTheme.registerFonts()`
+
+**Stripe iOS SDK:** NOT added via SPM — TipView calls backend directly for first build. To add in Phase F: Xcode → File → Add Package Dependencies → `https://github.com/stripe/stripe-ios` → add `StripePaymentSheet` target, then replace the TODO in TipView.
+
+**Build result:** `** BUILD SUCCEEDED **` — iPhone 17 Pro simulator, iOS 26.3.1, Xcode 26.3
+
+---
+
+### Phase 23 — SwiftUI iOS App Skeleton — March 12, 2026
+
+**What changed:** Native iOS app built at `~/Desktop/LOFO/`. Xcode 26.3 project targeting iOS 17+. 28 Swift files covering the complete screen topology. Backend API unchanged.
+
+**Project location:** `~/Desktop/LOFO/LOFO.xcodeproj`
+
+**Architecture decisions:**
+- iOS 17+ target — uses `@Observable` macro (no ObservableObject), `NavigationStack` with path-based routing, `PhotosUI` for camera/library
+- Navigation: `AppState.path: NavigationPath` drives all screen transitions. `appState.push(.screen)` = `go('screen-name')` from web app
+- State: `FinderFlowState.shared` and `LoserFlowState.shared` are singleton `@Observable` objects that hold flow data across screens (equivalent to the `state` object in LOFO_MVP.html)
+- All API calls via `APIClient.shared` — async/await, no third-party networking library needed
+
+**Files created:**
+- `Theme.swift` — color palette matches web CSS vars (`--navy: #1A1A2E`, `--cream: #F5F2EC`, etc.), typography helpers for DM Sans + DM Serif Display
+- `Models/Item.swift`, `Models/Match.swift` — Codable structs matching all backend JSON responses
+- `Services/APIClient.swift` — complete: submitPhoto, submitText, findMatches, verifyOwnership, sendOTP, verifyOTP, updateFinderInfo, updateLoserInfo, updateAttributes, coordinateHandoff, createPaymentIntent, statsByItems
+- `Services/LocationManager.swift` — CLLocationManager wrapper, requestLocation on appear
+- `Services/HapticManager.swift` — light/medium/heavy/success/error + matchConfirm triple-pulse
+- `ViewModels/AppState.swift` — NavigationStack path, showMenu, myItemIDs (UserDefaults)
+- `ViewModels/FinderFlowState.swift`, `ViewModels/LoserFlowState.swift` — per-flow state singletons
+- `ViewModels/MenuViewModel.swift` — loads usage stats from API
+- `Views/Home/HomeView.swift` — two CTAs (camera/text), gear icon
+- `Views/Home/MenuSheet.swift` — gear menu: My Usage (stats), Support (FAQ accordion + contact), Information (Terms, Privacy, About)
+- `Views/Shared/ItemCardView.swift` — emoji/photo thumbnail, attribute tags, FlowLayout
+- `Views/Shared/TagChipView.swift` — attribute chip + removable variant
+- `Views/Shared/LOFOButton.swift` — primary/secondary/ghost styles, loading state
+- `Views/Shared/ReunionView.swift` — terminal "You're all set" screen
+- `Views/Shared/PhotoLightboxView.swift` — fullScreenCover with AsyncImage, claim/dismiss CTAs
+- `Views/Finder/FinderCameraView.swift` — PhotosPicker, AI overlay animation, GPS pre-fetch
+- `Views/Finder/FinderDoneView.swift` — AI result card, secret detail input
+- `Views/Finder/PhoneVerifyView.swift` — phone input
+- `Views/Finder/OTPVerifyView.swift` — 6-digit inputs, auto-advance, auto-submit
+- `Views/Finder/AllSetView.swift` — payout app picker, dual-entry handle confirm
+- `Views/Loser/LostPromptView.swift` — description + where field, GPS
+- `Views/Loser/WaitingView.swift` — 5s polling Task, status pills, phone capture after 3 polls
+- `Views/Loser/MatchView.swift` — navy banner, confidence bar, item card, location pill, reasons, photo lightbox
+- `Views/Loser/OwnershipVerifyView.swift` — claim input, Claude verify
+- `Views/Loser/ConfirmedView.swift` — confirmation, phone capture, coordinate handoff
+- `LOFOApp.swift` — wires NavigationStack + all `navigationDestination` destinations + MenuSheet sheet
+
+**Phase 24 complete. Still needed (Phase 25 / iOS Phase F):**
+- Stripe iOS SDK via SPM (`https://github.com/stripe/stripe-ios`) — add via Xcode File > Add Package Dependencies. Wire `StripePaymentSheet` at the TODO in `TipView.swift`
+- Apple Pay: add `PKPaymentAuthorizationController` + merchant ID entitlement once Stripe SDK is linked
+- Push notifications: `PushManager`, `POST /devices/register`, APNs in backend notify helpers
+- Deep link handling: push tap opens app to relevant screen
+
+---
 
 ### Phase 22 — Admin Charts, Map Fix, Mobile Responsive — March 12, 2026
 

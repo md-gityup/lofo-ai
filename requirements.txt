@@ -12,4 +12,4 @@ argon2-cffi
 PyJWT
 stripe
 twilio
-httpx
+httpx[http2]
