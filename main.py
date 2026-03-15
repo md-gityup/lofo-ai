@@ -252,11 +252,9 @@ _VISION_SYSTEM_PROMPT = (
 
 _TEXT_SYSTEM_PROMPT = (
     'You are an item classifier for a lost and found app. Extract structured information from the text description. '
-    'If the description mentions a specific place (park, street, building, city, etc.), extract it as "location". '
     'Respond ONLY with valid JSON matching this exact schema, no other text: '
     '{"item_type": "string", "color": ["array of colors"], "material": "string or null", '
-    '"size": "small/medium/large or null", "features": ["array of distinguishing features"], '
-    '"location": "string or null"}'
+    '"size": "small/medium/large or null", "features": ["array of distinguishing features"]}'
 )
 
 _SUPPORTED_MEDIA_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
@@ -341,7 +339,6 @@ class ItemResponse(BaseModel):
     created_at: str
     has_secret: bool = False
     photo_url: Optional[str] = None
-    location_name: Optional[str] = None
 
 
 class MatchRequest(BaseModel):
@@ -660,24 +657,15 @@ def create_item_from_text(body: TextItemCreate):
     # Store secret_detail on finder items only
     stored_secret = body.secret_detail if body.type == "finder" else None
 
-    # Geocode location: explicit where_description takes priority, then location extracted
-    # from the description text by Claude, then device GPS.
+    # Geocode the "where did you lose it?" text if provided (takes priority over device GPS).
+    # Falls back to device GPS silently on failure.
     stored_lat = body.latitude
     stored_lng = body.longitude
-    resolved_location_name: Optional[str] = None
-
     if body.where_description:
-        resolved_location_name = body.where_description
         coords = _geocode(body.where_description)
         if coords:
             stored_lat, stored_lng = coords
-            print(f"[LOFO geocode] explicit '{body.where_description}' → {stored_lat:.4f}, {stored_lng:.4f}")
-    elif extracted.get("location"):
-        resolved_location_name = extracted["location"]
-        coords = _geocode(extracted["location"])
-        if coords:
-            stored_lat, stored_lng = coords
-            print(f"[LOFO geocode] extracted '{extracted['location']}' → {stored_lat:.4f}, {stored_lng:.4f}")
+            print(f"[LOFO geocode] '{body.where_description}' → {stored_lat:.4f}, {stored_lng:.4f}")
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -699,7 +687,6 @@ def create_item_from_text(body: TextItemCreate):
         conn.commit()
 
     item = dict(row)
-    item["location_name"] = resolved_location_name
     _store_embedding(item["id"], extracted)
     if body.type == "finder":
         _notify_waiting_losers(item["id"], extracted["item_type"])
