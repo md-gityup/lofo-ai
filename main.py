@@ -252,7 +252,9 @@ _VISION_SYSTEM_PROMPT = (
 
 _TEXT_SYSTEM_PROMPT = (
     'You are an item classifier for a lost and found app. Extract structured information from the text description. '
-    'If the description mentions a specific place (park, street, building, city, etc.), extract it as "location". '
+    'If the description mentions a place, extract the most geocodable version of it as "location" '
+    '(e.g. "Golden Gate Park, San Francisco" or "JFK Airport, New York" — prefer landmark + city over '
+    'hyper-specific sub-areas like field names). '
     'Respond ONLY with valid JSON matching this exact schema, no other text: '
     '{"item_type": "string", "color": ["array of colors"], "material": "string or null", '
     '"size": "small/medium/large or null", "features": ["array of distinguishing features"], '
@@ -567,23 +569,36 @@ _MATCH_SQL = """
 def _geocode(location_text: str) -> Optional[tuple[float, float]]:
     """
     Geocode a free-text location string via Nominatim (OpenStreetMap, no API key).
+    Retries up to 3 times by progressively dropping leading terms so that
+    "Beach Chalet Soccer Fields, Golden Gate Park" falls back to
+    "Golden Gate Park" and then "Golden Gate Park, San Francisco" style queries.
     Returns (latitude, longitude) or None on failure / no result.
-    Non-blocking: exceptions are swallowed.
     """
-    try:
-        import httpx
-        resp = httpx.get(
-            "https://nominatim.openstreetmap.org/search",
-            params={"q": location_text, "format": "json", "limit": 1},
-            headers={"User-Agent": "LOFO-AI/1.0 (lost-and-found-app)"},
-            timeout=4.0,
-        )
-        resp.raise_for_status()
-        results = resp.json()
-        if results:
-            return float(results[0]["lat"]), float(results[0]["lon"])
-    except Exception as exc:
-        print(f"[LOFO geocode] '{location_text}': {exc}")
+    import httpx
+
+    terms = [t.strip() for t in location_text.replace(",", " ").split() if t.strip()]
+    queries: list[str] = [location_text]
+    # Build fallback queries by dropping leading words (max 2 fallbacks)
+    for drop in range(1, min(3, len(terms))):
+        queries.append(" ".join(terms[drop:]))
+
+    for query in queries:
+        try:
+            resp = httpx.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": query, "format": "json", "limit": 1},
+                headers={"User-Agent": "LOFO-AI/1.0 (lost-and-found-app)"},
+                timeout=4.0,
+            )
+            resp.raise_for_status()
+            results = resp.json()
+            if results:
+                print(f"[LOFO geocode] '{query}' → {results[0]['lat']}, {results[0]['lon']}")
+                return float(results[0]["lat"]), float(results[0]["lon"])
+        except Exception as exc:
+            print(f"[LOFO geocode] '{query}' failed: {exc}")
+
+    print(f"[LOFO geocode] no result for '{location_text}' after fallbacks")
     return None
 
 
