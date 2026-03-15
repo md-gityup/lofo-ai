@@ -252,13 +252,13 @@ _VISION_SYSTEM_PROMPT = (
 
 _TEXT_SYSTEM_PROMPT = (
     'You are an item classifier for a lost and found app. Extract structured information from the text description. '
-    'If the description mentions a place, extract the most geocodable version of it as "location" '
-    '(e.g. "Golden Gate Park, San Francisco" or "JFK Airport, New York" — prefer landmark + city over '
-    'hyper-specific sub-areas like field names). '
+    'If the description mentions a specific place, extract it as "location" (human-readable name) and also '
+    'provide your best estimate of "latitude" and "longitude" as decimal numbers using your world knowledge — '
+    'be as precise as possible (e.g. a specific sports field, terminal, or street corner, not just the city). '
     'Respond ONLY with valid JSON matching this exact schema, no other text: '
     '{"item_type": "string", "color": ["array of colors"], "material": "string or null", '
     '"size": "small/medium/large or null", "features": ["array of distinguishing features"], '
-    '"location": "string or null"}'
+    '"location": "string or null", "latitude": "number or null", "longitude": "number or null"}'
 )
 
 _SUPPORTED_MEDIA_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
@@ -679,8 +679,11 @@ def create_item_from_text(body: TextItemCreate):
     # Store secret_detail on finder items only
     stored_secret = body.secret_detail if body.type == "finder" else None
 
-    # Geocode: explicit where_description takes priority, then location extracted from
-    # the description by Claude, then device GPS.
+    # Resolve coordinates: priority order —
+    #   1. Explicit where_description field (geocoded via Nominatim)
+    #   2. Claude's own lat/lng from its world knowledge (most precise for named places)
+    #   3. Nominatim fallback on Claude's location string
+    #   4. Device GPS (body.latitude / body.longitude)
     stored_lat = body.latitude
     stored_lng = body.longitude
     resolved_location_name = None
@@ -693,10 +696,20 @@ def create_item_from_text(body: TextItemCreate):
             print(f"[LOFO geocode] explicit '{body.where_description}' → {stored_lat:.4f}, {stored_lng:.4f}")
     elif extracted.get("location"):
         resolved_location_name = extracted["location"]
-        coords = _geocode(extracted["location"])
-        if coords:
-            stored_lat, stored_lng = coords
-            print(f"[LOFO geocode] extracted '{extracted['location']}' → {stored_lat:.4f}, {stored_lng:.4f}")
+        # Try Claude's own coordinates first — far more precise for specific landmarks
+        claude_lat = extracted.get("latitude")
+        claude_lng = extracted.get("longitude")
+        if claude_lat is not None and claude_lng is not None:
+            try:
+                stored_lat, stored_lng = float(claude_lat), float(claude_lng)
+                print(f"[LOFO geocode] Claude coords for '{resolved_location_name}' → {stored_lat:.4f}, {stored_lng:.4f}")
+            except (TypeError, ValueError):
+                pass
+        # Fall back to Nominatim if Claude didn't return valid coords
+        if stored_lat is None or stored_lng is None:
+            coords = _geocode(resolved_location_name)
+            if coords:
+                stored_lat, stored_lng = coords
 
     with get_connection() as conn:
         with conn.cursor() as cur:
