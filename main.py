@@ -389,6 +389,11 @@ class AttributesUpdate(BaseModel):
     features: Optional[list[str]] = None
 
 
+class RedescribeRequest(BaseModel):
+    item_type: str
+    details: list[str]
+
+
 class CoordinateRequest(BaseModel):
     finder_item_id: uuid.UUID
     loser_item_id: uuid.UUID
@@ -1038,6 +1043,64 @@ def update_item_attributes(item_id: uuid.UUID, body: AttributesUpdate):
         "features": row["features"] or [],
     }
     _store_embedding(item_id, profile)
+
+    return {
+        "ok": True,
+        "item_type": row["item_type"],
+        "color": row["color"],
+        "material": row["material"],
+        "size": row["size"],
+        "features": row["features"],
+    }
+
+
+@app.patch("/items/{item_id}/redescribe", status_code=200)
+def redescribe_item(item_id: uuid.UUID, body: RedescribeRequest):
+    """
+    Re-parse a free-text item description through Claude so user edits are
+    intelligently mapped to structured columns (color, material, size, features)
+    instead of being stored verbatim.
+    """
+    description = f"Item type: {body.item_type}. Details: {', '.join(body.details)}"
+    user_message = f"Re-classify this lost/found item from the user's description: {description}"
+
+    try:
+        message = claude_client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=_TEXT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIError as exc:
+        raise HTTPException(status_code=502, detail=f"Claude API error: {exc}") from exc
+
+    extracted = _parse_claude_json(message.content[0].text.strip())
+    _validate_extracted_profile(extracted)
+
+    updates = {
+        "item_type": extracted["item_type"],
+        "color": extracted.get("color", []),
+        "material": extracted.get("material"),
+        "size": extracted.get("size"),
+        "features": extracted.get("features", []),
+    }
+    set_clause = ", ".join(f"{k} = %s" for k in updates)
+    values = list(updates.values()) + [str(item_id)]
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"UPDATE items SET {set_clause} WHERE id = %s "
+                f"RETURNING id, item_type, color, material, size, features",
+                values,
+            )
+            row = cur.fetchone()
+        conn.commit()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    _store_embedding(item_id, extracted)
 
     return {
         "ok": True,
