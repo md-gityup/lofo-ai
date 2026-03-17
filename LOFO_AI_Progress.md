@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 13, 2026 — Phase 26 / iOS Phase G + visual polish complete. App icon, bundle ID ai.lofo.app, version 1.0.0, Stripe SPM wired (test key), Supabase migration done. Comprehensive visual upgrade: LOFOPressStyle button feedback, HomeView entrance animation, ItemCardView shadows, MatchView animated confidence bar, WaitingView radar pulse, LoserWaitView enhanced orb. BUILD SUCCEEDED. Pending: Apple Developer enrollment → App ID + APNs key + Merchant ID → Archive → TestFlight → App Store Connect.*
+*Last updated: March 16, 2026 — Phase 26k / UI polish pass 6: all screens consistent, radar animation, stats UUID bug fix, title case CTAs. BUILD SUCCEEDED. Full summary in Session History below.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -87,6 +87,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `PATCH /items/{id}/finder-info` | Save finder's `finder_email`, `secret_detail`, and/or `phone` after item creation |
 | `PATCH /items/{id}/loser-info` | Save loser's `phone` so they can receive match notifications |
 | `PATCH /items/{id}/attributes` | Update `item_type`, `color`, `material`, `size`, `features` + re-embed immediately; works for finder and loser items |
+| `PATCH /items/{id}/redescribe` | Re-parse free-text details through Claude → intelligently maps natural language to structured DB columns + re-embeds. Used by iOS edit sheet so user edits are AI-parsed, not stored verbatim. |
 | `POST /tip/create-payment-intent` | Create Stripe PaymentIntent; routes via `transfer_data` to finder's Connect account if set, falls back to platform-held |
 | `POST /stripe/webhook` | Mark tip `completed` on `payment_intent.succeeded` |
 | `POST /sms/send-otp` | Send 6-digit OTP via Twilio Verify |
@@ -225,7 +226,7 @@ Add/remove users by editing this variable and redeploying. No code changes neede
 
 ## Known Bugs To Fix
 
-*None — all known bugs resolved.*
+*None — all known bugs resolved. (WaitingView "Submitted at" blank fixed in Phase 26i — PostgreSQL `::text` timestamp format confirmed as `2026-03-16 19:58:14.07162+00`.)*
 
 ## Manual Setup (Phase 12a)
 
@@ -510,14 +511,34 @@ Then redeploy Railway.
 
 > "I'm building LOFO.AI — a lost and found matching app. The project is at `~/Desktop/lofo-ai`. Read `LOFO_AI_Progress.md` first for full context.
 >
+> **⚠️ IMPORTANT — working style for this session:** Read the progress doc and understand the full state first. Then **describe what you plan to do and ask for approval before making any changes**. Do not make edits proactively.
+>
 > **Numbering systems — important:**
 > - Phases 1–26+ = full project roadmap (backend + web + iOS). Backend/web phases 1–22 done and deployed.
 > - iOS Phases A–G = iOS-only build plan. All phases A–G complete. Use A–G labels when working on iOS.
 >
 > **What's running (Phases 1–22 deployed):** Live API at `https://lofo-ai-production.up.railway.app`, web frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Admin at `/admin`, map at `/map`. UptimeRobot keep-alive. Lifecycle cron via GitHub Actions.
 >
-> **iOS app — ALL phases A–G complete + visual polish done:**
-> Native SwiftUI at `~/Desktop/LOFO/LOFO.xcodeproj`. **BUILD SUCCEEDED** — iPhone 17 Pro, iOS 26.3.1, Xcode 26.3. Full finder + loser + match + reunion + tip flows. Push notifications (PushManager + APNs). StripePaymentSheet v25.7.1 SPM added, test key `pk_test_51T7nErBOu...` wired. Supabase `device_tokens` migration done. Visual polish complete: `LOFOPressStyle` buttons, HomeView entrance animation, card shadows, MatchView animated confidence bar, WaitingView radar pulse, LoserWaitView enhanced orb.
+> **iOS app — ALL phases A–G complete + UI polish passes 2–5 done:**
+> Native SwiftUI at `~/Desktop/LOFO/LOFO.xcodeproj`. **BUILD SUCCEEDED** — iPhone 17 Pro, iOS 26.3.1, Xcode 26.3. Full finder + loser + match + reunion + tip flows. Push notifications (PushManager + APNs). StripePaymentSheet v25.7.1 SPM added, test key `pk_test_51T7nErBOu...` wired. Supabase `device_tokens` migration done.
+>
+> **Visual polish complete on all screens built so far.** `LOFOPressStyle` everywhere, staggered entrance animations on every screen, card shadows, MatchView animated confidence bar, WaitingView radar pulse, LoserWaitView orb, ConfirmedView celebratory badge, ReunionView connection graphic with pulse. iOS 18 zoom transition: WaitingView radar → MatchView.
+>
+> **UI Polish Pass 2 (Phase 26e–f) — complete:**
+> - **HomeView rebuilt**: small left-aligned LOFO wordmark, 4-line hero heading ("Lost / something? / Found / something?" with tight line spacing), rust rule, italic serif subtitle, large left-aligned buttons with subtitles ("Snap a photo, done" / "Describe it, we'll look") + right arrows.
+> - **HomeView heading typography (final)**: "Lost something?" = `serifDisplay(50)` navy. "Found something?" = `serifDisplayItalic(50)` rust. All 4 lines use `.padding(.top, -20)` for tight stacking.
+> - **Italic font fix**: `DMSerifDisplay-Italic.ttf` file has internal PostScript name `DMSerifText-Italic`. Registration uses filename `"DMSerifDisplay-Italic"` (to find the file); `serifDisplayItalic()` uses PostScript name `"DMSerifText-Italic"` (for rendering). Both must stay in sync.
+> - **LOFOButton redesigned app-wide**: left-aligned text, arrow right, `radiusL` corners, `padding(.vertical, 20)` — affects every CTA in the app. Ghost style is now a simple underlined text link.
+> - **All screen heading fonts** bumped to match web prototype sizes (FinderDone 38, LostPrompt 38, Waiting 34, LoserWait 40, Match banner 38, OwnershipVerify 34, Confirmed 38, AllSet 40, Reunion 38).
+> - **Home subtitle** changed from `sans(15)` to `serifDisplay(17)` to match proto.
+> - **FinderCameraView bug fixes**: bottom bar Color-in-ZStack bug fixed (buttons now truly pinned to bottom). Corner brackets now use percentage-based centered viewfinder box (12–88% h, 14–70% v) instead of device-corner insets.
+> - **Namespace warning fixed**: `MatchZoomNSKey.defaultValue` changed to `Namespace.ID?` / `nil` — no more "Reading a Namespace property outside View.body" warning.
+> - **LocationManager**: real reverse geocoding (city, state, zip via CLGeocoder). Fixed `@MainActor` concurrency bug (geocoder was called from `nonisolated` context). Camera screen now uses `startWatching()`/`stopWatching()` (continuous updates) instead of one-shot `requestLocation()`. Location pill shows actual place name and updates live.
+>
+> **FinderCameraView** is a full native camera viewfinder (AVFoundation): live preview, centered viewfinder bracket overlay, "Point at what you found." center copy, shutter button, library picker, location pill (shows real city/state/zip on device). Falls back to dark gradient on simulator (no real camera). White simulator background is expected — real camera feed shows on device.
+>
+> **Backend bug fixed:** `asyncio.to_thread()` wraps Claude Vision + Voyage embedding calls in `/items/from-photo` so the sync SDK no longer blocks uvicorn's event loop (was causing 502s). Deployed to Railway.
+>
 > Full iOS plan: `~/.cursor/plans/swiftui_native_app_transition_e4202362.plan.md`
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Railway.
@@ -526,36 +547,374 @@ Then redeploy Railway.
 >
 > **SMS:** Code-complete, pending Twilio A2P carrier approval (Campaign SID `CM50255157...`, ~2–3 weeks from Mar 12).
 >
-> **iOS app — 32 Swift files:**
-> - `Theme.swift` — colors, DM Sans + DM Serif Display, `LOFOPressStyle` ButtonStyle, `lofoCardShadow()` modifier
-> - `LOFOApp.swift` — `@main`, NavigationStack, AppDelegate adaptor, PushManager, deep link, Stripe key
+> **iOS app — 36 Swift files:**
+> - `Theme.swift` — colors, DM Sans + DM Serif Display + DM Serif Display Italic, `LOFOPressStyle`, `lofoCardShadow()`, `serifDisplay()`, `serifDisplayItalic()`, `matchZoomNS` EnvironmentKey (Namespace.ID? optional, iOS 18 zoom transition), **`requiredFieldHighlight(_ triggerCount: Binding<Int>, cornerRadius:)`** — pulsing rust border ViewModifier (3 pulses × 0.65s, settles to 0.55 opacity, Int counter trigger, generation-tracked, snaps to 0 before each replay so full-range pulse every time)
+> - `LOFOApp.swift` — `@main`, NavigationStack, `@Namespace matchZoomNS`, AppDelegate adaptor, PushManager, deep link, Stripe key; routes `.loserVerify` → `LoserOTPView`
 > - `AppDelegate.swift` — APNs token callbacks → PushManager
 > - `Models/Item.swift`, `Models/Match.swift` — all structs are `Sendable` (required for Stripe SDK strict concurrency)
-> - `Services/` — APIClient, LocationManager, HapticManager, PushManager
-> - `ViewModels/` — AppState, FinderFlowState, LoserFlowState, MenuViewModel
-> - `Views/Home/` — HomeView (staggered entrance animation), MenuSheet
-> - `Views/Finder/` — FinderCameraView, FinderDoneView, PhoneVerifyView, OTPVerifyView, AllSetView
-> - `Views/Loser/` — LostPromptView, WaitingView (radar pulse), LoserWaitView (enhanced orb), MatchView (animated bar), OwnershipVerifyView, ConfirmedView
-> - `Views/Shared/` — ItemCardView (card shadow), TagChipView, LOFOButton, ReunionView, TipView, PhotoLightboxView
-> - `Fonts/` — DMSans-Regular/Medium/Bold.ttf, DMSerifDisplay-Regular.ttf
+> - `Services/` — APIClient (uploadSession 90s for photos), LocationManager (CLGeocoder reverse geocoding, startWatching/stopWatching), HapticManager, PushManager, **CameraManager** (AVFoundation, NSObject, not @Observable)
+> - `ViewModels/` — AppState (Screen enum: finder + loser cases incl. `.loserVerify`), FinderFlowState, LoserFlowState (`pendingPhone` + `whereDescription` fields), MenuViewModel
+> - `Views/Home/` — HomeView (proto-matching hero heading + left-aligned buttons with subtitles), MenuSheet
+> - `Views/Finder/` — **FinderCameraView** (full native camera viewfinder, centered bracket overlay, live location pill), **CameraPreviewView** (UIViewRepresentable), FinderDoneView, PhoneVerifyView, OTPVerifyView, AllSetView
+> - `Views/Loser/` — LostPromptView, WaitingView (radar pulse + matchedTransitionSource; phone section sends OTP → pushes `.loserVerify`), **LoserOTPView** (loser-specific OTP verify; on success shows LoserWaitView), LoserWaitView (breathing orb, "Hang tight. / Think positive.", "Back to home" → popToRoot), MatchView (animated bar + zoom transition), OwnershipVerifyView, ConfirmedView
+> - `Views/Shared/` — ItemCardView (card shadow), TagChipView, **LOFOButton** (left-aligned + arrow right, radiusL, ghost = underline link), ReunionView (connection graphic), TipView, PhotoLightboxView
+> - `Fonts/` — DMSans-Regular/Medium/Bold.ttf, DMSerifDisplay-Regular.ttf, **DMSerifDisplay-Italic.ttf**
 >
-> **Key arch note:** `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` — all types implicitly @MainActor. Model structs have `Sendable` (needed for Stripe SDK). APIClient methods do NOT have `nonisolated`. Do NOT change this pattern.
+> **Key arch notes:**
+> - `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` — all types implicitly @MainActor. Model structs have `Sendable`. APIClient methods do NOT have `nonisolated`. Do NOT change this pattern.
+> - `CameraManager` is an exception: it's an `NSObject` (not `@Observable`) with a dedicated `DispatchQueue` for AVFoundation session ops. Callbacks dispatch back to main thread. This pattern intentionally deviates from the rest of the app to handle AVFoundation's threading requirements.
+> - `LocationManager` geocoding: `reverseGeocode(location:)` is a regular (non-nonisolated) `@MainActor` method called from inside `Task { @MainActor in }` in the delegate callback. CLGeocoder callbacks fire on main thread so `locationName` is set directly.
+> - **`parseISO()` in WaitingView**: PostgreSQL `::text` timestamps arrive as `2026-03-16 19:58:14.07162+00` (space separator, 5 fractional digits, `+HH` tz). Normalization truncates to 3 fractional digits; `DateFormatter` with `x` pattern (accepts `±HH`) handles the rest. Do NOT revert to ISO8601DateFormatter-only — it will fail.
+> - **`Text +` concatenation deprecated in iOS 26**: use `Text("... \(Text(x).modifier())")` string interpolation instead. Already applied in WaitingView, OTPVerifyView, PhoneVerifyView.
+> - **`requiredFieldHighlight` API**: trigger is `@Binding<Int>` (not Bool). `triggerCount += 1` on button tap — always a new value so `onChange` fires unconditionally on every tap. `triggerCount = 0` clears the border (set in `.onChange(of: fieldValue)`). Inside the modifier: `withAnimation(nil) { pulseOpacity = 0 }` + `DispatchQueue.main.async` snaps to 0 before each replay so the pulse always runs full-range `0 → 1.0`, not `0.55 → 1.0` (which looked weak). Generation counter cancels stale settle-to-0.55 callbacks on re-trigger.
 >
-> **Next priorities — waiting on Apple Developer enrollment to clear (~24-48h from Mar 13):**
+> **Next priorities — waiting on Apple Developer enrollment:**
 > 1. developer.apple.com → App ID `ai.lofo.app` (Push + Apple Pay caps) + APNs key (.p8) + Merchant ID `merchant.ai.lofo`
 > 2. Railway env vars: `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_AUTH_KEY`, `APNS_BUNDLE_ID=ai.lofo.app`, `APNS_ENVIRONMENT=production`
 > 3. Xcode → Signing & Capabilities → Apple Pay → add `merchant.ai.lofo`
 > 4. Product → Archive → Distribute → TestFlight upload
-> 5. App Store Connect — listing (name: LOFO, subtitle: Lost & found, reunited by AI), screenshots (6.7" 1290×2796), privacy URL `https://lofo-ai-production.up.railway.app/privacy`, submit for review
-> Full step-by-step in 'iOS Phase G Checklist' section of this progress doc.
+> 5. App Store Connect — listing (name: LOFO, subtitle: Lost & found, reunited by AI), screenshots (6.7" 1290×2796), privacy URL, submit for review
+> Full step-by-step in 'iOS Phase G Checklist' section.
 >
-> **Further polish candidates (next session):** Remaining screens (LostPromptView, AllSetView, ConfirmedView, ReunionView, FinderCameraView) haven't received the visual upgrade yet — same pattern as screens already done. Also: custom navigation transitions (iOS 18+ zoom transition for match reveal), TagChipView refinements, photo lightbox polish.
+> **UI Polish Pass 5 (Phase 26i) — complete:**
+> - **LostPromptView**: Two-tone heading "What did" navy + "you lose?" rust italic. Rust rule + subtitle. `ScrollView` SwiftUI 6 fix.
+> - **AllSetView**: Rust rule below "All set." heading. `ScrollView` fix.
+> - **TipView**: Full rewrite — left-aligned top-anchored layout, 3-stage entrance animation, rust rule, `LOFOPressStyle` on amount buttons with selection shadow.
+> - **OwnershipVerifyView**: Full rewrite — removed double-Spacer centering, two-tone heading "Verify it's" navy + "yours." rust italic, rust rule, `lofoCardShadow()` on TextEditor, 3-stage entrance animation.
+> - **ConfirmedView**: Country code `Menu` + ISO badge + auto-formatter on phone field (same pattern as PhoneVerifyView/WaitingView). Pre-populates from `LoserFlowState.shared.loserPhone`.
+> - **PhotoLightboxView**: Entrance fade + scale-in animation on appear (spring).
+> - **LoserWaitView**: Orb shrunk 30% (154/109/70/45/6px), rings breathe together (0/0.18/0.35s stagger), core glow white 0.07→clear (no blob), layout raised to upper third. "Think positive." → `serifDisplayItalic` white 65%. White rule separator added. "Got it" pill → "Back To Home" plain text link → `popToRoot()`. Text entrance changed to spring.
 >
-> Start by reading `LOFO_AI_Progress.md`, then continue."
+> **Loser OTP flow (Phase 26i) — complete:**
+> - Loser phone flow now requires SMS verification before saving phone to item.
+> - `AppState.Screen`: added `.loserVerify`.
+> - `LoserFlowState`: added `pendingPhone: String?` (set when "Send Code" tapped, cleared on reset).
+> - `WaitingView`: "Notify me" → "Send Code →"; `savePhone()` replaced by `sendCode()` which calls `sendOTP()`, stores `pendingPhone`, pushes `.loserVerify`. `showLoserWait` state and `fullScreenCover` removed from WaitingView.
+> - **New `LoserOTPView`** (`Views/Loser/`): "Check your / phone." two-tone heading, 6 digit boxes (auto-advance, auto-submit on 6th), resend link. On verify success: saves phone to item + registers APNs push token + presents `LoserWaitView` as `fullScreenCover`.
+> - `LOFOApp`: `.loserVerify` → `LoserOTPView()` wired in navigationDestination.
+>
+> **Phase 26j — Required field validation highlight system — complete:**
+> - **`LOFORequiredFieldHighlight` ViewModifier** added to `Theme.swift`. Usage: `.requiredFieldHighlight($triggerCount, cornerRadius:)` where `triggerCount` is `@State var highlightXxx = 0`. Pulses 3× (5 half-cycles × 0.65s easeInOut = 3.25s), then settles to steady `0.55` opacity rust border. Trigger is `Int` — every `+= 1` is always a new value so `onChange` fires unconditionally. Before each pulse: `withAnimation(nil) { pulseOpacity = 0 }` + `DispatchQueue.main.async` ensures full-range `0→1.0` pulse on every tap (not weak `0.55→1.0`). Generation-tracked — stale settle callbacks cancelled on re-trigger. Clears when caller sets `= 0`.
+> - **LostPromptView**: `.disabled()` removed from "Start Looking" button. `submit()` does `highlightDescription += 1` + haptic on empty. `.onChange(of: description)` does `highlightDescription = 0` on typing.
+> - **OwnershipVerifyView**: Same — `.disabled()` removed, `verify()` does `highlightClaim += 1`.
+> - **PhoneVerifyView**, **ConfirmedView**, **WaitingView** phone section: `highlightPhone += 1` / `highlightLoserPhone += 1` + haptic on invalid phone; `.onChange` clears to `0`. WaitingView `sendCode()` was previously a completely silent `guard...else { return }` — now provides feedback.
+> - **LostPromptView "Where" field**: `location.fill` rust icon before label. "This is optional — you can simply describe where you lost it in the field above and we'll take care of the rest." helper text added below label.
+>
+> **Phase 26k — UI Polish Pass 6: full app consistency pass — complete:**
+> - **MenuSheet rebuilt**: `NavigationStack` removed. Custom X dismiss button (white circle, muted, 38×38, `lofoCardShadow()` — matches gear icon on HomeView). Staggered fade+lift entrance (header 0ms, usage 100ms, support 200ms, info 300ms). `LOFOPressStyle` on all row buttons. `HStack(alignment: .firstTextBaseline)` on stats row — aligns number baselines regardless of 1-line vs 2-line labels below.
+> - **WaitingView consistency fixes**: Rust rule corrected (solid rust → `rust.opacity(0.35)`, `32×2` → `40×1.5` — was the only offender in the entire app). Heading line spacing corrected (`VStack(spacing: 2)` → `spacing: 0` + `.padding(.bottom, -10)` on line 1). Phone section copy bumped to `sans(14) navy.opacity(0.7)`. Button relabeled "Confirm Phone Number".
+> - **WaitingView radar animation** rebuilt to match HTML prototype exactly: 3 stroke rings all 130px, `scale(0.4) opacity(0.14)` → `scale(2.1) opacity(0)`, 2.6s easeOut, delays 0/0.87/1.73s. Center circle 68px + expanding glow pulse (navy circle grows 68→92 and fades, simulates CSS `box-shadow` pulse). Frame height 130px.
+> - **MatchView**: `ScrollView(.vertical, showsIndicators: false)` iOS 26 fix. "That's Mine" title case.
+> - **OwnershipVerifyView**: Error messages now use `rust` color + `exclamationmark.circle` icon — no more raw `.red` Text.
+> - **ConfirmedView**: Heading rebuilt — left-aligned, badge above, "It's yours." navy `serifDisplay(38)` + "Confirmed." rust `serifDisplayItalic(38)` tight-stacked, rust rule, muted subtitle. Outer `VStack(alignment: .leading)`. "Connect Us Both" title case. Same styled error treatment.
+> - **TipView**: Styled error message. Button titles title-cased.
+> - **ReunionView full layout pass**: `ScrollView` top-anchored left-aligned. Connection graphic spring-animates first. "You're all" navy `serifDisplay(38)` + "set." rust `serifDisplayItalic(38)`, rust rule, two muted subtitle lines. Done button fades last. `.navigationBarBackButtonHidden(true)`.
+> - **All CTA buttons — title case applied app-wide**: "That's Mine", "Not My Item", "Verify Ownership", "Connect Us Both", "I'll Reach Out — Just Notify the Finder", "Confirm Phone Number", "Send Code", "Update Description", "Save Payout Info", "Select An Amount", "Skip — No Tip This Time", "Resend Code", "Back To Home".
+> - **Backend bug fix — `GET /stats/by-items` UUID case mismatch**: Swift `UUID.uuidString` is uppercase; PostgreSQL `uuid::text` is lowercase. Added `.lower()` to incoming ID strings before DB comparison. Deployed to Railway (commit `854ff40`). Stats in MenuSheet now show correctly after submitting items through iOS app.
+>
+> **All screens now fully polished.** No remaining polish candidates.
+>
+> Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
 ---
 
 ## Session History
+
+### Phase 26k — UI Polish Pass 6: Full App Consistency + Stats Bug Fix — March 16, 2026
+
+**MenuSheet rebuild:**
+- Removed `NavigationStack` + `.navigationTitle("LOFO")` + `.navigationBarTitleDisplayMode(.inline)` system chrome.
+- Custom X dismiss button: `Image(systemName: "xmark")`, `font(.system(size: 13, weight: .medium))`, `LOFOTheme.muted` foreground, `38×38` frame, `.background(.white)`, `.clipShape(Circle())`, `.lofoCardShadow()`. Matches gear button on HomeView exactly.
+- Staggered fade+lift entrance: header (0ms), My Usage (100ms), Support (200ms), Information (300ms). Each lifts 14pt over 350ms easeOut.
+- `LOFOPressStyle` added to FAQ rows, Contact Us, About LOFO, Terms of Service, Privacy Policy, Done button.
+- Stats row: `HStack(alignment: .firstTextBaseline)` — aligns number baselines so "32", "33", "1" all sit on the same line regardless of 1-line vs 2-line labels below.
+- `ScrollView(.vertical, showsIndicators: false)` throughout.
+
+**WaitingView consistency + animation rebuild:**
+- Rust rule was the only rule in the app using solid `fill(LOFOTheme.rust)` (full opacity) at `32×2pt`. Fixed to standard `rust.opacity(0.35)` at `40×1.5pt`.
+- Heading `VStack(spacing: 2)` → `VStack(spacing: 0)` + `.padding(.bottom, -10)` on "Looking for" line. Matches tight stacking on every other two-line heading in the app.
+- "Nothing nearby yet…" copy: `sansCaption() muted` → `sans(14) navy.opacity(0.7)` — more prominent, reads like a prompt.
+- Button relabeled "Confirm Phone Number".
+- Radar animation fully rebuilt to match HTML prototype: 3 stroke rings all 130px, `scale(0.4) opacity(0.14)` → `scale(2.1) opacity(0)`, 2.6s easeOut, delays 0/0.87/1.73s (was 72–148px rings at 1.25× scale, much weaker). Added center glow pulse (navy circle expands 68→92px and fades, matching CSS `box-shadow` pulse from prototype). Frame height 130px.
+
+**Flow screen consistency pass:**
+- **MatchView**: `ScrollView(.vertical, showsIndicators: false)` iOS 26 fix. "That's Mine" title case.
+- **OwnershipVerifyView**: Error messages → `HStack { Image("exclamationmark.circle") + Text }` in `LOFOTheme.rust`. No more raw `.red`.
+- **ConfirmedView**: Heading rebuilt from centered single-color to left-aligned two-tone: badge above, "It's yours." navy + "Confirmed." rust italic, rust rule, muted subtitle. Outer VStack `alignment: .leading`. "Connect Us Both". Same styled error message.
+- **TipView**: Styled error message. "Select An Amount", "Skip — No Tip This Time" title-cased.
+- **ReunionView full layout pass**: `ScrollView` top-anchored left-aligned (retired double-`Spacer` centering). Connection graphic (pulsing concentric rust circles + link icon) spring-animates first. "You're all" navy `serifDisplay(38)` + "set." rust `serifDisplayItalic(38)`, rust rule, two muted subtitle lines. Done button fades last. `.navigationBarBackButtonHidden(true)`.
+
+**Title case applied to all CTA buttons across 10 files:**
+"That's Mine" (×2), "Not My Item", "Verify Ownership", "Connect Us Both", "I'll Reach Out — Just Notify the Finder", "Confirm Phone Number", "Send Code", "Update Description" (×2), "Save Payout Info", "Select An Amount", "Skip — No Tip This Time", "Resend Code" (×2), "Back To Home".
+
+**Backend: `GET /stats/by-items` UUID case bug fixed (`main.py`):**
+- Root cause: Swift `UUID.uuidString` produces uppercase UUIDs (`"A7F3B2C4-..."`). PostgreSQL `uuid::text` produces lowercase (`"a7f3b2c4-..."`). Query used `id::text IN (placeholders)` — string comparison always failed, `COUNT(*)` returned 0.
+- Fix: `[x.strip().lower() for x in ids.split(",") ...]` — one character change.
+- Deployed to Railway, commit `854ff40`.
+
+---
+
+### Phase 26j — Required Field Highlight System + LostPromptView Location UX — March 16, 2026
+
+**Problem:** Tapping action buttons on screens with empty/incomplete required fields gave zero feedback — buttons with `.disabled()` were literally unresponsive, and phone fields silently returned without any indication.
+
+**Solution: `LOFORequiredFieldHighlight` ViewModifier (`Theme.swift`)**
+- New private `LOFORequiredFieldHighlight: ViewModifier` + `View.requiredFieldHighlight(_ triggerCount: Binding<Int>, cornerRadius:)` convenience extension.
+- Trigger is `@Binding<Int>` — every `+= 1` is always a new value so `onChange` fires unconditionally on every button tap (Bool approach failed because SwiftUI batched `false→true` in the same update cycle).
+- On each trigger: `withAnimation(nil) { pulseOpacity = 0 }` snaps border off instantly, then `DispatchQueue.main.async` starts the repeating animation on the next run loop. This ensures every replay runs the full `0 → 1.0` range — without the reset, a re-trigger from the `0.55` resting state only oscillated `0.55 ↔ 1.0`, looking weak.
+- Pulse: 5 half-cycles × 0.65s easeInOut = ~3.25s, then settles to steady `0.55` opacity rust border.
+- **Generation counter** (`@State private var generation: Int`): incremented on each trigger; the settle `DispatchQueue` callback checks its captured generation — cancels stale callbacks when re-triggered mid-animation.
+- When `triggerCount = 0`: border fades out over `0.3s` easeOut (set by caller's `.onChange(of: fieldValue)`).
+
+**LostPromptView (`Views/Loser/`):**
+- `.disabled()` removed from "Start Looking" button — button is always tappable.
+- `submit()`: empty guard fires `highlightDescription += 1` + `HapticManager.error()`.
+- `.requiredFieldHighlight($highlightDescription)` + `.onChange(of: description) { highlightDescription = 0 }`.
+- `whereField`: Added `location.fill` rust icon (12pt, 0.75 opacity) before "Where did you lose it?" label. Added "This is optional — you can simply describe where you lost it in the field above and we'll take care of the rest." muted caption below label.
+
+**OwnershipVerifyView (`Views/Loser/`):**
+- Same pattern. `.disabled()` removed. `verify()` fires `highlightClaim += 1`. `.onChange(of: claim)` clears.
+
+**PhoneVerifyView (`Views/Finder/`):**
+- `sendCode()` fires `highlightPhone += 1` + haptic alongside existing error text. `.onChange(of: phoneNumber)` clears.
+
+**ConfirmedView (`Views/Loser/`):**
+- `coordinate()` fires `highlightPhone += 1` + haptic. `.onChange(of: phone)` clears.
+
+**WaitingView (`Views/Loser/`):**
+- `sendCode()` was a completely silent `guard...else { return }` — now fires `highlightLoserPhone += 1` + `HapticManager.error()`. `.onChange(of: loserPhone)` clears.
+
+---
+
+### Phase 26i — iOS UI Polish Pass 5 + Loser OTP Flow + LoserWaitView Cleanup — March 16, 2026
+
+**Bug fixes:**
+- **WaitingView "Submitted at" blank** — PostgreSQL `::text` timestamps arrive as `2026-03-16 19:58:14.07162+00` (space separator, 5 fractional digits, `+HH` timezone without minutes). `parseISO()` updated with PostgreSQL-style `DateFormatter` formats using `x` ICU pattern (accepts `±HH`). Debug print added to confirm format, then removed.
+- **iOS 26 `Text +` deprecation** (6 warnings in WaitingView, OTPVerifyView, PhoneVerifyView) — all converted to `Text("... \(Text(x).modifier())")` string interpolation pattern.
+
+**UI Polish Pass 5 — screens polished:**
+
+**LostPromptView.swift:**
+- Two-tone heading: "What did" navy `serifDisplay(38)` + "you lose?" rust `serifDisplayItalic(38)`, `-10pt` stacking
+- Rust rule (40×1.5pt, opacity 0.35) + subtitle below
+- `ScrollView { }` → `ScrollView(.vertical, showsIndicators: false)` (SwiftUI 6 disambiguation)
+
+**AllSetView.swift:**
+- Rust rule added below "All set." heading
+- `ScrollView` fix
+
+**TipView.swift (full rewrite):**
+- Left-aligned top-anchored layout replacing centered double-Spacer
+- 3-stage entrance animation (heading 0ms, amounts 130ms, buttons 260ms)
+- Rust rule below heading
+- `LOFOPressStyle` on amount buttons, selection shadow
+
+**OwnershipVerifyView.swift (full rewrite):**
+- Removed double-`Spacer` centering → top-anchored `ScrollView(.vertical, showsIndicators: false)`
+- Two-tone heading "Verify it's" navy `serifDisplay(34)` + "yours." rust `serifDisplayItalic(34)`, `-8pt` stacking
+- Rust rule + subtitle
+- `lofoCardShadow()` on `TextEditor`
+- 3-stage entrance animation
+
+**ConfirmedView.swift:**
+- Added country code `Menu` + ISO badge + `(XXX) XXX-XXXX` auto-formatter to phone field (identical to PhoneVerifyView / WaitingView pattern)
+- Pre-populates from `LoserFlowState.shared.loserPhone` if user already gave phone on WaitingView
+- `coordinate()` updated to prepend country code digits before sending
+- `ScrollView` fix
+
+**PhotoLightboxView.swift:**
+- Entrance fade (`opacity 0→1`) + scale (`0.96→1`) spring animation on appear
+
+**LoserWaitView.swift (major cleanup):**
+- Orb shrunk 30%: outer 220→154, middle 155→109, inner 100→70, core 64→45, dot 8→6; `endRadius` 32→22
+- Ring breathe timing: large stagger (0/1.1/2.2s) → tight stagger (0/0.18/0.35s) — all rings breathe together
+- Core `RadialGradient`: `white.opacity(0.22)` → `white.opacity(0.07)` (invisible glow, not a solid blob)
+- Layout: equal `Spacer()` pair → capped top `Spacer(maxHeight: 72)` + free bottom `Spacer()` (orb in upper third)
+- Gap between orb and text: 44pt → 30pt
+- "Think positive." → `serifDisplayItalic(40)` `.white.opacity(0.65)` (two-tone heading)
+- Added `white.opacity(0.18)` 32×1.5pt rule separator
+- "Got it" white pill button → `"Back to home"` plain text link (`white.opacity(0.4)`) calling `isPresented = false` + `appState.popToRoot()`
+- Text entrance: `easeOut` → `spring(response: 0.55, dampingFraction: 0.82)`
+- Added `@Environment(AppState.self)` for `popToRoot()`
+
+**Loser OTP Flow:**
+
+**AppState.swift:**
+- Added `.loserVerify` case to `Screen` enum (between `.waiting` and `.match`)
+
+**LoserFlowState.swift:**
+- Added `pendingPhone: String?` field + cleared in `reset()`
+
+**WaitingView.swift:**
+- `isSavingPhone` → `isSendingCode: Bool` + `sendCodeError: String?`
+- Removed `showLoserWait: Bool` state and `LoserWaitView` `fullScreenCover`
+- Phone section: "Notify me" → "Send code →"
+- `savePhone()` replaced by `sendCode()`: validates digits, calls `APIClient.shared.sendOTP()`, stores E.164 phone in `LoserFlowState.shared.pendingPhone`, pushes `.loserVerify`
+- Error message shown inline in phone section if OTP send fails
+
+**New LoserOTPView.swift** (`Views/Loser/`):
+- Left-aligned top-anchored layout
+- Two-tone heading "Check your" navy `serifDisplay(36)` + "phone." rust `serifDisplayItalic(36)`, rust rule
+- Subtitle shows formatted phone number from `LoserFlowState.shared.pendingPhone` bold inline
+- 6 digit boxes: rust active border, auto-advance, auto-submit on 6th digit
+- "Didn't get it? Resend code" rust link
+- On verify success: `APIClient.shared.updateLoserInfo()` + `PushManager.shared.registerWithServer()` + shows `LoserWaitView` as `fullScreenCover`
+- `@State var showLoserWait = false` + `.fullScreenCover(isPresented: $showLoserWait)`
+
+**LOFOApp.swift:**
+- Added `.loserVerify: LoserOTPView()` to `navigationDestination` switch
+
+---
+
+### Phase 26h — iOS UI Polish Pass 4 — March 16, 2026
+
+**Screens polished:** FinderDoneView, ItemCardView (shared), PhoneVerifyView, OTPVerifyView, WaitingView
+
+**FinderDoneView.swift:**
+- Heading split: `"Nice one."` navy `serifDisplay(38)` + `"We've got it."` rust `serifDisplayItalic(38)`, tight `-12pt` top padding stacking, rust rule (`40×1.5pt`, opacity 0.35), scanning subtitle
+- Top padding `paddingXL`→`18pt`; VStack spacing `24`→`28`
+- Item card rendered with `showTags: false`; tags moved to `FlowLayout` below card. Height-capped at `142pt` (≈5 rows) using `GeometryReader` in `.background()` for natural-height measurement. "See all →" / "Show less" rust underline toggle with spring animation
+- Card subtitle: `LocationManager` (injected via `@Environment`, no `.shared`) `locationName` → formatted `createdAt` time fallback (`formattedSubmitTime`)
+- Secret detail section: `HStack(spacing: 2)` lock emoji + small-caps label → field → helper text below
+- AttrEditSheet open/close: `withAnimation(.spring(response: 0.95, dampingFraction: 0.72))`
+- AttrEditSheet: `FlowLayout` gets `.frame(maxWidth: .infinity, alignment: .leading)` — fixes chip bleed in sheet. Padding `paddingM`→`paddingL`. + button `46×46`→`40×40`, icon `16pt`→`14pt`
+- Build fixes: `LocationManager.shared` → `@Environment(LocationManager.self)`; `onChange(of:)` single-arg → two-arg `{ _, new in }`
+
+**ItemCardView.swift:**
+- Added `showTags: Bool = true` — when `false`, omits tag row; all existing callsites unaffected
+- Added `subtitle: String? = nil` — when `showTags: false`, shows `subtitle ?? size` as muted caption with `.lineLimit(1)`
+
+**PhoneVerifyView.swift (full rewrite):**
+- Left-aligned top-anchored `ScrollView` layout (removed double-`Spacer` centering)
+- Heading: "Where should / we reach you?" `serifDisplay(36)`, tight stacking, rust rule + subtitle
+- Country code: `Menu` with ISO badge (`US`/`GB`/etc. in `tagBg` rounded rect), 12 countries, defaults to `Locale.current.region`. `ForEach` uses `\.region` as ID (fixes US/CA duplicate `+1` bug). Menu items text-only (no emoji — simulator can't render flag emoji)
+- Phone field: `HStack` with menu + `1pt` divider + `TextField`. US auto-formats to `(XXX) XXX-XXXX` via `onChange`; other codes show raw digits capped at 15
+- Privacy policy helper text using `Text` concatenation (muted body + rust underlined "Privacy policy")
+- Button anchored to bottom via `.safeAreaInset(edge: .bottom)` with `LOFOTheme.cream` background
+- Content fade+lift entrance via `@State var appeared`
+- `sendCode` builds full phone as `countryCode.filter(\.isNumber) + localDigits`
+
+**OTPVerifyView.swift:**
+- Active digit box border: `LOFOTheme.navy` → `LOFOTheme.rust`
+- Layout: double-`Spacer` centering → top-anchored left-aligned `ScrollView`
+- Heading: "Please verify your / phone number." `serifDisplay(36)`, tight stacking, rust rule
+- Subtitle: `Text` concatenation shows `formattedPhone` (strips leading `1`, formats 10-digit US as `(XXX) XXX-XXXX`) bold inline
+- Resend: `"Didn't get it? "` (muted) + `"Resend code"` (rust underlined) inline `HStack`
+
+**WaitingView.swift:**
+- Radar `frame(height: 148)` → `frame(height: 96)` — eliminates invisible ring-space below navy circle
+- Radar `.padding(.top, 36)` → `18`; `.padding(.bottom, 24)` → `17`
+- Phone section: replaced broken `Text("🇺🇸")` with `Menu` + ISO badge + formatter (exact same pattern as PhoneVerifyView). `savePhone()` prepends country code. Button gets `icon: "arrow.right"`
+- `parseISO()`: normalizes microseconds→milliseconds (Supabase returns 6-digit, `ISO8601DateFormatter` only handles 3), then tries ISO8601 + 4 `DateFormatter` fallback formats for timezone-less responses
+- ⚠️ "Submitted at" time still blank — `parseISO` is correct but actual API `createdAt` format not confirmed. Debug: print `item?.createdAt` in console on appear
+
+---
+
+### Phase 26g — iOS UI Polish Pass 3 + Backend Intelligence Upgrades — March 15, 2026
+
+**Build environment:** Xcode 26.3, Swift 6 strict concurrency (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`), iOS 26 SDK.
+
+**Swift 6 / SwiftUI 6 build fixes:**
+- `ScrollView { }` — iOS 26 added a new `@_alwaysEmitIntoClient nonisolated init(_ axes:content:)` alongside the deprecated `init(_ axes:showsIndicators:content:)`. Both accept `_ axes: Axis.Set = .vertical` so bare `ScrollView { }` and `ScrollView(.vertical) { }` are both ambiguous. Fix: `ScrollView(.vertical, showsIndicators: false) { }` — the `showsIndicators:` label uniquely identifies the old overload. Applied in `FinderDoneView.swift` (outer view + AttrEditSheet) and `WaitingView.swift` (outer view + WaitingAttrEditSheet).
+- `Array.remove(at:)` — Swift 6 stdlib added a `@_alwaysEmitIntoClient nonisolated` overload, making the call ambiguous in strict concurrency mode. Fix: `details.removeSubrange(idx...idx)` (functionally identical, no ambiguity). Applied in both edit sheets.
+- Root cause investigation technique: read `SwiftUI.swiftinterface` at `/Applications/Xcode.app/.../iPhoneOS.sdk/.../SwiftUI.swiftmodule/...arm64e-apple-ios.swiftinterface` to see the actual overload signatures. Build logs reference `SwiftUI.ScrollView.init:6:10` and `SwiftUI.ScrollView.init:3:22` — these are line:col in that virtual interface file.
+
+**AttrEditSheet + WaitingAttrEditSheet (FinderDoneView.swift / WaitingView.swift):**
+- `save()` now calls `APIClient.shared.redescribeAttributes(itemId:itemType:details:)` instead of `updateAttributes`. This routes edits through Claude so "color was actually blue" correctly updates the `color` column rather than being dumped into `features` verbatim.
+
+**WaitingView status cards:**
+- Removed "AI-powered visual matching" card (sparkles icon) — redundant/generic.
+- Location card changed from hardcoded "Within 10 mi of your location" to dynamic "Near {locationLabel}" where `locationLabel` reads `LoserFlowState.shared.whereDescription` (falls back to "your location" if nil).
+
+**LoserFlowState.swift:**
+- Added `whereDescription: String?` field + reset in `reset()`.
+
+**LostPromptView.swift:**
+- After submit, sets `LoserFlowState.shared.whereDescription = item.locationName ?? (whereDescription.isEmpty ? nil : whereDescription)`. Claude's extracted location name takes priority over the typed "Where?" field.
+
+**Item.swift:**
+- Added `locationName: String?` with `CodingKey "location_name"`. Optional field — only populated by `/items/from-text` response; all other endpoints return nil (decoded as nil automatically since field is `String?`).
+
+**APIClient.swift:**
+- Added `redescribeAttributes(itemId:itemType:details:)` → `PATCH /items/{id}/redescribe`.
+- `validateResponse(_ response:)` now takes `data: Data` as second parameter. On non-2xx, attempts to decode `{"detail": "..."}` from the response body and includes it in the thrown `APIError`. All four call sites (get, post, patch, perform, photo upload) updated. Error messages now show e.g. "Error 502: Claude API error: overloaded_error" instead of "Server error (502)".
+
+**Backend main.py (deployed to Railway, commit `0a297e6`):**
+- `PATCH /items/{id}/redescribe` — new endpoint. `RedescribeRequest(item_type, details: list[str])`. Builds description string, calls Claude with `_TEXT_SYSTEM_PROMPT`, validates profile, updates all attribute columns in DB, calls `_store_embedding`. Returns `{ok, item_type, color, material, size, features}` (same shape as `/attributes`).
+- `TextItemResponse(ItemResponse)` — subclass adds `location_name: Optional[str] = None`. Used only on `/items/from-text`. NOTE: adding fields directly to `ItemResponse` crashes Railway on startup (FastAPI builds OpenAPI schema at startup; modifying a multi-endpoint response model triggers a schema conflict). Always subclass instead.
+- `_TEXT_SYSTEM_PROMPT` updated: asks Claude to extract `location` (human-readable name), `latitude`, and `longitude` as decimal numbers using its world knowledge. Instructs Claude to return the most precise location (specific field/terminal/corner), not just city.
+- `create_item_from_text` geocoding priority: (1) explicit `where_description` → Nominatim, (2) Claude's `latitude`/`longitude` direct (most precise — Claude knows "beach chalet soccer fields" exact coords), (3) Nominatim on Claude's `location` string as fallback, (4) device GPS.
+- `_geocode` improved: now retries up to 2× with progressively shorter queries by dropping leading words (handles cases where Nominatim doesn't know a specific sub-landmark but does know the parent).
+
+**Railway crash debugging notes:**
+- Symptom: `{"status":"error","code":502,"message":"Application failed to respond"}` from Railway — entire app down, not a Claude error.
+- Cause: adding a field to `ItemResponse` (used as `response_model` on multiple endpoints) caused FastAPI to fail during startup OpenAPI schema generation.
+- Fix: use a subclass (`TextItemResponse`) for the specific endpoint only.
+- Detection method: revert the commit, confirm app comes back up, then re-apply changes with the subclass approach.
+
+---
+
+### Phase 26d — Bug Fixes + Native Camera Viewfinder — March 13, 2026
+
+**What changed:**
+
+**Bug fix 1 — 502 on photo upload (backend `main.py`):**
+- Root cause: `claude_client.messages.create()` (synchronous Anthropic SDK) was called directly inside `async def create_item_from_photo`, blocking uvicorn's event loop. Railway's proxy saw no response and returned 502.
+- Also: `_store_embedding()` (sync Voyage SDK) had the same problem.
+- Fix: both wrapped in `await asyncio.to_thread(...)`. `import asyncio` added to top of `main.py`.
+- Committed and pushed to Railway (auto-deploy).
+
+**Bug fix 2 — iOS photos too large / timeout:**
+- Simulator photos from the library are full-resolution (3000×4000+ px). JPEG at 0.8 quality without resizing = 3–5 MB payload.
+- Fix 1: `UIImage.lofoResized(maxDimension: 1280)` resize helper added. Photos resized before compression (0.72 JPEG quality → typically under 300 KB).
+- Fix 2: `APIClient` now has a dedicated `uploadSession` with 90s request / 120s resource timeout for photo uploads. Default session remains 30s/60s for all other calls.
+
+**FinderCameraView — full native camera viewfinder rebuild:**
+- **New `CameraManager.swift`** (`Services/`) — `NSObject` subclass (not `@Observable` to avoid `@MainActor` vs AVFoundation background-thread conflict). Owns `AVCaptureSession`, handles permission request, configures session on dedicated `DispatchQueue`, delivers captured photo data via `onCapture` callback on main thread.
+- **New `CameraPreviewView.swift`** (`Views/Finder/`) — `UIViewRepresentable` whose backing layer IS `AVCaptureVideoPreviewLayer` (via `layerClass` override). Zero bridging overhead.
+- **`FinderCameraView.swift`** completely rewritten:
+  - Full-screen live `CameraPreviewView` on device; dark radial gradient fallback on simulator (no camera available).
+  - Corner bracket L-shape overlays (4× Path-drawn, 36px inset, 26px arm, white 0.65 opacity).
+  - Center copy: "Point at what *you found.*" (34pt serif) + "AI will read it automatically" subtitle.
+  - Bottom bar: dark gradient → solid strip with green-dot location pill, shutter button (82px outer ring + 68px inner fill), Back capsule (left), library PhotosPicker icon (right).
+  - Shutter tap → `capturePhoto()` → `analyzePhoto()` (resize + API call) → `FinderDoneView` on success.
+  - On error: returns to camera view (clears `capturedImageData`).
+- **`project.pbxproj`** — `INFOPLIST_KEY_NSCameraUsageDescription` added to both Debug and Release target configs. Required for App Store and for the system camera permission alert.
+
+**Build result:** BUILD SUCCEEDED — iPhone 17 Pro simulator, iOS 26.3.1
+
+---
+
+### Phase 26c — iOS Visual Polish (Remaining Screens) + iOS 18 Zoom Transition — March 13, 2026
+
+**What changed:** Completed the visual upgrade pass across all remaining screens. Every screen in the app now has entrance animations. Added iOS 18 zoom navigation transition for the match reveal moment.
+
+**`Theme.swift`:**
+- New `MatchZoomNSKey: EnvironmentKey` for sharing the `@Namespace` across WaitingView (source) and MatchView (destination). Default is `Namespace().wrappedValue` — safe throwaway that falls back to default push animation if not injected.
+- `extension EnvironmentValues { var matchZoomNS: Namespace.ID }` — accessed via `@Environment(\.matchZoomNS)` in views.
+
+**`LOFOApp.swift`:**
+- `@Namespace private var matchZoomNS` added to App struct.
+- `.environment(\.matchZoomNS, matchZoomNS)` injected on the NavigationStack.
+- `.match` `navigationDestination` case now applies `.navigationTransition(.zoom(sourceID: "matchRadar", in: matchZoomNS))` under `if #available(iOS 18.0, *)`. Falls back to standard push on iOS 17.
+
+**`WaitingView.swift`:**
+- `@Environment(\.matchZoomNS) private var matchZoomNS` added.
+- New `@ViewBuilder var radarWithSource` wraps `radarAnimation` with `.matchedTransitionSource(id: "matchRadar", in: matchZoomNS)` under `if #available(iOS 18.0, *)`. Used in place of `radarAnimation` in body. Effect: the searching radar circle zooms out into the MatchView reveal.
+
+**`LostPromptView.swift`:** 3-stage entrance — heading spring-scales from 97%→100% + lifts (0ms), description editor fades+lifts (130ms delay), where field + button fade+lift (240ms delay). `lofoCardShadow()` added on description TextEditor and where TextField.
+
+**`AllSetView.swift`:** 2-stage entrance — heading spring-scales from 97%→100% + lifts (0ms), payout section + Done button fade+lift (180ms delay). `lofoCardShadow()` on `appPicker` and `savedRow`. `savedRow` uses `LOFOPressStyle` Edit button + rust-colored checkmark (matches MatchView's reason checkmarks). Handle fields now have smooth `.transition(.opacity.combined(with: .offset(y: 8)))` on appear.
+
+**`ConfirmedView.swift`:** Big-moment 3-stage entrance (triggers `HapticManager.matchConfirm()` on appear). New `confirmedBadge` — rust-light circle with a rust checkmark icon (56×56). Heading spring-scales from 92%→100% (tighter spring response: 0.46, damping: 0.72 for a more "pop" feel), item card rises from below at 22px (delay 160ms), phone field + buttons fade+lift at 14px (delay 320ms). `lofoCardShadow()` on phone TextField.
+
+**`ReunionView.swift`:** Celebratory design. New `connectionGraphic` — three concentric circles (rust/rustLight palette) with a `link.circle.fill` SF Symbol (34pt). Outer ring gently pulses in size (1.8s easeInOut repeatForever) after entrance. 3-stage entrance: graphic spring-scales from 80%→100% (0ms), text fade+lift (200ms delay), Done button fade+lift (380ms delay). Heading font size bumped 32→34 to match AllSetView's "All set." title weight.
+
+**`FinderCameraView.swift`:** Photo prompt fades+lifts+scales (97%→100%) on appear with 60ms delay. `cameraIconArea` replaces flat camera icon — two concentric soft circles (navy opacity 4–6%) behind the camera icon for depth. `lofoCardShadow()` on the dashed-border photo picker card. Selected image also uses `lofoCardShadow()` (replaces manual `.shadow()`). `aiOverlay` overhauled — pulsing concentric rings (matching WaitingView radar pattern, 3 rings, 2.2s easeOut repeatForever, staggered by 0.65s) with a centered sparkles icon in a soft white circle. "Reviewing photo…" bumped to 20pt. `scanPulse` state starts on aiOverlay's own `.onAppear`.
+
+**Build result:** BUILD SUCCEEDED — iPhone 17 Pro simulator, iOS 26.3.1
+
+---
 
 ### Phase 26b — iOS Visual Polish — March 13, 2026
 
