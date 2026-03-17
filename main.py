@@ -1694,7 +1694,7 @@ _STATS_BY_ITEMS_MAX_IDS = 100
 @app.get("/stats/by-items", include_in_schema=False)
 def stats_by_items(ids: str = Query("")):
     """User-level stats — counts for items the user has created (passed as comma-separated UUIDs)."""
-    id_list = [x.strip() for x in ids.split(",") if x.strip()][:_STATS_BY_ITEMS_MAX_IDS]
+    id_list = [x.strip().lower() for x in ids.split(",") if x.strip()][:_STATS_BY_ITEMS_MAX_IDS]
     if not id_list:
         return {"lost_count": 0, "found_count": 0, "reunited_count": 0}
 
