@@ -959,10 +959,11 @@ def match_item(body: MatchRequest):
     richness  = _query_richness(loser_attrs)
     threshold = _RERANK_THRESHOLDS[richness]
 
+    # Stage C: Cohere Rerank
+    reranker_scores = [0.0] * len(candidates)
+    cohere_ok = False
+
     if _cohere_client:
-        # Stage C: Cohere Rerank — structured attribute format gives reranker
-        # the clearest signal without noise from free-text variation
-        reranker_scores = [0.0] * len(candidates)
         try:
             query_doc = _build_rerank_text(
                 loser_item_type,
@@ -989,10 +990,13 @@ def match_item(body: MatchRequest):
             )
             for result in rerank_result.results:
                 reranker_scores[result.index] = result.relevance_score
+            cohere_ok = True
+            print(f"[LOFO rerank] OK — {len(candidates)} candidates, top score={max(reranker_scores):.3f}, richness={richness}")
         except Exception as exc:
             print(f"[LOFO rerank] Cohere error: {exc} — falling back to cosine-only")
 
-        # Stage D: Composite score + Stage E: Dynamic threshold
+    if cohere_ok:
+        # Stage D: Composite score + Stage E: Dynamic threshold on final_score
         scored: list[tuple[float, dict]] = []
         for i, c in enumerate(candidates):
             cosine   = float(c["similarity_score"])
@@ -1014,11 +1018,15 @@ def match_item(body: MatchRequest):
         return [c for _, c in scored[:5]]
 
     else:
-        # Cosine-only fallback when COHERE_API_KEY is not set.
-        # item_type is already a hard gate above; color + sidedness already filtered.
-        # Apply 0.78 cosine floor and return top 5 by similarity.
-        results = [c for c in candidates if float(c["similarity_score"]) >= 0.78]
+        # Cosine-only fallback: Cohere unavailable or errored.
+        # item_type hard gate + color + sidedness already applied above, so false
+        # positives are controlled. Use richness-adjusted cosine thresholds —
+        # lower than the old 0.78 because the hard type gate now does the precision work.
+        cosine_thresholds = {"sparse": 0.58, "medium": 0.62, "rich": 0.68}
+        floor = cosine_thresholds[richness]
+        results = [c for c in candidates if float(c["similarity_score"]) >= floor]
         results.sort(key=lambda x: float(x["similarity_score"]), reverse=True)
+        print(f"[LOFO rerank] cosine-only fallback — floor={floor}, richness={richness}, results={len(results)}")
         return results[:5]
 
 
