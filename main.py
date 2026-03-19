@@ -286,10 +286,10 @@ def public_stats():
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT COUNT(*) FROM reunions
+                    SELECT COUNT(*) AS c FROM reunions
                     WHERE created_at >= NOW() - INTERVAL '7 days'
                 """)
-                count = cur.fetchone()[0]
+                count = cur.fetchone()['c']
         return {"reunions_this_week": count}
     except Exception:
         return {"reunions_this_week": 0}
