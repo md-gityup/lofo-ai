@@ -279,6 +279,21 @@ def serve_ui():
     return FileResponse(os.path.join(os.path.dirname(__file__), "LOFO_MVP.html"))
 
 
+@app.get("/stats/public")
+def public_stats():
+    """Weekly reunion count — public, no auth required."""
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT COUNT(*) FROM reunions
+                    WHERE created_at >= NOW() - INTERVAL '7 days'
+                """)
+                count = cur.fetchone()[0]
+        return {"reunions_this_week": count}
+    except Exception:
+        return {"reunions_this_week": 0}
+
 @app.get("/health", include_in_schema=False)
 def health_check():
     try:
