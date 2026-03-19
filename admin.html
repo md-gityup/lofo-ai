@@ -244,6 +244,8 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
 .deactivate-btn:hover { background: var(--rdim); border-color: var(--red); }
 .extend-btn { color: var(--accent); border-color: rgba(96,165,250,0.3); }
 .extend-btn:hover { background: var(--adim); border-color: var(--accent); }
+.archive-btn { color: var(--muted); border-color: rgba(255,255,255,0.1); padding: 4px 7px; font-size: 13px; line-height: 1; }
+.archive-btn:hover { background: var(--rdim); border-color: var(--red); color: var(--red); }
 
 /* Thumb */
 .thumb {
@@ -1057,6 +1059,13 @@ async function loadTips() {
 }
 
 // ── Actions ──
+async function archiveItem(id) {
+  const res = await api('PATCH', `/admin/items/${id}/archive`);
+  if (res?.ok) {
+    const row = document.getElementById(`row-${id}`);
+    if (row) row.remove();
+  }
+}
 async function deactivateItem(id) {
   if (!confirm('Deactivate this item? It will no longer appear in match results.')) return;
   const res = await api('PATCH', `/admin/items/${id}/deactivate`);
@@ -1075,7 +1084,7 @@ async function extendItem(id) {
   if (res?.ok) await loadTab(activeTab);
 }
 function rowActions(id) {
-  return `<button class="action-btn deactivate-btn" onclick="event.stopPropagation();deactivateItem('${id}')">Deactivate</button><button class="action-btn extend-btn" onclick="event.stopPropagation();extendItem('${id}')">+30d</button>`;
+  return `<button class="action-btn deactivate-btn" onclick="event.stopPropagation();deactivateItem('${id}')">Deactivate</button><button class="action-btn extend-btn" onclick="event.stopPropagation();extendItem('${id}')">+30d</button><button class="action-btn archive-btn" title="Archive (hide from table)" onclick="event.stopPropagation();archiveItem('${id}')">✕</button>`;
 }
 
 // ── Debug Matcher ──

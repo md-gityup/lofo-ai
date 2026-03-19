@@ -1911,7 +1911,7 @@ def admin_items(type: Optional[str] = None, period: str = "all", admin=Depends(_
                     photo_url,
                     (secret_detail IS NOT NULL) AS has_secret
                 FROM items
-                WHERE 1=1 {type_filter} {pf}
+                WHERE status != 'archived' {type_filter} {pf}
                 ORDER BY created_at DESC
                 LIMIT 200
             """)
@@ -1961,6 +1961,21 @@ def admin_tips(period: str = "all", admin=Depends(_verify_admin)):
             """)
             rows = cur.fetchall()
     return [dict(r) for r in rows]
+
+
+@app.patch("/admin/items/{item_id}/archive", include_in_schema=False)
+def admin_archive_item(item_id: uuid.UUID, admin=Depends(_verify_admin)):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE items SET status = 'archived' WHERE id = %s RETURNING id",
+                (str(item_id),),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"ok": True}
 
 
 @app.patch("/admin/items/{item_id}/deactivate", include_in_schema=False)
