@@ -30,7 +30,7 @@ claude_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
 
 _COHERE_API_KEY = os.getenv("COHERE_API_KEY", "")
-_cohere_client = cohere.ClientV2(api_key=_COHERE_API_KEY) if _COHERE_API_KEY else None
+_cohere_client = cohere.Client(api_key=_COHERE_API_KEY) if _COHERE_API_KEY else None
 if not _COHERE_API_KEY:
     print("[LOFO] COHERE_API_KEY not set — reranker disabled, using cosine-only fallback")
 
