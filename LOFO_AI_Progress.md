@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 17, 2026 — TestFlight live (build 1.0.0 (1) uploaded, Internal group created). ReunionView + TipView redesigned. Tip flow redesign concept on ice. See Session History below.*
+*Last updated: March 19, 2026 — Build 1.0.0 (4) uploaded to TestFlight. Admin: archive button, Near-Miss Analyzer, Re-embed All. Matching engine: natural language embeddings + item_type filter. Core matching problem identified + technical brief written — new plan incoming.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -226,7 +226,8 @@ Add/remove users by editing this variable and redeploying. No code changes neede
 
 ## Known Bugs To Fix
 
-*None — all known bugs resolved. (WaitingView "Submitted at" blank fixed in Phase 26i — PostgreSQL `::text` timestamp format confirmed as `2026-03-16 19:58:14.07162+00`.)*
+**Matching engine — fundamental problem identified (March 19, 2026):**
+Cosine similarity on Voyage-3 general embeddings does not reliably discriminate item types. A "blue glove" loser item returns a backpack (69%) above actual gloves (62–68%) because color dominates the embedding space. Natural language format + item_type repetition helped but didn't solve score compression. Full technical brief in Session History. New matching architecture plan incoming from user — implement in next session.
 
 ## Manual Setup (Phase 12a)
 
@@ -519,8 +520,8 @@ Then redeploy Railway.
 >
 > **What's running (Phases 1–22 deployed):** Live API at `https://lofo-ai-production.up.railway.app`, web frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Admin at `/admin`, map at `/map`. UptimeRobot keep-alive. Lifecycle cron via GitHub Actions.
 >
-> **iOS app — ALL phases A–G complete + TestFlight LIVE + UI polish passes 2–8 + Phases 26m–26r done:**
-> Native SwiftUI at `~/Desktop/LOFO/LOFO.xcodeproj`. **BUILD SUCCEEDED** — iPhone 17 Pro, iOS 26.3.1, Xcode 26.3. Full finder + loser + match + reunion + tip flows. Push notifications (PushManager + APNs). StripePaymentSheet v25.7.1 SPM added, test key `pk_test_51T7nErBOu...` wired. Supabase `device_tokens` migration done. **TestFlight build 1.0.0 (1) live — Internal group active.**
+> **iOS app — ALL phases A–G complete + TestFlight LIVE + build 1.0.0 (4) live:**
+> Native SwiftUI at `~/Desktop/LOFO/LOFO.xcodeproj`. **BUILD SUCCEEDED** — iPhone 17 Pro, iOS 26.3.1, Xcode 26.3. Full finder + loser + match + reunion + tip flows. Push notifications (PushManager + APNs). StripePaymentSheet v25.7.1 SPM added, test key `pk_test_51T7nErBOu...` wired. Supabase `device_tokens` migration done. **TestFlight build 1.0.0 (4) live. Next upload = build 5 (bump CURRENT_PROJECT_VERSION to 5 before archiving).**
 >
 > **FinderCameraView** is a full native camera viewfinder (AVFoundation): live preview, centered viewfinder bracket overlay, "Point at what you found." center copy, shutter button, library picker, location pill (shows real city/state/zip on device). Falls back to dark gradient on simulator (no real camera).
 >
@@ -532,7 +533,7 @@ Then redeploy Railway.
 >
 > **SMS:** Code-complete, pending Twilio A2P carrier approval (Campaign SID `CM50255157...`, ~2–3 weeks from Mar 12).
 >
-> **iOS app — 37 Swift files:**
+> **iOS app — 38 Swift files** (added `ConfirmedOTPView.swift` in Phase 26p):
 > - `Theme.swift` — colors, DM Sans + DM Serif Display + DM Serif Display Italic, `LOFOPressStyle`, `lofoCardShadow()`, `serifDisplay()`, `serifDisplayItalic()`, `matchZoomNS` EnvironmentKey (Namespace.ID? optional, iOS 18 zoom transition), **`requiredFieldHighlight(_ triggerCount: Binding<Int>, cornerRadius:)`** — pulsing rust border ViewModifier (3 pulses × 0.65s, settles to 0.55 opacity, Int counter trigger, generation-tracked)
 > - `LOFOApp.swift` — `@main`, NavigationStack, `@Namespace matchZoomNS`, AppDelegate adaptor, PushManager, deep link, Stripe key; routes `.loserVerify` → `LoserOTPView`, `.confirmedVerify` → `ConfirmedOTPView`
 > - `AppDelegate.swift` — APNs token callbacks → PushManager
@@ -554,30 +555,163 @@ Then redeploy Railway.
 > - **Italic font**: `DMSerifDisplay-Italic.ttf` internal PostScript name is `DMSerifText-Italic`. Registration uses filename; `serifDisplayItalic()` uses PostScript name. Both must stay in sync.
 > - **Multi-match carousel**: `LoserFlowState.matchQueue: [Match]` holds all candidates. `matchedItem: Match?` set only at claim time (used by downstream screens). WaitingView guard: `matchQueue.isEmpty && matchedItem == nil`.
 > - **OTP flows**: WaitingView phone → `LoserOTPView` (saves phone to item, shows LoserWaitView). ConfirmedView phone → `ConfirmedOTPView` (calls coordinateHandoff, pushes .tip). Both read from `LoserFlowState.pendingPhone`.
+> - **OTP paste/QuickType**: All 3 OTP views (`OTPVerifyView`, `LoserOTPView`, `ConfirmedOTPView`) handle iOS QuickType paste in `handleDigitChange` — detects `numeric.count == 6`, distributes digits across all boxes, returns early. `verify()` guarded with `!isVerifying` to prevent double-call from onChange cascade.
+> - **TextEditor backgrounds**: All `TextEditor` instances require `.scrollContentBackground(.hidden)` before `.background(.white)` — otherwise iOS renders its own scroll background on top (appears black). Currently applied in `LostPromptView` and `OwnershipVerifyView`.
+> - **TextField foreground colors**: All `TextField` instances must have explicit `.foregroundStyle(LOFOTheme.navy)` — `.primary` defaults can render invisible in sheet presentation contexts. Audit complete as of build 1.0.0 (2).
+> - **Location permission**: `NSLocationWhenInUseUsageDescription` key required in `project.pbxproj` for location to work at all. Already added. `LocationManager.startWatching()` reads `manager.authorizationStatus` directly (not cached `authorizationStatus` property) to avoid stale `.notDetermined` on re-open.
 >
 > **⚠️ Critical — file persistence:** All 37 Swift files in `~/Desktop/LOFO/LOFO/` must exist on disk. If a clean build fails with "Cannot find 'LOFOTheme' in scope" across many files, files have dropped off disk. Use the Cursor Read tool to recover them — Cursor's index retains content even when files drop off disk. (Happened March 17, 2026 — 11 files recovered.)
 >
 > **TestFlight status (as of March 17, 2026):**
-> - Build 1.0.0 (1) uploaded and live in Internal group on App Store Connect.
+> - **Build 1.0.0 (2) uploaded** — real-device bug fixes from first TestFlight session. Live in Internal group.
+> - Build 1.0.0 (1) was the initial upload; superseded by (2).
 > - APNs Key ID + `APNS_TEAM_ID` + `APNS_AUTH_KEY` added to Railway env vars.
 > - Merchant ID `merchant.ai.lofo` registered, Apple Pay capability in Xcode.
 > - Export compliance set: No encryption beyond iOS standard.
-> - **Testing on real device now active — bugs being catalogued.**
+> - **⚠️ Archive signing note:** "Automatically manage signing" fails on Archive when no device UDID registered. Fix: Signing & Capabilities → Release tab → uncheck auto-manage → manually select "LOFO App Store" distribution profile → then Archive.
+>
+> **New in build 1.0.0 (4) — March 18, 2026 session:**
+> - **HomeView redesign**: LOFO wordmark → DM Sans Medium rust 12pt tracking 2.2. Heading → Playfair Display variable font weight 100 (Thin), "Lost something?" upright navy / "Found something?" italic rust, 52pt. Subtitle → "LOST & FOUND. REINVENTED." DM Sans Medium 13pt uppercase tracking 1. Button subtitles updated. `.padding(.top, 32)` between wordmark and heading.
+> - **Weekly stat footer**: Rust dot + "X items reunited this week" centered below buttons via overlay. Fetches `GET /stats/public` on appear; hides if 0 or fails.
+> - **`lofoBackButton()` ViewModifier** (`Theme.swift`): replaces system back button with 38×38 white circle + chevron matching gear button. Applied to `FinderDoneView`, `PhoneVerifyView`, `OTPVerifyView`, `LostPromptView`, `OwnershipVerifyView`.
+> - **`AllSetView` payout mismatch error**: now uses exclamation icon + clearer message. Validates on button tap (standard iOS).
+> - **App Version in MenuSheet**: reads `CFBundleShortVersionString (CFBundleVersion)` from bundle — auto-updates, no manual edits needed.
+> - **Playfair Display VF fonts** bundled: `PlayfairDisplay-VF.ttf` + `PlayfairDisplay-Italic-VF.ttf`. Helpers: `playfairExtraBold/playfairExtraBoldItalic` use CTFont variable axis API (weight 100). To change weight, update the `900.0` → desired value in `LOFOTheme.playfairVF`.
+> - **Backend**: `GET /stats/public` deployed. Fixed RealDictCursor bug (`fetchone()[0]` → `fetchone()['c']`).
+> - **`CURRENT_PROJECT_VERSION` = 4. Build 1.0.0 (4) uploaded to TestFlight March 19, 2026. Next upload = 5.**
+>
+> **Admin updates (March 19, 2026):**
+> - **Archive button (✕)** on every item row — sets `status = 'archived'`, instantly removes row from table. Record preserved in DB. Recoverable via Supabase SQL (`UPDATE items SET status = 'active' WHERE id = '...'`). `GET /admin/items` excludes archived items. `PATCH /admin/items/{id}/archive` endpoint.
+> - **Near-Miss Analyzer** in Debug Matcher tab — paste any item ID (lost or found), see top 10 closest candidates of opposite type ranked by similarity with NO threshold/distance filter. Each candidate shows: score %, colored bar with 78% threshold tick, ✅ WOULD MATCH / ❌ BLOCKED verdict, exact block reasons. Click any candidate → pre-fills pair debugger above and runs it. `POST /admin/debug/near-misses` endpoint.
+> - **"🔍 Near-Miss Analyzer →" button** in every expanded row detail panel — one click jumps to Debug tab and runs analysis for that item.
+> - **Re-embed All button** in Debug tab — calls `POST /admin/reembed-all`, re-embeds all non-archived items in batches of 50 using current `_build_embedding_text` format. Use after changing embedding format.
+> - **`_debug_pair_analysis()` helper** extracted — shared by both the pair debugger and near-miss endpoint. No logic duplication.
+>
+> **Matching engine changes (March 19, 2026) — partial fix, deeper problem remains:**
+> - `_build_embedding_text` rewritten: key-value format → natural language sentence. `"A small blue wool glove with winter design. glove."` — item_type as sentence subject + repeated at end for embedding weight.
+> - `_item_types_compatible()` function + `_ITEM_TYPE_SYNONYMS` table (20 groups). Added as post-filter in match endpoint: incompatible types raise threshold to 0.88 (vs 0.78). Synonym groups cover gloves/mittens, hats/beanies, bags/purses, keys/keychains, etc.
+> - `_MATCH_SQL` item_type field already in SELECT — no schema change needed.
+>
+> **⚠️ Matching engine — fundamental problem (see Session History for full technical brief):**
+> Cosine similarity on Voyage-3 general embeddings is not a reliable object identity classifier. Score distribution is compressed (all items 62–69% regardless of type). "Blue glove" vs "navy blue backpack" = 69%; "blue glove" vs actual gloves = 62–68%. Color dominates over item type in Voyage's embedding space. The natural language fix + item_type raised threshold are partial improvements but don't solve the core problem. User has a new architecture plan to implement next session.
 >
 > **On ice (do not implement without discussion):**
 > - Tip flow redesign: "tip intent" concept (loser picks amount upfront, charged after reunion confirmed). Post-reunion trigger via SMS relay silence heuristic + time-bomb fallback. Detailed design in Session History Phase 26q.
 > - Unit economics: ~$0.25/reunion in Twilio costs, $10 avg tip, net ~$0.87 per loop (2% Stripe on $10, no fixed fee on Apple Pay).
 >
 > **Next priorities:**
-> 1. Fix bugs discovered during TestFlight testing on real device (user is cataloguing these — address in next session).
-> 2. AllSetView — raw `.red` used for errors; should be `LOFOTheme.rust` for consistency (minor polish, low priority).
+> 1. **Matching engine redesign** — user has a new plan. Present it to the agent, discuss architecture, then implement. See "Matching engine — fundamental problem" above + full technical brief in Session History (March 19, 2026) for context.
+> 2. Continue real-device TestFlight testing on build 1.0.0 (4) — catalogue any new bugs.
 > 3. App Store listing: screenshots (6.7" 1290×2796), app description, privacy URL, submit for review when ready.
+> 4. `LocationManager` — `CLGeocoder` + `reverseGeocodeLocation` deprecated in iOS 26. Future cleanup: migrate to `MKReverseGeocodingRequest`. Non-blocking warnings only, not urgent.
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
 ---
 
 ## Session History
+
+### Admin Tooling + Matching Engine Investigation — March 19, 2026
+
+**What shipped:**
+
+**Build 1.0.0 (4) uploaded to TestFlight** — build from previous session, uploaded this session.
+
+**Admin: Archive button**
+- ✕ button added to every item row in Lost/Found tabs. Sets `status = 'archived'`, removes row from table instantly. Record preserved in DB. `GET /admin/items` now excludes `status = 'archived'`. `PATCH /admin/items/{id}/archive` endpoint added.
+
+**Admin: Near-Miss Analyzer**
+- New panel in Debug Matcher tab. Input: one item ID. Output: top 10 closest candidates of opposite type, ranked by cosine similarity, no threshold/distance filter applied. Each card shows: score %, colored progress bar with 78% threshold tick line, ✅ WOULD MATCH or ❌ BLOCKED verdict, exact block reason text.
+- Clicking a candidate card pre-fills the pair debugger above and runs it — "drill down" from list to full pair analysis in one click.
+- "🔍 Near-Miss Analyzer →" button added to expanded row detail panel in Lost/Found tables — jumps to Debug tab and runs analysis for that item automatically.
+- `POST /admin/debug/near-misses` endpoint. `_debug_pair_analysis()` helper extracted and shared between this endpoint and the existing pair debugger — no logic duplication.
+
+**Admin: Re-embed All**
+- "Re-embed All →" button in Debug tab. Calls `POST /admin/reembed-all` — fetches all non-archived items, re-embeds in batches of 50 via Voyage API, updates `embedding` column. Use after changing `_build_embedding_text` format.
+
+**Matching engine: partial fix**
+- `_build_embedding_text` rewritten from key-value (`item_type: glove color: blue...`) to natural language sentence (`"A small blue wool glove with winter design. glove."`). Item_type is sentence subject + repeated at end to anchor the embedding.
+- `_item_types_compatible(type_a, type_b)` function added. Checks: exact match, containment ("glove" in "winter glove"), or shared synonym group from `_ITEM_TYPE_SYNONYMS` (20 groups). Wired into match endpoint: incompatible types raise threshold 0.78 → 0.88.
+
+**Matching engine: fundamental problem identified**
+Near-Miss Analyzer testing revealed that Voyage-3 general embeddings don't cleanly separate item types. Running "blue glove" loser against all finder items: backpack scored 69%, bracelet 68%, wallet 68%, actual gloves 62–68%. Everything lands in a 7-point band. Color dominates over item type. Natural language format helped but didn't solve score compression. Detailed technical brief prepared (see below) for next agent session.
+
+**Technical brief for matching engine redesign:**
+
+*Architecture:* Each item profile (item_type, color, material, size, features) → `_build_embedding_text()` → Voyage-3 1024-dim vector → stored in pgvector. Match: cosine similarity (`1 - embedding <=> embedding`) → top 5 by score → Python filters: similarity ≥ 0.78, color compatibility, item_type compatibility (raised threshold).
+
+*Problem:* Voyage-3 is a general semantic similarity model, not an object identity classifier. In its embedding space, short physical object descriptions cluster tightly (60–70% similarity). Color is a dominant signal — "blue glove" and "navy blue backpack" score 69%. Score distribution is too compressed to use a threshold alone for type discrimination. Description asymmetry compounds this: finders over-describe (AI extracts 50 words), losers under-describe (8 words), producing a sparse loser vector equidistant from everything.
+
+*What was tried:* Key-value format (equal field weights) → natural language with item_type as subject + repeated (partial improvement) → item_type raised threshold to 0.88 (doesn't help when backpack already scores 69%).
+
+*Open questions for new architecture:*
+1. Should item_type be a mandatory hard gate (SQL filter) rather than a scoring component at all?
+2. Is cosine similarity the right tool, or would a cross-encoder reranker ("same object: yes/no?") give better precision?
+3. Should the embedding only cover color/material/size/features (not item_type), with item_type handled categorically?
+4. What threshold strategy works when description lengths are asymmetric by design?
+5. Would a two-tower model trained on lost/found pairs outperform a general embedding model?
+
+---
+
+### Build 1.0.0 (3) — HomeView Redesign + Polish — March 18, 2026
+
+**What's in this build:**
+
+**HomeView redesign:**
+- LOFO wordmark: changed from DM Serif Display navy to DM Sans Medium rust, 12pt, tracking 2.2 (matches web prototype)
+- More space between wordmark and heading: `.padding(.top, 32)` (was 8)
+- Heading font: swapped DM Serif Display → Playfair Display variable font at weight 100 (Thin). "Lost something?" upright navy, "Found something?" italic rust. Both 52pt, tracking -1, -11pt gap between groups
+- Subtitle: "Lost & Found. Reinvented." in DM Sans Medium 13pt uppercase tracking 1 (matches SUPPORT/INFORMATION header style in menu)
+- Button subtitles: "Snap a photo. We'll take it from there." / "Tell us what and where. We're on it."
+- Weekly stat footer: rust dot + "X items reunited this week" centered below buttons via overlay (layout-neutral). Fetches from `GET /stats/public` on appear; hides if 0 or fetch fails
+
+**Back button consistency:**
+- New `lofoBackButton()` ViewModifier in `Theme.swift` — hides system back button, replaces with 38×38 white circle + 15pt chevron + shadow + LOFOPressStyle. Matches gear button exactly.
+- Applied to: `FinderDoneView`, `PhoneVerifyView`, `OTPVerifyView`, `LostPromptView`, `OwnershipVerifyView`
+
+**Payout validation (`AllSetView`):**
+- Mismatch error now shows exclamation icon + "Handles don't match — make sure both fields are identical" (was plain text). Validates on Save button tap (standard iOS pattern).
+
+**Settings menu:**
+- App Version row now reads from bundle dynamically: `CFBundleShortVersionString (CFBundleVersion)` — shows e.g. "1.0.0 (3)". No manual updates needed.
+
+**Fonts:**
+- Playfair Display variable fonts bundled: `PlayfairDisplay-VF.ttf` + `PlayfairDisplay-Italic-VF.ttf`
+- Registered in `LOFOTheme.registerFonts()`. Helpers: `playfairExtraBold(_ size)` + `playfairExtraBoldItalic(_ size)` using CTFont variable axis API (weight 100 currently)
+
+**Backend (deployed):**
+- `GET /stats/public` — returns `{"reunions_this_week": N}`, no auth. Fixed RealDictCursor key bug (`[0]` → `['c']`).
+- 13 seed reunion records inserted via Supabase SQL for testing
+
+**Build number:** `CURRENT_PROJECT_VERSION` bumped to 4 (skipped 3 — two uploads went as build 1 due to missing version bump, then build 2 was the real bug-fix build, so next is 4).
+
+---
+
+### Build 1.0.0 (2) — Real-Device Bug Fixes — March 17, 2026
+
+**What shipped:** TestFlight build 1.0.0 (2) — 10 bug fixes + 1 enhancement from first real-device TestFlight testing session.
+
+**Bug fixes:**
+1. **`AllSetView`** — `.red` → `LOFOTheme.rust` on mismatch error (handle fields + error text).
+2. **`project.pbxproj`** — Added `NSLocationWhenInUseUsageDescription` key (both Debug + Release). Location was completely non-functional without it — iOS silently ignores permission requests when key is missing.
+3. **`LocationManager.startWatching()`** — Reads `manager.authorizationStatus` directly instead of cached `authorizationStatus` property (which starts as `.notDetermined`). Prevents failing to start updates when already authorized.
+4. **`FinderCameraView`** — Subtitle copy: "AI will read it automatically" → "Our AI vision will get to work". Bottom shadow gradient between camera frame and shutter bar removed.
+5. **`OTPVerifyView` / `LoserOTPView` / `ConfirmedOTPView`** — iOS QuickType/paste now works: `handleDigitChange` detects 6-digit paste, distributes across all boxes. `verify()` guarded with `!isVerifying` to prevent double-call. Applies to all 3 OTP screens.
+6. **`HomeView`** — Added `.toolbar(.hidden, for: .navigationBar)` + `.ignoresSafeArea(.keyboard)`. Fixes large gap at top when returning from loser flow (keyboard inset persisted on pop; nav bar geometry shifted layout).
+7. **`LostPromptView` / `OwnershipVerifyView`** — Added `.scrollContentBackground(.hidden)` to both `TextEditor` instances. Without it, iOS renders a black background over the white `.background()` modifier.
+8. **`WaitingView` `WaitingAttrEditSheet`** — "What did you lose?" field and "Add a detail" field were invisible on tap (missing `.foregroundStyle(LOFOTheme.navy)`). Fixed in both `styledField` helper and inline TextField.
+9. **Full app TextField audit** — `LostPromptView` (whereDescription), `AllSetView` (handle + confirmHandle), `FinderDoneView` (secretDetail, newDetail, styledField helper) — all missing `.foregroundStyle(LOFOTheme.navy)`. Fixed across 5 fields in 3 files.
+10. **`FinderDoneView`** — Tag chip area capped at 4 rows (`142pt → 112pt`) instead of 5; bottom row was clipping.
+
+**Enhancement:**
+- **`FinderCameraView` AI overlay** — Sparkle animation redesigned: main `sparkles` icon rotates 360° continuously (9s linear) + scale/opacity breathe (1.8s easeInOut); 4 orbiting `sparkle` points at diagonal positions (27pt radius) with staggered twinkle in/out (0.28s delay each); center glow pulses with icon.
+
+**Archive checklist (do every time):**
+1. Increment `CURRENT_PROJECT_VERSION` in `project.pbxproj` (both Debug + Release targets) — current value is `4`, next upload = `5`, etc. App Store Connect rejects duplicate build numbers.
+2. Signing & Capabilities → Release tab → uncheck "Automatically manage signing" → select "LOFO App Store" profile → Archive.
+3. The "App Version" row in the Settings menu sheet reads directly from the bundle (`CFBundleShortVersionString` + `CFBundleVersion`) — no code changes needed, it auto-updates.
+
+---
 
 ### Phase G — TestFlight Live — March 17, 2026
 
