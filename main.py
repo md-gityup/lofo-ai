@@ -464,22 +464,28 @@ def _build_embedding_text(profile: dict) -> str:
     """
     Build the text sent to Voyage AI for embedding.
 
-    Attribute-only comma-separated format — item_type is deliberately excluded.
-    item_type is handled as a categorical hard gate in the match pipeline, so
-    including it here causes color-dominated cross-type collisions (e.g. "blue glove"
-    vs "navy blue backpack" scoring 69%). The embedding only covers the physical
-    attributes that should vary within a type: size, color, material, features.
+    Comma-separated attribute format with item_type as the first token.
 
-    Example output: "small, blue, white, wool, knit, souvenir text, winter pattern"
+    item_type leads the list to anchor retrieval recall — without it, a "blue knit glove"
+    and a "blue knit beanie" have near-identical embeddings, flooding the retrieval pool
+    with wrong-type items and pushing real matches out of LIMIT 50.
+    item_type is NOT repeated (unlike the old sentence format) so it gets one token's
+    weight rather than dominating. The hard gate in match_item() handles precision —
+    any cross-type false positives that still score high get removed before scoring.
+
+    Example output: "glove, small, blue, white, wool, knit, souvenir text, winter pattern"
     This string is never stored or shown to users.
     """
     parts: list[str] = []
 
-    size     = (profile.get("size") or "").strip()
-    colors   = [c.strip() for c in (profile.get("color") or []) if c.strip()]
-    material = (profile.get("material") or "").strip()
-    features = [f.strip() for f in (profile.get("features") or []) if f.strip()]
+    item_type = (profile.get("item_type") or "").strip()
+    size      = (profile.get("size") or "").strip()
+    colors    = [c.strip() for c in (profile.get("color") or []) if c.strip()]
+    material  = (profile.get("material") or "").strip()
+    features  = [f.strip() for f in (profile.get("features") or []) if f.strip()]
 
+    if item_type:
+        parts.append(item_type)
     if size:
         parts.append(size)
     parts.extend(colors)
