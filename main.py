@@ -16,6 +16,7 @@ import io
 
 import anthropic
 import voyageai
+import cohere
 import pillow_heif
 import stripe
 from PIL import Image
@@ -27,6 +28,11 @@ from security import create_handoff_token, decode_handoff_token, hash_secret, ve
 
 claude_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
+
+_COHERE_API_KEY = os.getenv("COHERE_API_KEY", "")
+_cohere_client = cohere.ClientV2(api_key=_COHERE_API_KEY) if _COHERE_API_KEY else None
+if not _COHERE_API_KEY:
+    print("[LOFO] COHERE_API_KEY not set — reranker disabled, using cosine-only fallback")
 
 _STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 _STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
@@ -457,28 +463,31 @@ class DeviceRegisterRequest(BaseModel):
 def _build_embedding_text(profile: dict) -> str:
     """
     Build the text sent to Voyage AI for embedding.
-    Natural language sentence format puts item_type as the grammatical head noun —
-    embedding models weight sentence subjects much more heavily than key-value fields.
-    item_type is also repeated at the end to reinforce its signal.
+
+    Attribute-only comma-separated format — item_type is deliberately excluded.
+    item_type is handled as a categorical hard gate in the match pipeline, so
+    including it here causes color-dominated cross-type collisions (e.g. "blue glove"
+    vs "navy blue backpack" scoring 69%). The embedding only covers the physical
+    attributes that should vary within a type: size, color, material, features.
+
+    Example output: "small, blue, white, wool, knit, souvenir text, winter pattern"
     This string is never stored or shown to users.
     """
-    item_type = (profile.get("item_type") or "item").strip()
-    colors    = " ".join(profile.get("color") or []).strip()
-    material  = (profile.get("material") or "").strip()
-    size      = (profile.get("size") or "").strip()
-    features  = " ".join(profile.get("features") or []).strip()
+    parts: list[str] = []
 
-    # Build descriptor: "small blue wool" — skip empty parts
-    descriptors = [p for p in [size, colors, material] if p]
-    desc = " ".join(descriptors)
+    size     = (profile.get("size") or "").strip()
+    colors   = [c.strip() for c in (profile.get("color") or []) if c.strip()]
+    material = (profile.get("material") or "").strip()
+    features = [f.strip() for f in (profile.get("features") or []) if f.strip()]
 
-    # Natural language: "A small blue wool glove with winter design. glove."
-    sentence = f"A {desc} {item_type}" if desc else f"A {item_type}"
-    if features:
-        sentence += f" with {features}"
-    sentence += f". {item_type}."
+    if size:
+        parts.append(size)
+    parts.extend(colors)
+    if material:
+        parts.append(material)
+    parts.extend(features)
 
-    return sentence
+    return ", ".join(parts)
 
 
 def _store_embedding(item_id: uuid.UUID, profile: dict) -> None:
@@ -592,7 +601,7 @@ _MATCH_SQL = """
           )) <= 10
       )
     ORDER BY f.embedding <=> l.embedding
-    LIMIT 5
+    LIMIT 50
 """
 
 
@@ -886,10 +895,12 @@ def get_item(item_id: uuid.UUID):
 
 @app.post("/match", response_model=list[MatchResponse])
 def match_item(body: MatchRequest):
+    # Fetch loser item's full profile for filtering and scoring
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT embedding FROM items WHERE id = %s AND type = 'loser'",
+                """SELECT embedding, item_type, color, material, size, features
+                   FROM items WHERE id = %s AND type = 'loser'""",
                 (str(body.item_id),),
             )
             loser_row = cur.fetchone()
@@ -899,37 +910,110 @@ def match_item(body: MatchRequest):
     if loser_row["embedding"] is None:
         raise HTTPException(status_code=422, detail="Item has no embedding yet")
 
+    # Stage B: pgvector retrieval — top-50 by embedding distance, GPS-filtered
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(_MATCH_SQL, (str(body.item_id),))
             rows = cur.fetchall()
 
-    # Fetch the loser item's colors for post-match color compatibility check
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT color, item_type FROM items WHERE id = %s", (str(body.item_id),))
-            loser_meta = cur.fetchone()
-    loser_colors    = [c.lower() for c in (loser_meta["color"] or [])] if loser_meta else []
-    loser_item_type = (loser_meta["item_type"] or "") if loser_meta else ""
+    loser_item_type = (loser_row["item_type"] or "").strip()
+    loser_colors    = [c.lower() for c in (loser_row["color"]    or [])]
+    loser_features  = [f.lower() for f in (loser_row["features"] or [])]
+    loser_attrs = {
+        "item_type": loser_row["item_type"],
+        "color":     loser_row["color"],
+        "material":  loser_row["material"],
+        "size":      loser_row["size"],
+        "features":  loser_row["features"],
+    }
 
-    results = []
+    # Stage A: Hard filters — incompatible candidates removed entirely before scoring
+    candidates: list[dict] = []
     for r in rows:
-        score = r["similarity_score"]
-        # Item type compatibility: if types are clearly different categories, require
-        # a higher similarity threshold (0.88) rather than a hard block, to allow
-        # edge cases (e.g. "glove" vs "winter glove") to still pass at lower scores.
-        finder_item_type = r.get("item_type") or ""
-        types_ok = _item_types_compatible(loser_item_type, finder_item_type)
-        threshold = 0.78 if types_ok else 0.88
-        if score < threshold:
+        # 1A: item_type — hard categorical gate (no threshold raise, full exclusion)
+        finder_item_type = (r.get("item_type") or "").strip()
+        if not _item_types_compatible(loser_item_type, finder_item_type):
             continue
-        # Color compatibility: if both items have colors and they share no common
-        # color group, and neither side is only neutral colors, skip the match.
+
+        # Color hard gate — confirmed incompatible color families
         finder_colors = [c.lower() for c in (r["color"] or [])]
-        if loser_colors and finder_colors and not _colors_compatible(loser_colors, finder_colors):
+        if not _colors_compatible(loser_colors, finder_colors):
             continue
-        results.append(dict(r))
-    return results
+
+        # 1D: Sidedness hard gate (gloves, shoes, earbuds, earrings)
+        finder_features = [f.lower() for f in (r["features"] or [])]
+        if not _sides_compatible(loser_features, finder_features):
+            continue
+
+        candidates.append(dict(r))
+
+    if not candidates:
+        return []
+
+    richness  = _query_richness(loser_attrs)
+    threshold = _RERANK_THRESHOLDS[richness]
+
+    if _cohere_client:
+        # Stage C: Cohere Rerank — structured attribute format gives reranker
+        # the clearest signal without noise from free-text variation
+        reranker_scores = [0.0] * len(candidates)
+        try:
+            query_doc = _build_rerank_text(
+                loser_item_type,
+                loser_colors,
+                loser_row["material"] or "",
+                loser_row["size"] or "",
+                loser_row["features"] or [],
+            )
+            documents = [
+                _build_rerank_text(
+                    c.get("item_type") or "",
+                    [col.lower() for col in (c.get("color") or [])],
+                    c.get("material") or "",
+                    c.get("size") or "",
+                    c.get("features") or [],
+                )
+                for c in candidates
+            ]
+            rerank_result = _cohere_client.rerank(
+                model="rerank-english-v3.0",
+                query=query_doc,
+                documents=documents,
+                return_documents=False,
+            )
+            for result in rerank_result.results:
+                reranker_scores[result.index] = result.relevance_score
+        except Exception as exc:
+            print(f"[LOFO rerank] Cohere error: {exc} — falling back to cosine-only")
+
+        # Stage D: Composite score + Stage E: Dynamic threshold
+        scored: list[tuple[float, dict]] = []
+        for i, c in enumerate(candidates):
+            cosine   = float(c["similarity_score"])
+            reranker = reranker_scores[i]
+            f_colors = [col.lower() for col in (c.get("color") or [])]
+            f_feats  = [f.lower() for f in (c.get("features") or [])]
+            c_score  = _color_score(loser_colors, f_colors)
+            f_score  = _feature_overlap(loser_features, f_feats)
+            final    = (0.55 * reranker
+                        + 0.20 * cosine
+                        + 0.15 * c_score
+                        + 0.10 * f_score)
+            if final < threshold:
+                continue
+            c["similarity_score"] = round(final, 4)
+            scored.append((final, c))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [c for _, c in scored[:5]]
+
+    else:
+        # Cosine-only fallback when COHERE_API_KEY is not set.
+        # item_type is already a hard gate above; color + sidedness already filtered.
+        # Apply 0.78 cosine floor and return top 5 by similarity.
+        results = [c for c in candidates if float(c["similarity_score"]) >= 0.78]
+        results.sort(key=lambda x: float(x["similarity_score"]), reverse=True)
+        return results[:5]
 
 
 _ITEM_TYPE_SYNONYMS: list[set[str]] = [
@@ -961,9 +1045,9 @@ _ITEM_TYPE_SYNONYMS: list[set[str]] = [
 def _item_types_compatible(type_a: str, type_b: str) -> bool:
     """
     Returns True if two item_type strings refer to the same kind of object.
-    Allows: exact match, containment (glove in winter glove), or shared synonym group.
-    If types are clearly different categories, returns False — caller should raise
-    the similarity threshold rather than hard-block, to allow edge cases through.
+    Allows: exact match, containment ("glove" in "winter glove"), or shared synonym group.
+    If types are clearly different categories, returns False — the caller should
+    exclude the candidate entirely (hard gate), not raise a threshold.
     """
     a = type_a.lower().strip()
     b = type_b.lower().strip()
@@ -1025,6 +1109,126 @@ def _colors_compatible(loser_colors: list[str], finder_colors: list[str]) -> boo
 
     # Otherwise require at least one group in common
     return bool(loser_groups & finder_groups)
+
+
+_SIDE_TOKENS_LEFT  = {"left", "l", "left hand", "left foot", "left ear"}
+_SIDE_TOKENS_RIGHT = {"right", "r", "right hand", "right foot", "right ear"}
+_SIDED_ITEM_TYPES  = {"glove", "gloves", "mitten", "mittens", "shoe", "shoes",
+                      "boot", "boots", "sneaker", "sneakers", "earbud", "earbuds",
+                      "earphone", "earphones", "airpod", "airpods", "earring", "earrings"}
+
+
+def _extract_side(features: list[str]) -> Optional[str]:
+    """Return 'left', 'right', or None from a feature list."""
+    tokens = {f.lower().strip() for f in features}
+    for t in tokens:
+        if t in _SIDE_TOKENS_LEFT or any(s in t for s in ("left",)):
+            return "left"
+        if t in _SIDE_TOKENS_RIGHT or any(s in t for s in ("right",)):
+            return "right"
+    return None
+
+
+def _sides_compatible(loser_features: list[str], finder_features: list[str]) -> bool:
+    """
+    Hard block only when both sides explicitly state conflicting sides (left vs right).
+    Returns True (compatible) when either side is silent about sidedness.
+    """
+    loser_side  = _extract_side(loser_features)
+    finder_side = _extract_side(finder_features)
+    if loser_side is None or finder_side is None:
+        return True
+    return loser_side == finder_side
+
+
+def _color_score(loser_colors: list[str], finder_colors: list[str]) -> float:
+    """
+    Convert color compatibility to a 0–1 signal for composite scoring.
+      1.0 — both sides have colors and share a color group (positive signal)
+      0.5 — one or both sides have no color info (absence of data, not a mismatch)
+      0.0 — both sides have colors but share no group (confirmed incompatible)
+    """
+    if not loser_colors or not finder_colors:
+        return 0.5
+
+    loser_groups  = {g for c in loser_colors  if (g := _color_group(c)) is not None}
+    finder_groups = {g for c in finder_colors if (g := _color_group(c)) is not None}
+
+    if not loser_groups or not finder_groups:
+        return 0.5
+
+    if loser_groups & finder_groups:
+        return 1.0
+
+    # If either side is entirely neutral, it can pair with anything — neutral signal
+    if loser_groups <= _NEUTRAL_GROUPS or finder_groups <= _NEUTRAL_GROUPS:
+        return 0.5
+
+    return 0.0
+
+
+def _feature_overlap(loser_features: list[str], finder_features: list[str]) -> float:
+    """
+    Jaccard similarity over lowercased feature tokens.
+    Returns 0.0 when either side has no features (absence of data, not a mismatch).
+    """
+    a = {f.lower().strip() for f in loser_features  if f.strip()}
+    b = {f.lower().strip() for f in finder_features if f.strip()}
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def _query_richness(loser_attributes: dict) -> str:
+    """
+    Classifies how much information the loser provided.
+    Drives dynamic final_score threshold — sparse queries get more lenient thresholds
+    because the reranker has less to work with.
+    """
+    filled = sum(
+        1 for v in loser_attributes.values()
+        if v and (not isinstance(v, list) or len(v) > 0)
+    )
+    if filled <= 2:
+        return "sparse"
+    elif filled <= 5:
+        return "medium"
+    return "rich"
+
+
+def _build_rerank_text(
+    item_type: str,
+    colors: list[str],
+    material: str,
+    size: str,
+    features: list[str],
+) -> str:
+    """
+    Structured attribute string for Cohere Rerank input.
+    Format: "type=glove; colors=blue,white; material=wool; size=small; features=souvenir text,winter pattern"
+    Only includes non-empty fields so the reranker doesn't see blank slots as signal.
+    """
+    parts: list[str] = []
+    if item_type:
+        parts.append(f"type={item_type.strip()}")
+    if colors:
+        parts.append(f"colors={','.join(c.strip() for c in colors if c.strip())}")
+    if material and material.strip():
+        parts.append(f"material={material.strip()}")
+    if size and size.strip():
+        parts.append(f"size={size.strip()}")
+    if features:
+        clean = [f.strip() for f in features if f.strip()]
+        if clean:
+            parts.append(f"features={','.join(clean)}")
+    return "; ".join(parts)
+
+
+_RERANK_THRESHOLDS: dict[str, float] = {
+    "sparse": 0.30,
+    "medium": 0.40,
+    "rich":   0.55,
+}
 
 
 _VERIFY_SYSTEM_PROMPT = (
@@ -2340,9 +2544,12 @@ def _debug_pair_analysis(
     block_reasons = []
     if similarity is None:
         block_reasons.append("One or both items have no embedding yet")
-    elif similarity < 0.78:
-        gap = round(0.78 - similarity, 4)
-        block_reasons.append(f"Score {similarity:.4f} below threshold 0.78 (gap: {gap})")
+    elif similarity < 0.40:
+        # Note: the live match pipeline uses a composite final_score with dynamic
+        # thresholds (0.30–0.55). This debug view shows raw cosine only — use the
+        # near-miss analyzer + live /match endpoint to evaluate the full pipeline.
+        gap = round(0.40 - similarity, 4)
+        block_reasons.append(f"Cosine {similarity:.4f} below retrieval floor 0.40 (gap: {gap})")
     if not colors_ok:
         a_str = ", ".join(c["color"] for c in a_color_groups) or "none"
         b_str = ", ".join(c["color"] for c in b_color_groups) or "none"
@@ -2416,7 +2623,7 @@ def admin_debug_match(body: AdminDebugMatchRequest, admin=Depends(_verify_admin)
             "latitude": row["b_lat"], "longitude": row["b_lng"],
         },
         "similarity_score": similarity,
-        "would_pass_threshold": similarity is not None and similarity >= 0.78,
+        "would_pass_cosine_floor": similarity is not None and similarity >= 0.40,
         **analysis,
     }
 

@@ -13,3 +13,4 @@ PyJWT
 stripe
 twilio
 httpx[http2]
+cohere

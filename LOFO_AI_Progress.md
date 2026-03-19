@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 19, 2026 — Build 1.0.0 (4) uploaded to TestFlight. Admin: archive button, Near-Miss Analyzer, Re-embed All. Matching engine: natural language embeddings + item_type filter. Core matching problem identified + technical brief written — new plan incoming.*
+*Last updated: March 19, 2026 — Matching engine redesigned: 5-stage pipeline (hard gates → pgvector LIMIT 50 → Cohere Rerank → composite score → dynamic threshold). item_type is now a hard gate, embeddings are attribute-only, COHERE_API_KEY + Re-embed All required post-deploy.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -226,8 +226,8 @@ Add/remove users by editing this variable and redeploying. No code changes neede
 
 ## Known Bugs To Fix
 
-**Matching engine — fundamental problem identified (March 19, 2026):**
-Cosine similarity on Voyage-3 general embeddings does not reliably discriminate item types. A "blue glove" loser item returns a backpack (69%) above actual gloves (62–68%) because color dominates the embedding space. Natural language format + item_type repetition helped but didn't solve score compression. Full technical brief in Session History. New matching architecture plan incoming from user — implement in next session.
+**Matching engine — redesigned (March 19, 2026):**
+New 5-stage pipeline deployed. See Session History (March 19, 2026 — Matching Engine Redesign) for full details. Key changes: item_type is now a hard categorical gate (not a threshold raise), embeddings are attribute-only (no item_type in text), LIMIT 50 retrieval, Cohere Rerank stage C, composite final_score = 0.55·reranker + 0.20·cosine + 0.15·color + 0.10·features, dynamic threshold by query richness. **After deploying: add `COHERE_API_KEY` to Railway env vars, then hit "Re-embed All →" in admin Debug tab.**
 
 ## Manual Setup (Phase 12a)
 
@@ -587,29 +587,89 @@ Then redeploy Railway.
 > - **Re-embed All button** in Debug tab — calls `POST /admin/reembed-all`, re-embeds all non-archived items in batches of 50 using current `_build_embedding_text` format. Use after changing embedding format.
 > - **`_debug_pair_analysis()` helper** extracted — shared by both the pair debugger and near-miss endpoint. No logic duplication.
 >
-> **Matching engine changes (March 19, 2026) — partial fix, deeper problem remains:**
-> - `_build_embedding_text` rewritten: key-value format → natural language sentence. `"A small blue wool glove with winter design. glove."` — item_type as sentence subject + repeated at end for embedding weight.
-> - `_item_types_compatible()` function + `_ITEM_TYPE_SYNONYMS` table (20 groups). Added as post-filter in match endpoint: incompatible types raise threshold to 0.88 (vs 0.78). Synonym groups cover gloves/mittens, hats/beanies, bags/purses, keys/keychains, etc.
-> - `_MATCH_SQL` item_type field already in SELECT — no schema change needed.
+> **Matching engine redesign (March 19, 2026) — full 5-stage pipeline:**
+> - **`_build_embedding_text`**: attribute-only comma-separated format. `"small, blue, white, wool, knit, souvenir text, winter pattern"` — item_type removed entirely from embedding text. Keeps only size, colors, material, features.
+> - **`_MATCH_SQL`**: LIMIT 5 → LIMIT 50. Retrieval is now a recall step; precision handled downstream.
+> - **Stage A hard filters**: item_type is now a hard categorical gate — `_item_types_compatible()` returns False → candidate excluded entirely (was: raise threshold to 0.88). Color hard gate unchanged. New: sidedness hard gate (`_sides_compatible()`) for gloves/shoes/earbuds/earrings — blocks if both sides explicitly state left vs right.
+> - **Stage C Cohere Rerank**: `rerank-english-v3.0` called with structured `"type=X; colors=Y; material=Z; features=A,B"` format. Requires `COHERE_API_KEY` in Railway env vars. Falls back to cosine-only (0.78 threshold) if key absent.
+> - **Stage D composite score**: `final_score = 0.55·reranker + 0.20·cosine + 0.15·color_score + 0.10·feature_overlap`. `color_score` is 1.0/0.5/0.0 (match/neutral/incompatible). `feature_overlap` is Jaccard over feature tokens.
+> - **Stage E dynamic threshold**: `_query_richness()` classifies loser item as sparse/medium/rich (≤2/3–5/6+ filled fields). Thresholds: 0.30/0.40/0.55 on `final_score`.
+> - **`similarity_score` field**: overwritten with `final_score` in response — backward compatible with iOS/web consumers.
+> - **New helpers added**: `_sides_compatible`, `_color_score`, `_feature_overlap`, `_query_richness`, `_build_rerank_text`, `_extract_side`.
+> - **`cohere`** added to `requirements.txt`.
 >
-> **⚠️ Matching engine — fundamental problem (see Session History for full technical brief):**
-> Cosine similarity on Voyage-3 general embeddings is not a reliable object identity classifier. Score distribution is compressed (all items 62–69% regardless of type). "Blue glove" vs "navy blue backpack" = 69%; "blue glove" vs actual gloves = 62–68%. Color dominates over item type in Voyage's embedding space. The natural language fix + item_type raised threshold are partial improvements but don't solve the core problem. User has a new architecture plan to implement next session.
+> **⚠️ After deploying — two required steps:**
+> 1. Add `COHERE_API_KEY` to Railway environment variables (get key from dashboard.cohere.com).
+> 2. Hit "Re-embed All →" in admin Debug tab — regenerates all embeddings with new attribute-only format (old vectors are incompatible).
 >
 > **On ice (do not implement without discussion):**
 > - Tip flow redesign: "tip intent" concept (loser picks amount upfront, charged after reunion confirmed). Post-reunion trigger via SMS relay silence heuristic + time-bomb fallback. Detailed design in Session History Phase 26q.
 > - Unit economics: ~$0.25/reunion in Twilio costs, $10 avg tip, net ~$0.87 per loop (2% Stripe on $10, no fixed fee on Apple Pay).
 >
 > **Next priorities:**
-> 1. **Matching engine redesign** — user has a new plan. Present it to the agent, discuss architecture, then implement. See "Matching engine — fundamental problem" above + full technical brief in Session History (March 19, 2026) for context.
-> 2. Continue real-device TestFlight testing on build 1.0.0 (4) — catalogue any new bugs.
-> 3. App Store listing: screenshots (6.7" 1290×2796), app description, privacy URL, submit for review when ready.
-> 4. `LocationManager` — `CLGeocoder` + `reverseGeocodeLocation` deprecated in iOS 26. Future cleanup: migrate to `MKReverseGeocodingRequest`. Non-blocking warnings only, not urgent.
+> 1. ⚠️ **Deploy + complete post-deploy steps** — add `COHERE_API_KEY` to Railway, push to deploy, run Re-embed All in admin.
+> 2. **Test with Near-Miss Analyzer** — "blue glove" test case should show gloves ranking above backpacks. Tune thresholds if needed.
+> 3. Continue real-device TestFlight testing on build 1.0.0 (4) — catalogue any new bugs.
+> 4. App Store listing: screenshots (6.7" 1290×2796), app description, privacy URL, submit for review when ready.
+> 5. `LocationManager` — `CLGeocoder` + `reverseGeocodeLocation` deprecated in iOS 26. Future cleanup: migrate to `MKReverseGeocodingRequest`. Non-blocking warnings only, not urgent.
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
 ---
 
 ## Session History
+
+### Matching Engine Redesign — March 19, 2026
+
+**What shipped:**
+
+**Full 5-stage matching pipeline** — replaces cosine-only matching with a reranker-backed composite pipeline.
+
+**Stage A — Hard filters (Python, pre-scoring):**
+- item_type: `_item_types_compatible()` now a hard categorical gate — incompatible types excluded entirely before any scoring. Previously raised threshold to 0.88, which failed when wrong-type items already scored 69%.
+- Color: existing `_colors_compatible()` hard gate unchanged.
+- Sidedness: new `_sides_compatible()` — if both loser and finder feature lists explicitly state conflicting sides (left vs right), hard block. Silent = pass. Applies to gloves, shoes, earbuds, earrings.
+
+**Stage B — pgvector retrieval:**
+- `LIMIT 5` → `LIMIT 50`. Retrieval is now a recall step; precision delegated to Stage C/D/E.
+- No cosine threshold in SQL (was already absent — just ORDER BY distance + LIMIT).
+
+**Stage C — Cohere Rerank:**
+- Model: `rerank-english-v3.0`.
+- Query and document format: `"type=glove; colors=blue,white; material=wool; size=small; features=souvenir text,winter pattern"` — structured attribute format, not free text. Gives reranker the clearest signal without description-length noise.
+- Requires `COHERE_API_KEY` env var. Graceful fallback to cosine-only (0.78 threshold) if key absent.
+
+**Stage D — Composite score:**
+```
+final_score = 0.55 * reranker_score
+            + 0.20 * cosine_score
+            + 0.15 * color_score
+            + 0.10 * feature_overlap_score
+```
+- `color_score`: 1.0 (shared color group) / 0.5 (one or both sides neutral/absent) / 0.0 (confirmed incompatible).
+- `feature_overlap_score`: Jaccard over lowercased feature tokens.
+- `similarity_score` response field overwritten with `final_score` — backward compatible with all clients.
+
+**Stage E — Dynamic threshold:**
+- `_query_richness()`: sparse (≤2 filled fields), medium (3–5), rich (6+).
+- Thresholds on `final_score`: 0.30 / 0.40 / 0.55. Sparse queries get more lenient threshold since the reranker has less to work with; the asymmetry is by design.
+
+**`_build_embedding_text()` rewritten:**
+- Old: natural language sentence with item_type as subject + repeated. `"A small blue wool glove with winter design. glove."`
+- New: comma-separated attribute values only, no item_type. `"small, blue, white, wool, knit, souvenir text, winter pattern"`
+- Rationale: item_type is now a categorical gate, not an embedding signal. Embedding only encodes physical attributes that vary within a type. Eliminates cross-type color collisions.
+
+**New helpers added:** `_extract_side`, `_sides_compatible`, `_color_score`, `_feature_overlap`, `_query_richness`, `_build_rerank_text`, `_RERANK_THRESHOLDS`.
+
+**`cohere`** added to `requirements.txt`.
+
+**`_debug_pair_analysis()`**: threshold reference updated from 0.78 → 0.40 (cosine retrieval floor). `would_pass_threshold` → `would_pass_cosine_floor`. Note added that live match uses composite `final_score`, not raw cosine.
+
+**⚠️ Required post-deploy steps:**
+1. Add `COHERE_API_KEY` to Railway environment variables (get from dashboard.cohere.com).
+2. Hit "Re-embed All →" in admin Debug tab — all existing embeddings are stale with the new attribute-only format.
+
+---
 
 ### Admin Tooling + Matching Engine Investigation — March 19, 2026
 
