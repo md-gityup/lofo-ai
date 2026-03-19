@@ -2237,6 +2237,58 @@ def cron_lifecycle(key: str = Query("")):
     return {"ok": True, "sent_week1": sent_week1, "sent_week2": sent_week2, "skipped_multi_item": skipped}
 
 
+def _debug_pair_analysis(
+    similarity: Optional[float],
+    a_colors: list[str],
+    b_colors: list[str],
+    a_lat: Optional[float], a_lng: Optional[float],
+    b_lat: Optional[float], b_lng: Optional[float],
+) -> dict:
+    """Shared logic for computing match debug info between any two items."""
+    def _color_detail(color: str) -> dict:
+        idx = _color_group(color)
+        return {"color": color, "group_index": idx,
+                "group_name": _COLOR_GROUP_NAMES[idx] if idx is not None else "unrecognized"}
+
+    a_color_groups = [_color_detail(c) for c in a_colors]
+    b_color_groups = [_color_detail(c) for c in b_colors]
+    colors_ok = _colors_compatible(a_colors, b_colors)
+
+    distance_miles = None
+    within_radius = True
+    if all(x is not None for x in [a_lat, a_lng, b_lat, b_lng]):
+        dlat = math.radians(b_lat - a_lat)
+        dlon = math.radians(b_lng - a_lng)
+        ha = (math.sin(dlat / 2) ** 2
+              + math.cos(math.radians(a_lat)) * math.cos(math.radians(b_lat))
+              * math.sin(dlon / 2) ** 2)
+        distance_miles = round(3958.8 * 2 * math.asin(math.sqrt(ha)), 1)
+        within_radius = distance_miles <= 10
+
+    block_reasons = []
+    if similarity is None:
+        block_reasons.append("One or both items have no embedding yet")
+    elif similarity < 0.78:
+        gap = round(0.78 - similarity, 4)
+        block_reasons.append(f"Score {similarity:.4f} below threshold 0.78 (gap: {gap})")
+    if not colors_ok:
+        a_str = ", ".join(c["color"] for c in a_color_groups) or "none"
+        b_str = ", ".join(c["color"] for c in b_color_groups) or "none"
+        block_reasons.append(f"Color mismatch — A: [{a_str}] vs B: [{b_str}]")
+    if not within_radius:
+        block_reasons.append(f"Distance {distance_miles} mi exceeds 10-mile radius")
+
+    return {
+        "a_color_groups": a_color_groups,
+        "b_color_groups": b_color_groups,
+        "colors_compatible": colors_ok,
+        "distance_miles": distance_miles,
+        "within_radius": within_radius,
+        "would_match": len(block_reasons) == 0,
+        "block_reasons": block_reasons,
+    }
+
+
 @app.post("/admin/debug/match", include_in_schema=False)
 def admin_debug_match(body: AdminDebugMatchRequest, admin=Depends(_verify_admin)):
     with get_connection() as conn:
@@ -2268,45 +2320,15 @@ def admin_debug_match(body: AdminDebugMatchRequest, admin=Depends(_verify_admin)
         raise HTTPException(status_code=404, detail="One or both items not found")
 
     similarity = float(row["similarity_score"]) if row["similarity_score"] is not None else None
-
     a_colors = [c.lower() for c in (row["a_color"] or [])]
     b_colors = [c.lower() for c in (row["b_color"] or [])]
-
-    def _color_detail(color: str) -> dict:
-        idx = _color_group(color)
-        return {
-            "color": color,
-            "group_index": idx,
-            "group_name": _COLOR_GROUP_NAMES[idx] if idx is not None else "unrecognized",
-        }
-
-    a_color_groups = [_color_detail(c) for c in a_colors]
-    b_color_groups = [_color_detail(c) for c in b_colors]
-    colors_ok = _colors_compatible(a_colors, b_colors)
-
-    distance_miles = None
-    within_radius = True
-    if all(x is not None for x in [row["a_lat"], row["a_lng"], row["b_lat"], row["b_lng"]]):
-        lat1, lon1 = float(row["a_lat"]), float(row["a_lng"])
-        lat2, lon2 = float(row["b_lat"]), float(row["b_lng"])
-        dlat = math.radians(lat2 - lat1)
-        dlon = math.radians(lon2 - lon1)
-        ha = (math.sin(dlat / 2) ** 2
-              + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2)
-        distance_miles = round(3958.8 * 2 * math.asin(math.sqrt(ha)), 1)
-        within_radius = distance_miles <= 10
-
-    block_reasons = []
-    if similarity is None:
-        block_reasons.append("One or both items have no embedding yet")
-    elif similarity < 0.78:
-        block_reasons.append(f"Similarity {similarity:.4f} is below threshold (0.78)")
-    if not colors_ok:
-        a_str = ", ".join(c["color"] for c in a_color_groups) or "none"
-        b_str = ", ".join(c["color"] for c in b_color_groups) or "none"
-        block_reasons.append(f"Colors incompatible — A: [{a_str}] vs B: [{b_str}]")
-    if not within_radius:
-        block_reasons.append(f"Distance {distance_miles} mi exceeds 10-mile radius")
+    analysis = _debug_pair_analysis(
+        similarity, a_colors, b_colors,
+        float(row["a_lat"]) if row["a_lat"] is not None else None,
+        float(row["a_lng"]) if row["a_lng"] is not None else None,
+        float(row["b_lat"]) if row["b_lat"] is not None else None,
+        float(row["b_lng"]) if row["b_lng"] is not None else None,
+    )
 
     return {
         "item_a": {
@@ -2323,11 +2345,88 @@ def admin_debug_match(body: AdminDebugMatchRequest, admin=Depends(_verify_admin)
         },
         "similarity_score": similarity,
         "would_pass_threshold": similarity is not None and similarity >= 0.78,
-        "a_color_groups": a_color_groups,
-        "b_color_groups": b_color_groups,
-        "colors_compatible": colors_ok,
-        "distance_miles": distance_miles,
-        "within_radius": within_radius,
-        "would_match": len(block_reasons) == 0,
-        "block_reasons": block_reasons,
+        **analysis,
+    }
+
+
+class AdminNearMissRequest(BaseModel):
+    item_id: uuid.UUID
+
+
+@app.post("/admin/debug/near-misses", include_in_schema=False)
+def admin_near_misses(body: AdminNearMissRequest, admin=Depends(_verify_admin)):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT id, type, item_type, color, material, size, features,
+                          latitude, longitude, status, created_at::text, photo_url, embedding
+                   FROM items WHERE id = %s""",
+                (str(body.item_id),),
+            )
+            q = cur.fetchone()
+
+    if q is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if q["embedding"] is None:
+        raise HTTPException(status_code=422, detail="Item has no embedding — cannot run similarity search")
+
+    opposite_type = "finder" if q["type"] == "loser" else "loser"
+    q_lat = float(q["latitude"]) if q["latitude"] is not None else None
+    q_lng = float(q["longitude"]) if q["longitude"] is not None else None
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    c.id, c.type, c.item_type, c.color, c.material, c.size, c.features,
+                    c.status, c.created_at::text, c.photo_url,
+                    c.latitude AS c_lat, c.longitude AS c_lng,
+                    ROUND(CAST(1 - (c.embedding <=> q.embedding) AS NUMERIC), 4) AS similarity_score
+                FROM items c
+                CROSS JOIN items q
+                WHERE q.id = %s
+                  AND c.type = %s
+                  AND c.status != 'archived'
+                  AND c.embedding IS NOT NULL
+                ORDER BY c.embedding <=> q.embedding
+                LIMIT 10
+                """,
+                (str(body.item_id), opposite_type),
+            )
+            rows = cur.fetchall()
+
+    q_colors = [c.lower() for c in (q["color"] or [])]
+    candidates = []
+    for r in rows:
+        sim = float(r["similarity_score"]) if r["similarity_score"] is not None else None
+        c_colors = [c.lower() for c in (r["color"] or [])]
+        c_lat = float(r["c_lat"]) if r["c_lat"] is not None else None
+        c_lng = float(r["c_lng"]) if r["c_lng"] is not None else None
+        analysis = _debug_pair_analysis(sim, q_colors, c_colors, q_lat, q_lng, c_lat, c_lng)
+        candidates.append({
+            "id": str(r["id"]),
+            "type": r["type"],
+            "item_type": r["item_type"],
+            "color": r["color"],
+            "material": r["material"],
+            "size": r["size"],
+            "features": r["features"],
+            "status": r["status"],
+            "created_at": r["created_at"],
+            "photo_url": r["photo_url"],
+            "similarity_score": sim,
+            **analysis,
+        })
+
+    return {
+        "query_item": {
+            "id": str(q["id"]), "type": q["type"], "item_type": q["item_type"],
+            "color": q["color"], "material": q["material"], "size": q["size"],
+            "features": q["features"], "status": q["status"],
+            "latitude": q["latitude"], "longitude": q["longitude"],
+        },
+        "candidates": candidates,
+        "total": len(candidates),
+        "opposite_type": opposite_type,
     }

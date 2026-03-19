@@ -317,6 +317,46 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
 .dic-id { font-size: 10px; font-family: monospace; word-break: break-all; }
 .debug-error { color: var(--red); font-size: 13px; }
 
+/* ── Near-Miss Analyzer ── */
+.nm-divider { border: none; border-top: 1px solid var(--border); margin: 32px 0 28px; }
+.nm-query-card {
+  background: rgba(96,165,250,0.07); border: 1px solid rgba(96,165,250,0.25);
+  border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;
+}
+.nm-query-label { font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 4px; }
+.nm-query-type { font-size: 15px; font-weight: 700; color: #fff; text-transform: capitalize; }
+.nm-query-attrs { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.nm-candidates-title { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 12px; }
+.nm-candidate {
+  display: flex; align-items: flex-start; gap: 14px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 13px 15px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s;
+}
+.nm-candidate:hover { border-color: var(--accent); }
+.nm-candidate.nm-match { border-color: rgba(74,222,128,0.25); }
+.nm-rank { font-size: 11px; font-weight: 700; color: var(--muted2); min-width: 18px; padding-top: 2px; flex-shrink: 0; }
+.nm-info { flex: 1; min-width: 0; }
+.nm-item-type { font-size: 13px; font-weight: 700; color: #fff; text-transform: capitalize; margin-bottom: 2px; }
+.nm-attrs { font-size: 12px; color: var(--muted); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nm-meta { font-size: 11px; color: var(--muted2); }
+.nm-score-col { text-align: center; flex-shrink: 0; width: 72px; }
+.nm-score-pct { font-size: 20px; font-weight: 800; line-height: 1; }
+.nm-score-pct.score-green { color: #4ade80; }
+.nm-score-pct.score-yellow { color: #fbbf24; }
+.nm-score-pct.score-red { color: var(--red); }
+.nm-bar-wrap { position: relative; height: 4px; background: var(--border2); border-radius: 2px; margin: 5px 0 2px; width: 100%; }
+.nm-bar-fill { height: 100%; border-radius: 2px; }
+.nm-threshold-tick { position: absolute; top: -4px; left: 78%; width: 1px; height: 12px; background: rgba(255,255,255,0.25); }
+.nm-threshold-label { font-size: 9px; color: var(--muted2); letter-spacing: 0; }
+.nm-verdict-col { flex-shrink: 0; text-align: right; min-width: 110px; }
+.nm-verdict-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+.nm-verdict-badge.match { background: rgba(74,222,128,0.12); color: #4ade80; }
+.nm-verdict-badge.blocked { background: var(--rdim); color: var(--red); }
+.nm-reasons { margin-top: 6px; }
+.nm-reason { font-size: 11px; color: #ffaaaa; line-height: 1.5; text-align: right; }
+.nm-no-results { font-size: 13px; color: var(--muted); text-align: center; padding: 28px 0; }
+.nm-hint { font-size: 11px; color: var(--muted2); margin-top: 14px; text-align: center; }
+
 /* ── Map Tab ── */
 #map-tab-container { display: none; position: relative; }
 #admin-map {
@@ -467,6 +507,9 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
   .debug-panel-title { font-size: 14px; }
   .debug-panel-desc { font-size: 12px; }
   .debug-run-btn { width: 100%; }
+  .nm-candidate { flex-wrap: wrap; }
+  .nm-verdict-col { min-width: unset; }
+  .nm-reason { text-align: left; }
   /* Map overlays */
   #atab-legend { left: 10px; bottom: 16px; padding: 10px 12px; min-width: 150px; }
   #atab-stats { right: 10px; bottom: 16px; padding: 8px 12px; }
@@ -650,6 +693,18 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
         </div>
         <button class="debug-run-btn" onclick="runDebug()">Check Match →</button>
         <div id="debug-result"></div>
+
+        <hr class="nm-divider" />
+        <div class="debug-panel-title">Near-Miss Analyzer</div>
+        <div class="debug-panel-desc">Paste any item ID (lost <em>or</em> found) to see its top 10 closest candidates ranked by AI similarity — with no threshold filter. Reveals exactly why each near-match was blocked. Click any result to drill into the pair debugger above.</div>
+        <div class="debug-inputs" style="grid-template-columns:1fr">
+          <div class="debug-field">
+            <label>Item ID (lost or found)</label>
+            <input type="text" id="nm-item-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </div>
+        </div>
+        <button class="debug-run-btn" onclick="runNearMiss()">Analyze Near-Misses →</button>
+        <div id="nm-result"></div>
       </div>
 
       <!-- Live Map -->
@@ -1087,6 +1142,84 @@ function rowActions(id) {
   return `<button class="action-btn deactivate-btn" onclick="event.stopPropagation();deactivateItem('${id}')">Deactivate</button><button class="action-btn extend-btn" onclick="event.stopPropagation();extendItem('${id}')">+30d</button><button class="action-btn archive-btn" title="Archive (hide from table)" onclick="event.stopPropagation();archiveItem('${id}')">✕</button>`;
 }
 
+// ── Near-Miss Analyzer ──
+async function runNearMiss(prefillId) {
+  const input = document.getElementById('nm-item-id');
+  if (prefillId) input.value = prefillId;
+  const id  = input.value.trim();
+  const out = document.getElementById('nm-result');
+  const re  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!id)        { out.innerHTML = `<p class="debug-error">Please enter an item ID.</p>`; return; }
+  if (!re.test(id)) { out.innerHTML = `<p class="debug-error">ID must be a valid UUID.</p>`; return; }
+  out.innerHTML = `<p class="muted" style="padding:12px 0">Analyzing…</p>`;
+  const data = await api('POST', '/admin/debug/near-misses', { item_id: id });
+  if (!data) { out.innerHTML = `<p class="debug-error">Request failed — check the item ID exists in the DB.</p>`; return; }
+
+  const q = data.query_item;
+  const qAttrs = [
+    (q.color || []).join(', '), q.material, q.size, ...(q.features || [])
+  ].filter(Boolean).join(' · ');
+
+  const candidatesHtml = data.candidates.length === 0
+    ? `<div class="nm-no-results">No active ${esc(data.opposite_type)} items to compare against.</div>`
+    : data.candidates.map((c, i) => {
+        const sim = c.similarity_score ?? 0;
+        const pct = Math.round(sim * 100);
+        const scoreClass = sim >= 0.78 ? 'score-green' : sim >= 0.60 ? 'score-yellow' : 'score-red';
+        const barColor   = sim >= 0.78 ? '#4ade80'    : sim >= 0.60 ? '#fbbf24'    : '#ff6b6b';
+        const attrs = [(c.color || []).join(', '), c.material, c.size, ...(c.features || [])].filter(Boolean).join(' · ');
+        const created = c.created_at
+          ? new Date(c.created_at).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})
+          : '—';
+        const dist = c.distance_miles !== null ? `${c.distance_miles} mi` : 'no GPS';
+        const reasons = (c.block_reasons || []).map(r => `<div class="nm-reason">• ${esc(r)}</div>`).join('');
+        return `
+          <div class="nm-candidate${c.would_match ? ' nm-match' : ''}" onclick="drillDown('${esc(id)}','${esc(c.id)}')">
+            <div class="nm-rank">#${i+1}</div>
+            <div class="nm-info">
+              <div class="nm-item-type">${esc(c.item_type || '—')}</div>
+              <div class="nm-attrs">${esc(attrs) || '—'}</div>
+              <div class="nm-meta">${esc(created)} · ${esc(dist)} · <span class="mono" style="font-size:10px">${esc(c.id.slice(0,8))}…</span></div>
+            </div>
+            <div class="nm-score-col">
+              <div class="nm-score-pct ${scoreClass}">${pct}%</div>
+              <div class="nm-bar-wrap">
+                <div class="nm-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+                <div class="nm-threshold-tick"></div>
+              </div>
+              <div class="nm-threshold-label">▲78%</div>
+            </div>
+            <div class="nm-verdict-col">
+              <div class="nm-verdict-badge ${c.would_match ? 'match' : 'blocked'}">${c.would_match ? '✅ MATCH' : '❌ BLOCKED'}</div>
+              ${reasons ? `<div class="nm-reasons">${reasons}</div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+
+  out.innerHTML = `
+    <div class="nm-query-card">
+      <div class="nm-query-label">Query Item — ${esc(q.type)}</div>
+      <div class="nm-query-type">${esc(q.item_type || '—')}</div>
+      <div class="nm-query-attrs">${esc(qAttrs) || '—'}</div>
+    </div>
+    <div class="nm-candidates-title">Top ${data.candidates.length} closest ${esc(data.opposite_type)} items by similarity</div>
+    ${candidatesHtml}
+    ${data.candidates.length ? `<div class="nm-hint">Click any row to load it into the pair debugger above. Threshold line ▲ marks the 78% cutoff.</div>` : ''}
+  `;
+}
+
+function drillDown(queryId, candidateId) {
+  document.getElementById('debug-id-a').value = queryId;
+  document.getElementById('debug-id-b').value = candidateId;
+  document.getElementById('debug-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  runDebug();
+}
+
+async function analyzeItem(id) {
+  await setTab('debug');
+  setTimeout(() => runNearMiss(id), 80);
+}
+
 // ── Debug Matcher ──
 async function runDebug() {
   const a   = document.getElementById('debug-id-a').value.trim();
@@ -1224,6 +1357,9 @@ function buildDetailPanel(item) {
     <div class="row-detail-inner">
       ${photo}
       <div class="detail-fields">${fields.join('')}</div>
+    </div>
+    <div style="padding:10px 16px 14px;border-top:1px solid var(--border)">
+      <button class="action-btn" style="font-size:12px;padding:5px 12px" onclick="event.stopPropagation();analyzeItem('${item.id}')">🔍 Near-Miss Analyzer →</button>
     </div>
   </div>`;
 }
