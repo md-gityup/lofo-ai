@@ -695,6 +695,16 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
         <div id="debug-result"></div>
 
         <hr class="nm-divider" />
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+          <div>
+            <div class="debug-panel-title" style="margin-bottom:3px">Re-embed All Items</div>
+            <div style="font-size:12px;color:var(--muted)">Run after changing the embedding format. Re-embeds every active item using the current text format. Takes ~5–15s depending on DB size.</div>
+          </div>
+          <button class="debug-run-btn" style="margin:0;white-space:nowrap;flex-shrink:0" onclick="reembedAll()">Re-embed All →</button>
+        </div>
+        <div id="reembed-result"></div>
+
+        <hr class="nm-divider" />
         <div class="debug-panel-title">Near-Miss Analyzer</div>
         <div class="debug-panel-desc">Paste any item ID (lost <em>or</em> found) to see its top 10 closest candidates ranked by AI similarity — with no threshold filter. Reveals exactly why each near-match was blocked. Click any result to drill into the pair debugger above.</div>
         <div class="debug-inputs" style="grid-template-columns:1fr">
@@ -1140,6 +1150,15 @@ async function extendItem(id) {
 }
 function rowActions(id) {
   return `<button class="action-btn deactivate-btn" onclick="event.stopPropagation();deactivateItem('${id}')">Deactivate</button><button class="action-btn extend-btn" onclick="event.stopPropagation();extendItem('${id}')">+30d</button><button class="action-btn archive-btn" title="Archive (hide from table)" onclick="event.stopPropagation();archiveItem('${id}')">✕</button>`;
+}
+
+// ── Re-embed All ──
+async function reembedAll() {
+  const out = document.getElementById('reembed-result');
+  out.innerHTML = `<p class="muted" style="padding:4px 0 12px">Re-embedding… this may take 10–20 seconds.</p>`;
+  const data = await api('POST', '/admin/reembed-all');
+  if (!data) { out.innerHTML = `<p class="debug-error">Request failed or timed out.</p>`; return; }
+  out.innerHTML = `<p style="font-size:13px;color:#4ade80;padding:4px 0 12px">✓ Done — ${data.reembedded} items re-embedded${data.skipped ? `, ${data.skipped} skipped` : ''}.</p>`;
 }
 
 // ── Near-Miss Analyzer ──

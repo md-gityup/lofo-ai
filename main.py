@@ -455,15 +455,30 @@ class DeviceRegisterRequest(BaseModel):
 # --------------------------------------------------------------------------- #
 
 def _build_embedding_text(profile: dict) -> str:
-    colors = " ".join(profile.get("color") or [])
-    features = " ".join(profile.get("features") or [])
-    return (
-        f"item_type: {profile.get('item_type', '')} "
-        f"color: {colors} "
-        f"material: {profile.get('material', '')} "
-        f"size: {profile.get('size', '')} "
-        f"features: {features}"
-    ).strip()
+    """
+    Build the text sent to Voyage AI for embedding.
+    Natural language sentence format puts item_type as the grammatical head noun —
+    embedding models weight sentence subjects much more heavily than key-value fields.
+    item_type is also repeated at the end to reinforce its signal.
+    This string is never stored or shown to users.
+    """
+    item_type = (profile.get("item_type") or "item").strip()
+    colors    = " ".join(profile.get("color") or []).strip()
+    material  = (profile.get("material") or "").strip()
+    size      = (profile.get("size") or "").strip()
+    features  = " ".join(profile.get("features") or []).strip()
+
+    # Build descriptor: "small blue wool" — skip empty parts
+    descriptors = [p for p in [size, colors, material] if p]
+    desc = " ".join(descriptors)
+
+    # Natural language: "A small blue wool glove with winter design. glove."
+    sentence = f"A {desc} {item_type}" if desc else f"A {item_type}"
+    if features:
+        sentence += f" with {features}"
+    sentence += f". {item_type}."
+
+    return sentence
 
 
 def _store_embedding(item_id: uuid.UUID, profile: dict) -> None:
@@ -892,13 +907,21 @@ def match_item(body: MatchRequest):
     # Fetch the loser item's colors for post-match color compatibility check
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT color FROM items WHERE id = %s", (str(body.item_id),))
+            cur.execute("SELECT color, item_type FROM items WHERE id = %s", (str(body.item_id),))
             loser_meta = cur.fetchone()
-    loser_colors = [c.lower() for c in (loser_meta["color"] or [])] if loser_meta else []
+    loser_colors    = [c.lower() for c in (loser_meta["color"] or [])] if loser_meta else []
+    loser_item_type = (loser_meta["item_type"] or "") if loser_meta else ""
 
     results = []
     for r in rows:
-        if r["similarity_score"] < 0.78:
+        score = r["similarity_score"]
+        # Item type compatibility: if types are clearly different categories, require
+        # a higher similarity threshold (0.88) rather than a hard block, to allow
+        # edge cases (e.g. "glove" vs "winter glove") to still pass at lower scores.
+        finder_item_type = r.get("item_type") or ""
+        types_ok = _item_types_compatible(loser_item_type, finder_item_type)
+        threshold = 0.78 if types_ok else 0.88
+        if score < threshold:
             continue
         # Color compatibility: if both items have colors and they share no common
         # color group, and neither side is only neutral colors, skip the match.
@@ -907,6 +930,55 @@ def match_item(body: MatchRequest):
             continue
         results.append(dict(r))
     return results
+
+
+_ITEM_TYPE_SYNONYMS: list[set[str]] = [
+    {"glove", "gloves", "mitten", "mittens"},
+    {"hat", "beanie", "cap", "knit hat", "winter hat", "bonnet", "toque", "beret"},
+    {"scarf", "scarves", "wrap", "shawl"},
+    {"shoe", "shoes", "boot", "boots", "sneaker", "sneakers", "loafer", "loafers", "heel", "heels", "sandal", "sandals"},
+    {"bag", "purse", "handbag", "clutch", "tote", "satchel"},
+    {"backpack", "bookbag", "rucksack", "daypack"},
+    {"wallet", "billfold", "card holder", "cardholder"},
+    {"key", "keys", "keychain", "keyring", "key fob"},
+    {"phone", "smartphone", "iphone", "android", "cell phone", "mobile"},
+    {"glasses", "sunglasses", "eyeglasses", "spectacles", "shades"},
+    {"headphones", "earphones", "earbuds", "airpods", "earphones"},
+    {"watch", "wristwatch", "smartwatch"},
+    {"ring", "wedding ring", "engagement ring", "band"},
+    {"necklace", "chain", "pendant"},
+    {"bracelet", "bangle", "wristband"},
+    {"jacket", "coat", "parka", "puffer", "fleece", "windbreaker"},
+    {"umbrella", "brolly"},
+    {"luggage", "suitcase", "duffel", "duffle", "travel bag"},
+    {"toy", "stuffed animal", "plush", "stuffed toy", "plushie"},
+    {"laptop", "computer", "macbook", "notebook"},
+    {"tablet", "ipad"},
+    {"camera", "dslr", "mirrorless"},
+]
+
+
+def _item_types_compatible(type_a: str, type_b: str) -> bool:
+    """
+    Returns True if two item_type strings refer to the same kind of object.
+    Allows: exact match, containment (glove in winter glove), or shared synonym group.
+    If types are clearly different categories, returns False — caller should raise
+    the similarity threshold rather than hard-block, to allow edge cases through.
+    """
+    a = type_a.lower().strip()
+    b = type_b.lower().strip()
+    if a == b:
+        return True
+    # Containment: "winter glove" contains "glove"
+    if a in b or b in a:
+        return True
+    # Shared synonym group
+    for group in _ITEM_TYPE_SYNONYMS:
+        a_match = any(a == s or a in s or s in a for s in group)
+        b_match = any(b == s or b in s or s in b for s in group)
+        if a_match and b_match:
+            return True
+    return False
 
 
 _COLOR_GROUPS: list[set[str]] = [
@@ -2430,3 +2502,69 @@ def admin_near_misses(body: AdminNearMissRequest, admin=Depends(_verify_admin)):
         "total": len(candidates),
         "opposite_type": opposite_type,
     }
+
+
+@app.post("/admin/reembed-all", include_in_schema=False)
+def admin_reembed_all(admin=Depends(_verify_admin)):
+    """
+    Re-embeds all non-archived items using the current _build_embedding_text format.
+    Use after changing the embedding text format to bring existing items in sync.
+    Batches Voyage API calls in groups of 50 to stay within rate limits.
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT id, item_type, color, material, size, features
+                   FROM items WHERE status != 'archived' ORDER BY created_at DESC"""
+            )
+            rows = cur.fetchall()
+
+    if not rows:
+        return {"reembedded": 0, "skipped": 0}
+
+    BATCH_SIZE = 50
+    reembedded = 0
+    skipped = 0
+
+    for batch_start in range(0, len(rows), BATCH_SIZE):
+        batch = rows[batch_start : batch_start + BATCH_SIZE]
+        texts = []
+        valid = []
+        for r in batch:
+            profile = {
+                "item_type": r["item_type"],
+                "color":     r["color"],
+                "material":  r["material"],
+                "size":      r["size"],
+                "features":  r["features"],
+            }
+            text = _build_embedding_text(profile)
+            if not text.strip():
+                skipped += 1
+                continue
+            texts.append(text)
+            valid.append(r)
+
+        if not texts:
+            continue
+
+        try:
+            result = voyage_client.embed(texts, model="voyage-3", input_type="document")
+        except Exception as exc:
+            print(f"[reembed-all] Voyage error on batch {batch_start}: {exc}")
+            skipped += len(valid)
+            continue
+
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                for item, embedding in zip(valid, result.embeddings):
+                    emb_str = "[" + ",".join(str(x) for x in embedding) + "]"
+                    cur.execute(
+                        "UPDATE items SET embedding = %s::vector WHERE id = %s",
+                        (emb_str, str(item["id"])),
+                    )
+                    reembedded += 1
+            conn.commit()
+
+    print(f"[reembed-all] Done — {reembedded} re-embedded, {skipped} skipped")
+    return {"reembedded": reembedded, "skipped": skipped}
