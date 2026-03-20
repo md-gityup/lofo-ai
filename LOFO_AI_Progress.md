@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 19, 2026 — Build 1.0.0 (6) uploaded to TestFlight. Map pin-drop in loser flow. Proximity bonus in matching. Twilio A2P resubmitted.*
+*Last updated: March 20, 2026 — LOFO for Schools MVP built and ready to deploy. school.html + 10 backend endpoints + DB migration. TestFlight build 1.0.0 (6) in external review.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -529,7 +529,7 @@ Then redeploy Railway.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Railway.
 >
-> **DB schema:** `items`, `tips`, `reunions`, `device_tokens` (migration done). `used_tokens`, `secret_verifications` (legacy).
+> **DB schema:** `items`, `tips`, `reunions`, `device_tokens` (migration done). `used_tokens`, `secret_verifications` (legacy). School tables: `schools`, `school_subscriptions`, `school_claims`, `school_lost_pending` — migration file ready but NOT yet run in Supabase. `items.school_id` column not yet added.
 >
 > **SMS:** Code-complete, pending Twilio A2P carrier approval (Campaign SID `CM50255157...`, ~2–3 weeks from Mar 12).
 >
@@ -606,24 +606,96 @@ Then redeploy Railway.
 > - Tip flow redesign: "tip intent" concept (loser picks amount upfront, charged after reunion confirmed). Post-reunion trigger via SMS relay silence heuristic + time-bomb fallback. Detailed design in Session History Phase 26q.
 > - Unit economics: ~$0.25/reunion in Twilio costs, $10 avg tip, net ~$0.87 per loop (2% Stripe on $10, no fixed fee on Apple Pay).
 >
-> **New this session (March 19, 2026):**
+> **New this session (March 19–20, 2026):**
 > - **Map pin-drop** added to loser flow (`LostPromptView` + new `LocationPickerView`). Uber-style map, address chip, rust pin, "KNOW EXACTLY WHERE?" section label. Pin confirmed → rust checkmark + gray X to clear. GPS still captured as fallback.
 > - **Backend pin coords bug fixed** — pin lat/lng no longer overwritten by Nominatim re-geocoding when coords are already provided.
 > - **Proximity bonus** added to composite score — `proximity_mult` 1.0–1.12× based on distance. No effect when either item lacks coords.
 > - **Twilio A2P resubmitted** — Error 30909 fixed. SMS consent disclosure on all 4 phone screens. New CTA copy + Privacy/Terms URLs filled in. Awaiting TCR review.
 > - **Build 6 uploaded to TestFlight** — `CURRENT_PROJECT_VERSION` bumped to 6. Contains: map pin-drop (LocationPickerView + LostPromptView), SMS consent disclosures (PhoneVerifyView + WaitingView). Next upload = build 7.
+> - **Build 1.0.0 (6) in external review** — TestFlight "Waiting for Review". Build Metadata confirms: export compliance answered (No), bundle ID ai.lofo.app, symbols included, no blocking flags. Normal Apple queue (1–3 business days).
+> - **LOFO for Schools MVP built** — new `school.html` + 10 backend endpoints + DB migration. See full details below.
+>
+> **LOFO for Schools — what was built (March 20, 2026):**
+>
+> **Files created:**
+> - `school.html` — full single-page app. 11 screens: landing, browse gallery, item detail, claim form, claim done, lost form, thinking (breathing orb), match (navy hero + confidence bar), no-match, no-match done, subscribe, admin login, admin dash, admin post, admin settings. Full LOFO design DNA: navy `#1A1A2E`, cream `#F5F2EC`, rust `#C17A4A`, DM Serif Display headings, DM Sans body. iOS-style push/pop screen transitions (cubic-bezier parallax), stagger entry animations, spring button press, loading states with spinners, emoji item-type placeholders, lightbox, toast.
+> - `migration_school_mvp.sql` — creates `schools`, `school_subscriptions`, `school_claims`, `school_lost_pending` tables + `items.school_id` column. **Not yet run in Supabase.**
+> - `seed_school_sfws.sql` — inserts SFWS row with slug `sfws`. Default passcode: `sfws-change-me` (Argon2id hash included — rotate immediately after seeding). **Not yet run.**
+>
+> **Backend changes (`main.py`):**
+> - `_INSERT_SQL` updated — now 10 params, added `school_id` (NULL for all existing inserts)
+> - `_MATCH_SQL_SCHOOL` — school-scoped pgvector retrieval (both items must share same `school_id`)
+> - `_run_match_stages()` — extracted from `match_item`; shared by `/match` and school matching. No logic duplication.
+> - `_resend_send_html()` — Resend email helper (requires `RESEND_API_KEY` env var)
+> - `_school_after_new_finder_post()` — after admin posts item: emails all subscribers + scans `school_lost_pending` to match-notify waiting parents
+> - New Pydantic schemas: `SchoolAdminLoginRequest`, `SchoolSettingsPatch`, `SchoolSubscribeRequest`, `SchoolClaimRequest`, `SchoolLostRequest`
+> - New routes: `GET /school/{slug}`, `GET /school/{slug}/data`, `GET /school/{slug}/items`, `POST /school/{slug}/items/from-photo`, `POST /school/{slug}/claim`, `POST /school/{slug}/lost`, `POST /school/{slug}/subscribe`, `POST /school/{slug}/admin/login`, `GET /school/{slug}/admin/items`, `PATCH /school/{slug}/settings`
+> - New env vars: `RESEND_API_KEY`, `RESEND_FROM`, `SCHOOL_DEFAULT_NOTIFY_EMAIL`, `LOFO_APP_STORE_URL`
+> - `resend` added to `requirements.txt`
+>
+> **⚠️ School MVP not live yet — 4 steps required before it works:**
+> 1. **Supabase:** run `migration_school_mvp.sql`, then `seed_school_sfws.sql`
+> 2. **Railway:** add `RESEND_API_KEY` (from resend.com), optionally `RESEND_FROM`, `SCHOOL_DEFAULT_NOTIFY_EMAIL`, `LOFO_APP_STORE_URL`
+> 3. **Change passcode:** `python3 -c "from security import hash_secret; print(hash_secret('YOUR_PASSCODE'))"` → `UPDATE schools SET admin_passcode_hash='...' WHERE slug='sfws'`
+> 4. **Staff → Settings** in the school UI: fill pickup info + admin email for claim notifications
+>
+> Once done, live at: `https://lofo-ai-production.up.railway.app/school/sfws`
 >
 > **Next priorities:**
-> 1. **TestFlight external review** — build 1.0.0 (5) in external review. Once approved, enable public link in "testers" group Settings tab and share with testers. Build 6 can be swapped in once (5) clears.
-> 2. **Twilio A2P approval** — resubmitted tonight with corrected CTA + public URL + Privacy/Terms URLs. Awaiting TCR review (days to a week). No code changes needed when approved.
-> 3. **App Store listing** — screenshots (6.7" 1290×2796), app description, submit for review when ready. Marketing URL needed.
-> 4. `LocationManager` + `LocationPickerView` — `CLGeocoder` deprecated in iOS 26. Future cleanup: migrate to `MKReverseGeocodingRequest`. Non-blocking warnings, not urgent.
+> 1. **School MVP go-live** — run migration + seed + Railway env vars (steps above). Test: staff login → post photo → browse → parent lost flow → match.
+> 2. **TestFlight external review** — build 1.0.0 (6) currently "Waiting for Review". Once approved, enable public link in "testers" group Settings tab. Minimum iOS 26.2 required on testers' devices.
+> 3. **Twilio A2P approval** — resubmitted with corrected CTA + public URL + Privacy/Terms. Awaiting TCR review (days to a week). No code changes needed when approved.
+> 4. **App Store listing** — screenshots (6.7" 1290×2796), 6 screens. Copy is already drafted in progress doc. Can submit for App Store review once screenshots are ready.
+> 5. `CLGeocoder` deprecated in iOS 26 — non-blocking warnings. Future: migrate to `MKReverseGeocodingRequest`.
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
 ---
 
 ## Session History
+
+### LOFO for Schools MVP — March 20, 2026
+
+**What shipped:**
+
+**school.html — new browser-based web app for elementary schools:**
+- 11 screens covering the full school-specific flow: landing, browse gallery (stagger grid), item detail + claim form, claim confirmed (with App Store CTA), lost form, thinking/loading (breathing orb), match result (navy hero + confidence bar), no-match, subscribe to notifications, admin login, admin dashboard, admin post item (styled photo picker + vision analysis), admin settings.
+- Full LOFO design system: `--navy: #1A1A2E`, `--cream: #F5F2EC`, `--rust: #C17A4A`. DM Serif Display headings, DM Sans body/UI text. Identical visual DNA to `LOFO_MVP.html`.
+- iOS-style push/pop screen transitions with `cubic-bezier(0.32,0.72,0,1)` timing — exactly matching the native app's spring physics.
+- Stagger entry animations (`s-item`, `s-pop`) for grid items and modal content. Spring button press via `transform: scale(0.94)`.
+- `btnLoading()` / `btnReset()` — async button loading states with inline spinner.
+- Emoji item-type placeholders (🎒📱🧤👟🕶️…) when no `photo_url` present. Graceful `onerror` fallback on `<img>` tags.
+- Confidence bar on match screen animates after screen enters (delayed via `setTimeout`).
+- Custom-styled photo picker for admin uploads replaces raw `<input type=file>`.
+- Input `:focus` states with rust border, navy shadow.
+- Scrollable screen containers — content doesn't clip.
+- App Store download CTA on match + claim confirmed screens.
+
+**main.py — backend additions (no changes to existing routes):**
+- `_INSERT_SQL` updated for optional `school_id` (10th param). All existing callers pass `None`.
+- `_MATCH_SQL_SCHOOL` — school-scoped pgvector recall (both items share `school_id`).
+- `_run_match_stages()` — reranker + composite score logic extracted and shared by both `/match` and school matching. Zero duplication.
+- `_resend_send_html()` — single Resend API caller. All school emails go through here.
+- `_school_after_new_finder_post()` — triggers: (1) subscriber new-item digest email, (2) scan `school_lost_pending` + email waiting parents if match found.
+- 10 new `/school/{slug}/*` routes: `GET /school/{slug}` (serve HTML), `GET /school/{slug}/data`, `GET /school/{slug}/items`, `POST /school/{slug}/items/from-photo`, `POST /school/{slug}/claim`, `POST /school/{slug}/lost`, `POST /school/{slug}/subscribe`, `POST /school/{slug}/admin/login`, `GET /school/{slug}/admin/items`, `PATCH /school/{slug}/settings`.
+- Admin JWT auth on protected routes (`_require_school_admin()`).
+- Orphan cleanup: `school_lost_pending` rows deleted immediately if no match found and no email provided.
+- New Pydantic schemas: `SchoolAdminLoginRequest`, `SchoolSettingsPatch`, `SchoolSubscribeRequest`, `SchoolClaimRequest`, `SchoolLostRequest`.
+- New env vars: `RESEND_API_KEY`, `RESEND_FROM`, `SCHOOL_DEFAULT_NOTIFY_EMAIL`, `LOFO_APP_STORE_URL`.
+- `resend` added to `requirements.txt`.
+
+**migration_school_mvp.sql** — new tables: `schools` (slug, name, pickup_info, admin_passcode_hash, admin_notify_email), `school_subscriptions` (email, school_id), `school_claims` (item_id, school_id, parent_email, parent_name, created_at), `school_lost_pending` (school_id, description, email, embedding). Plus `ALTER TABLE items ADD COLUMN school_id`. **⚠️ NOT YET RUN in Supabase.**
+
+**seed_school_sfws.sql** — inserts SFWS row (`slug=sfws`). Default passcode: `sfws-change-me`. **⚠️ NOT YET RUN. Rotate passcode before sharing with anyone.**
+
+**What's pending before school MVP is live:**
+1. Run `migration_school_mvp.sql` in Supabase SQL editor
+2. Run `seed_school_sfws.sql` in Supabase SQL editor
+3. Add to Railway: `RESEND_API_KEY` (required), `RESEND_FROM` (default: `LOFO <noreply@lofo.ai>`), `SCHOOL_DEFAULT_NOTIFY_EMAIL`, `LOFO_APP_STORE_URL`
+4. Change default passcode: generate Argon2id hash of real passcode, UPDATE schools SET admin_passcode_hash
+5. Visit `/school/sfws` → staff login → post a test item → browse as parent → verify emails send
+
+---
 
 ### Map Pin-Drop + Matching Improvements — March 19, 2026
 

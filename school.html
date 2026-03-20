@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>LOFO — School Lost & Found</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --navy:       #1A1A2E;
+  --cream:      #F5F2EC;
+  --bg:         #EAE6DE;
+  --muted:      #9A9488;
+  --border:     #E0DBD1;
+  --rust:       #C17A4A;
+  --rust-light: #F5EDE3;
+  --tag-bg:     #EAE8F2;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--navy);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── App shell ─────────────────────────────────── */
+.app-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  background: #fff;
+  box-shadow: 0 0 80px rgba(26,26,46,0.10);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* ─── Screen system ──────────────────────────────── */
+.screen {
+  display: none;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: #fff;
+  will-change: transform, opacity;
+}
+.screen.active { display: flex; }
+
+/* Push-forward transitions */
+@keyframes slideInFromRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes slideOutToLeft {
+  from { transform: translateX(0);   opacity: 1; }
+  to   { transform: translateX(-28%); opacity: 0.35; }
+}
+/* Pop-back transitions */
+@keyframes slideInFromLeft {
+  from { transform: translateX(-28%); opacity: 0.35; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes slideOutToRight {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+/* Fade-up for modal-style screens (thinking, match) */
+@keyframes fadeUpIn {
+  from { transform: translateY(18px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.screen.push-in  { animation: slideInFromRight 0.40s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.screen.push-out { animation: slideOutToLeft   0.40s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; pointer-events: none; }
+.screen.pop-in   { animation: slideInFromLeft  0.36s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.screen.pop-out  { animation: slideOutToRight  0.36s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; pointer-events: none; }
+.screen.fade-in  { animation: fadeUpIn         0.32s cubic-bezier(0.34, 1.20, 0.64, 1)   both; }
+
+/* ─── Stagger entry ──────────────────────────────── */
+.s-item {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.s-item.s-ready {
+  animation: staggerUp 0.50s cubic-bezier(0.34, 1.20, 0.64, 1) forwards;
+}
+@keyframes staggerUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+.s-pop {
+  opacity: 0;
+  transform: scale(0.72);
+}
+.s-pop.s-ready {
+  animation: staggerPop 0.48s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes staggerPop {
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ─── Buttons ────────────────────────────────────── */
+.btn-primary, .btn-secondary, .btn-ghost {
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 14px; cursor: pointer; font-family: inherit;
+  font-size: 15px; font-weight: 600; letter-spacing: -0.1px;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s;
+  position: relative;
+  gap: 8px;
+}
+.btn-primary:active  { transform: scale(0.96) !important; opacity: 0.92; }
+.btn-secondary:active{ transform: scale(0.97) !important; opacity: 0.9; }
+.btn-ghost:active    { transform: scale(0.98) !important; }
+
+.btn-primary {
+  width: calc(100% - 44px); margin: 0 22px;
+  padding: 17px; background: var(--navy); color: #fff;
+}
+.btn-primary.rust { background: var(--rust); }
+.btn-primary.white { background: #fff; color: var(--navy); }
+
+.btn-secondary {
+  width: calc(100% - 44px); margin: 0 22px;
+  padding: 15px; background: none; color: var(--navy);
+  border: 1.5px solid var(--border);
+}
+.btn-ghost {
+  background: none; border: none; color: var(--muted);
+  font-family: inherit; font-size: 13px; font-weight: 400;
+  cursor: pointer; padding: 8px 4px;
+  transition: color 0.15s;
+}
+.btn-ghost:hover { color: var(--navy); }
+.btn-spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+.btn-primary.loading .btn-spinner { display: inline-block; }
+.btn-primary.loading .btn-label   { opacity: 0.6; }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Top bar ────────────────────────────────────── */
+.top-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 22px 8px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  flex-shrink: 0;
+}
+.back-btn {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 400; color: var(--muted);
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  padding: 4px 0; transition: color 0.15s;
+}
+.back-btn:hover { color: var(--navy); }
+
+/* ─── Forms ──────────────────────────────────────── */
+.field-group { margin: 0 22px; }
+.field-label {
+  display: block; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 7px; margin-top: 18px;
+}
+.field-label .lbl-note { font-weight: 300; text-transform: none; letter-spacing: 0; }
+input.field, textarea.field, select.field {
+  display: block; width: 100%;
+  padding: 14px 16px; border-radius: 12px;
+  border: 1.5px solid var(--border); background: var(--cream);
+  font-family: inherit; font-size: 15px; color: var(--navy);
+  outline: none; transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+input.field::placeholder, textarea.field::placeholder { color: var(--muted); font-weight: 300; }
+input.field:focus, textarea.field:focus { border-color: var(--navy); background: #fff; }
+textarea.field { min-height: 110px; resize: vertical; }
+
+/* ─── Wordmark / header ──────────────────────────── */
+.wordmark {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--rust); text-align: center;
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: 4px;
+}
+.school-heading {
+  font-family: 'DM Serif Display', serif;
+  font-size: 22px; text-align: center; line-height: 1.25;
+  margin: 8px 24px 0; color: var(--navy);
+}
+.screen-heading {
+  font-family: 'DM Serif Display', serif;
+  font-size: 30px; line-height: 1.1; color: var(--navy);
+  margin-bottom: 8px;
+}
+.screen-sub { font-size: 14px; color: var(--muted); font-weight: 300; line-height: 1.6; }
+
+/* ─── Landing screen ─────────────────────────────── */
+#screen-landing { background: var(--cream); }
+.landing-content { padding: 0 0 40px; flex: 1; display: flex; flex-direction: column; }
+.pickup-pill {
+  margin: 14px 22px 0;
+  background: var(--navy); color: var(--cream);
+  padding: 12px 16px; border-radius: 12px;
+  font-size: 13px; line-height: 1.5; font-weight: 400;
+}
+.cta-card {
+  display: block; margin: 12px 22px 0; padding: 22px 22px 20px;
+  border-radius: 18px; border: 1.5px solid var(--border); background: #fff;
+  cursor: pointer; text-align: left; font-family: inherit; color: inherit;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.2s ease;
+}
+.cta-card:active { transform: scale(0.98); box-shadow: none; }
+.cta-card-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 26px; line-height: 1.15; margin-bottom: 6px;
+}
+.cta-card-title em { font-style: italic; color: var(--rust); }
+.cta-card-sub { font-size: 13px; color: var(--muted); font-weight: 300; line-height: 1.5; }
+.links-row {
+  display: flex; justify-content: center; gap: 24px;
+  margin-top: 20px; padding: 0 22px;
+}
+.text-link {
+  font-size: 13px; color: var(--muted); cursor: pointer;
+  background: none; border: none; font-family: inherit;
+  text-decoration: underline; text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+.text-link:hover { color: var(--navy); }
+
+/* ─── App CTA block ──────────────────────────────── */
+.app-cta {
+  margin: 28px 22px 0; padding: 20px 22px;
+  border-radius: 16px; background: var(--rust-light);
+  border: 1px solid var(--border); text-align: center;
+}
+.app-cta p { font-size: 13px; color: var(--navy); line-height: 1.55; margin-bottom: 12px; }
+.app-cta a {
+  display: inline-block; font-size: 13px; font-weight: 600;
+  color: var(--rust); text-decoration: none;
+}
+.app-cta a:hover { text-decoration: underline; }
+
+/* ─── Browse screen ──────────────────────────────── */
+.search-bar-wrap { padding: 10px 22px 14px; }
+.search-bar {
+  width: 100%; padding: 12px 16px; border-radius: 12px;
+  border: 1.5px solid var(--border); background: var(--cream);
+  font-family: inherit; font-size: 15px; color: var(--navy); outline: none;
+  transition: border-color 0.2s;
+}
+.search-bar:focus { border-color: var(--navy); background: #fff; }
+.search-bar::placeholder { color: var(--muted); }
+
+.photo-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 11px; padding: 0 22px 32px;
+}
+.photo-card {
+  border-radius: 14px; overflow: hidden;
+  border: 1.5px solid var(--border); background: var(--cream);
+  cursor: pointer;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.photo-card:active { transform: scale(0.97); }
+.photo-card-img {
+  width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
+  background: var(--bg);
+}
+.photo-card-img.no-photo {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; background: var(--bg);
+}
+.photo-card-meta { padding: 9px 10px 11px; }
+.item-chip {
+  display: inline-block; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  background: var(--navy); color: #fff; padding: 3px 8px; border-radius: 6px;
+}
+.item-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.empty-state {
+  grid-column: 1/-1; text-align: center; padding: 40px 16px;
+  color: var(--muted); font-size: 14px; font-weight: 300; line-height: 1.7;
+}
+
+/* ─── Detail screen ──────────────────────────────── */
+#screen-detail { overflow-y: auto; }
+.detail-photo-wrap { padding: 0 22px; margin-top: 4px; }
+.detail-photo {
+  width: 100%; max-height: 300px; object-fit: cover;
+  border-radius: 16px; display: block; cursor: zoom-in;
+  border: 1.5px solid var(--border); background: var(--bg);
+}
+.detail-no-photo {
+  width: 100%; height: 200px; border-radius: 16px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 56px;
+}
+.detail-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 24px; line-height: 1.2;
+  margin: 16px 22px 0;
+}
+.tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 22px; }
+.tag {
+  background: var(--rust-light); color: var(--navy);
+  padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 500;
+}
+.pickup-row {
+  margin: 0 22px 4px; padding: 14px 16px; border-radius: 12px;
+  background: var(--navy); color: var(--cream);
+  font-size: 13px; line-height: 1.5;
+}
+.pickup-row-label {
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45); margin-bottom: 4px; font-weight: 600;
+}
+
+/* ─── Claim / form screens ───────────────────────── */
+.form-content { padding: 8px 22px 40px; flex: 1; display: flex; flex-direction: column; }
+.form-spacer { margin-top: 24px; }
+
+/* ─── Success / done screens ─────────────────────── */
+.done-content {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  text-align: center; padding: 48px 28px 40px;
+}
+.done-icon { font-size: 52px; margin-bottom: 20px; }
+.done-title { font-family: 'DM Serif Display', serif; font-size: 32px; line-height: 1.1; }
+.done-rule { width: 32px; height: 1.5px; background: var(--border); margin: 18px auto; }
+.done-sub { font-size: 15px; color: var(--muted); font-weight: 300; line-height: 1.65; max-width: 300px; }
+.done-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
+
+/* ─── Thinking screen ────────────────────────────── */
+#screen-thinking { background: var(--navy); justify-content: center; align-items: center; }
+.breathe-wrap {
+  width: 160px; height: 160px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 44px;
+}
+.breathe-ring {
+  position: absolute; border-radius: 50%;
+  background: rgba(255,255,255,0.045);
+  animation: breatheRing 4s ease-in-out infinite;
+}
+.breathe-ring:nth-child(1) { width: 160px; height: 160px; animation-delay: 0s; }
+.breathe-ring:nth-child(2) { width: 120px; height: 120px; animation-delay: -1.33s; }
+.breathe-ring:nth-child(3) { width: 82px;  height: 82px;  animation-delay: -2.66s; }
+@keyframes breatheRing {
+  0%,100% { transform: scale(0.72); opacity: 0; }
+  35%     { opacity: 1; }
+  65%     { opacity: 0.5; }
+  100%    { transform: scale(1.28); opacity: 0; }
+}
+.breathe-center {
+  width: 54px; height: 54px; border-radius: 50%;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
+  z-index: 2; animation: breatheCenter 4s ease-in-out infinite;
+}
+@keyframes breatheCenter {
+  0%,100% { transform: scale(0.88); box-shadow: 0 0 0 0 rgba(255,255,255,0.04); }
+  50%     { transform: scale(1.12); box-shadow: 0 0 32px 8px rgba(255,255,255,0.06); }
+}
+.thinking-title {
+  font-family: 'DM Serif Display', serif; font-size: 30px;
+  color: #fff; text-align: center; line-height: 1.1; padding: 0 32px;
+}
+.thinking-title em { font-style: italic; color: rgba(255,255,255,0.4); }
+.thinking-sub {
+  text-align: center; color: rgba(255,255,255,0.3); font-size: 13px;
+  font-weight: 300; margin-top: 14px; letter-spacing: 0.02em;
+  animation: textPulse 2s ease-in-out infinite;
+}
+@keyframes textPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+
+/* ─── Match screen ───────────────────────────────── */
+#screen-match { background: var(--navy); overflow-y: auto; }
+.match-banner {
+  padding: 24px 22px 20px;
+  padding-top: max(24px, env(safe-area-inset-top));
+  flex-shrink: 0;
+}
+.match-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase;
+  color: rgba(255,255,255,0.45); margin-bottom: 10px;
+}
+.match-headline {
+  font-family: 'DM Serif Display', serif; font-size: 38px;
+  color: #fff; line-height: 1.05;
+}
+.match-headline em { font-style: italic; color: rgba(255,255,255,0.5); }
+.confidence-bar { margin-top: 18px; display: flex; align-items: center; gap: 12px; }
+.bar-track { flex: 1; height: 2px; background: rgba(255,255,255,0.10); border-radius: 2px; overflow: hidden; }
+.bar-fill {
+  height: 100%; width: 0%; background: rgba(255,255,255,0.75);
+  border-radius: 2px;
+  transition: width 1.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.35s;
+}
+.bar-label { font-size: 12px; color: rgba(255,255,255,0.35); white-space: nowrap; }
+.match-card {
+  margin: 0 22px 16px; background: #fff; border-radius: 18px;
+  padding: 14px; display: flex; gap: 14px; align-items: center; color: var(--navy);
+}
+.match-thumb {
+  width: 90px; height: 90px; border-radius: 12px; object-fit: cover; flex-shrink: 0;
+  background: var(--bg); display: block;
+}
+.match-thumb-placeholder {
+  width: 90px; height: 90px; border-radius: 12px; flex-shrink: 0;
+  background: var(--bg); display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+}
+.match-item-name { font-family: 'DM Serif Display', serif; font-size: 20px; line-height: 1.2; }
+.match-item-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.match-reasons { padding: 0 22px; margin-bottom: 16px; }
+.reason {
+  display: flex; gap: 10px; align-items: flex-start;
+  font-size: 13px; color: rgba(255,255,255,0.55);
+  font-weight: 300; margin-bottom: 10px; line-height: 1.5;
+}
+.check-dot {
+  width: 20px; height: 20px; background: rgba(255,255,255,0.12);
+  border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: #fff; font-weight: 700;
+}
+.match-actions { padding: 0 22px 40px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ─── Admin photo picker ─────────────────────────── */
+.photo-picker {
+  margin: 0; border: 2px dashed var(--border); border-radius: 14px;
+  background: var(--cream); padding: 36px 24px;
+  text-align: center; cursor: pointer; position: relative;
+  transition: border-color 0.2s, background 0.2s;
+}
+.photo-picker:hover, .photo-picker.has-file { border-color: var(--navy); background: #fff; }
+.photo-picker input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.photo-picker-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+.photo-picker-label { font-size: 14px; color: var(--navy); font-weight: 500; }
+.photo-picker-sub { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 300; }
+
+/* ─── Admin list ─────────────────────────────────── */
+.admin-scroll { flex: 1; overflow-y: auto; padding: 0 22px 40px; }
+.admin-row {
+  border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 14px;
+  margin-bottom: 10px; display: flex; justify-content: space-between;
+  align-items: center; font-size: 14px;
+}
+.admin-row-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.claim-badge {
+  background: var(--rust-light); color: var(--rust);
+  padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ─── Toast ──────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: max(24px, env(safe-area-inset-bottom));
+  left: 50%; transform: translateX(-50%) translateY(120px);
+  background: var(--navy); color: #fff; padding: 12px 20px;
+  border-radius: 12px; font-size: 13px; z-index: 500;
+  white-space: nowrap; max-width: calc(100vw - 44px);
+  transition: transform 0.32s cubic-bezier(0.34, 1.20, 0.64, 1);
+  pointer-events: none;
+}
+.toast.visible { transform: translateX(-50%) translateY(0); }
+
+/* ─── Lightbox ───────────────────────────────────── */
+.lightbox {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+  z-index: 400; align-items: center; justify-content: center; padding: 20px;
+}
+.lightbox.visible { display: flex; }
+.lightbox img { max-width: 100%; max-height: 90dvh; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="lightbox" onclick="this.classList.remove('visible')">
+    <img id="lightbox-img" alt="">
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ══════════════════════════════════════════════
+       LANDING
+  ══════════════════════════════════════════════ -->
+  <div class="screen active" id="screen-landing">
+    <div class="wordmark">LOFO</div>
+    <div class="school-heading s-item" id="landing-name">School Lost &amp; Found</div>
+    <div class="landing-content">
+      <div id="landing-pickup" class="pickup-pill s-item" style="display:none"></div>
+      <button type="button" class="cta-card s-item" style="animation-delay:0.06s" onclick="navigate('screen-browse','forward');loadItems()">
+        <div class="cta-card-title">Browse <em>found</em> items</div>
+        <div class="cta-card-sub">Photos from the school's collection. Tap anything that looks familiar.</div>
+      </button>
+      <button type="button" class="cta-card s-item" style="animation-delay:0.12s" onclick="navigate('screen-lost','forward')">
+        <div class="cta-card-title">I <em>lost</em> something</div>
+        <div class="cta-card-sub">Describe it — our AI searches what was found on campus.</div>
+      </button>
+      <div class="links-row s-item" style="animation-delay:0.18s">
+        <button type="button" class="text-link" onclick="navigate('screen-subscribe','forward')">Get new-item alerts</button>
+        <button type="button" class="text-link" onclick="navigate('screen-admin-login','forward')">Staff login</button>
+      </div>
+      <div class="app-cta s-item" style="animation-delay:0.24s">
+        <p>Like what you see? LOFO works anywhere things get lost — not just at school.</p>
+        <a id="landing-app-link" href="#" target="_blank" rel="noopener">Get the LOFO app →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       BROWSE
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-browse" style="overflow-y:auto">
+    <div class="top-bar">
+      <button type="button" class="back-btn" onclick="navigate('screen-landing','back')">← Back</button>
+    </div>
+    <div class="school-heading" style="text-align:left;font-size:18px;margin-bottom:0">Found items</div>
+    <div class="search-bar-wrap">
+      <input type="search" class="search-bar" id="browse-search" placeholder="Search by type — jacket, backpack…" onkeydown="if(event.key==='Enter')loadItems()">
+    </div>
+    <div class="photo-grid" id="browse-grid"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       DETAIL
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-detail" style="overflow-y:auto">
+    <div class="top-bar">
+      <button type="button" class="back-btn" onclick="navigate('screen-browse','back')">← Back</button>
+    </div>
+    <div class="detail-photo-wrap" id="detail-photo-wrap">
+      <img class="detail-photo" id="detail-img" src="" alt="" onclick="openLb(this.src)">
+    </div>
+    <div class="detail-title" id="detail-title"></div>
+    <div class="tag-row" id="detail-tags"></div>
+    <div class="pickup-row" id="detail-pickup">
+      <div class="pickup-row-label">Pickup</div>
+      <div id="detail-pickup-text"></div>
+    </div>
+    <div style="margin-top:20px">
+      <button type="button" class="btn-primary rust" onclick="navigate('screen-claim','forward')">
+        <span class="btn-label">This belongs to my child →</span>
+      </button>
+    </div>
+    <div class="app-cta" style="margin-bottom:32px">
+      <p>LOFO reunites lost things everywhere — download the app for matches on the go.</p>
+      <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       CLAIM
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-claim" style="overflow-y:auto">
+    <div class="top-bar">
+      <button type="button" class="back-btn" onclick="navigate('screen-detail','back')">← Back</button>
+    </div>
+    <div class="form-content">
+      <h2 class="screen-heading">Claim this item</h2>
+      <p class="screen-sub">The school will follow up with you directly to verify.</p>
+      <div class="field-group">
+        <label class="field-label">Child's name</label>
+        <input class="field" id="claim-child" type="text" placeholder="First name" autocomplete="given-name">
+        <label class="field-label">Your name</label>
+        <input class="field" id="claim-parent" type="text" placeholder="Parent or guardian" autocomplete="name">
+        <label class="field-label">Your email</label>
+        <input class="field" id="claim-email" type="email" placeholder="you@example.com" autocomplete="email">
+        <label class="field-label">Anything that helps identify it? <span class="lbl-note">(optional)</span></label>
+        <textarea class="field" id="claim-note" placeholder="e.g. initials inside, tear on strap, keychain attached"></textarea>
+      </div>
+      <div class="form-spacer">
+        <button type="button" class="btn-primary rust" id="btn-claim" onclick="submitClaim()">
+          <div class="btn-spinner"></div>
+          <span class="btn-label">Submit claim</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       CLAIM DONE
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-claim-done">
+    <div class="done-content">
+      <div class="done-icon s-pop">✓</div>
+      <h2 class="done-title s-item" style="animation-delay:0.06s">We've notified<br>the school.</h2>
+      <div class="done-rule s-item" style="animation-delay:0.12s"></div>
+      <p class="done-sub s-item" style="animation-delay:0.16s" id="claim-done-pickup"></p>
+      <div class="done-actions">
+        <div class="app-cta s-item" style="animation-delay:0.22s">
+          <p>LOFO works beyond school too — lost & found, reinvented on your phone.</p>
+          <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
+        </div>
+        <button type="button" class="btn-secondary s-item" style="animation-delay:0.28s" onclick="navigate('screen-landing','back')">Back to home</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       LOST FORM
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-lost" style="overflow-y:auto">
+    <div class="top-bar">
+      <button type="button" class="back-btn" onclick="navigate('screen-landing','back')">← Back</button>
+    </div>
+    <div class="form-content">
+      <h2 class="screen-heading">What did your<br>child lose?</h2>
+      <p class="screen-sub">Be specific — colors, brand, size, any details.</p>
+      <div class="field-group" style="margin-top:16px">
+        <textarea class="field" id="lost-desc" style="min-height:130px" placeholder="e.g. navy Patagonia fleece jacket, kids size M, small hole on right sleeve, has her name on the tag"></textarea>
+        <label class="field-label">Your email <span class="lbl-note">(we'll watch and alert you if no match yet)</span></label>
+        <input class="field" id="lost-email" type="email" placeholder="you@example.com">
+        <label class="field-label">Your name <span class="lbl-note">(optional)</span></label>
+        <input class="field" id="lost-parent" type="text" placeholder="Parent or guardian name">
+        <label class="field-label">Child's name <span class="lbl-note">(optional)</span></label>
+        <input class="field" id="lost-child" type="text" placeholder="First name">
+      </div>
+      <div class="form-spacer">
+        <button type="button" class="btn-primary rust" id="btn-lost" onclick="submitLost()">
+          <div class="btn-spinner"></div>
+          <span class="btn-label">Find it →</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       THINKING
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-thinking">
+    <div class="breathe-wrap">
+      <div class="breathe-ring"></div>
+      <div class="breathe-ring"></div>
+      <div class="breathe-ring"></div>
+      <div class="breathe-center"></div>
+    </div>
+    <div class="thinking-title">Searching<br><em>found items…</em></div>
+    <div class="thinking-sub">Reading your description…</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       MATCH
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-match">
+    <div class="match-banner">
+      <div class="match-eyebrow s-item">AI found a match</div>
+      <h2 class="match-headline s-item" style="animation-delay:0.06s">Could this<br><em>be it?</em></h2>
+      <div class="confidence-bar s-item" style="animation-delay:0.12s">
+        <div class="bar-track"><div class="bar-fill" id="match-bar-fill"></div></div>
+        <span class="bar-label" id="match-bar-label">—</span>
+      </div>
+    </div>
+    <div class="match-card s-item" style="animation-delay:0.18s" id="match-card">
+      <div id="match-thumb-wrap"></div>
+      <div>
+        <div class="match-item-name" id="match-item-name"></div>
+        <div class="match-item-meta" id="match-item-meta"></div>
+      </div>
+    </div>
+    <div class="match-reasons" id="match-reasons"></div>
+    <div class="match-actions">
+      <button type="button" class="btn-primary white s-item" style="margin:0;animation-delay:0.26s;width:100%" onclick="fromMatchToDetail()">
+        <span class="btn-label">View item details →</span>
+      </button>
+      <button type="button" class="btn-ghost s-item" style="animation-delay:0.32s;color:rgba(255,255,255,0.4);text-align:center" onclick="navigate('screen-landing','back')">Not a match — back to home</button>
+      <div class="app-cta s-item" style="animation-delay:0.38s;background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.12)">
+        <p style="color:rgba(255,255,255,0.8)">Get the full LOFO app — matches anywhere, not just at school.</p>
+        <a class="app-store-link" href="#" target="_blank" rel="noopener" style="color:#fff">Download LOFO →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       NO MATCH
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-no-match" style="overflow-y:auto">
+    <div class="top-bar">
+      <button type="button" class="back-btn" onclick="navigate('screen-lost','back')">← Back</button>
+    </div>
+    <div class="form-content">
+      <h2 class="screen-heading">No close match <em style="font-style:italic;color:var(--rust)">yet.</em></h2>
+      <p class="screen-sub" style="margin-top:8px">Leave your email — we'll notify you the moment something matching is posted.</p>
+      <div class="field-group" style="margin-top:4px">
+        <label class="field-label">Email</label>
+        <input class="field" id="nm-email" type="email" placeholder="you@example.com">
+        <label class="field-label">Your name <span class="lbl-note">(optional)</span></label>
+        <input class="field" id="nm-parent" type="text" placeholder="">
+        <label class="field-label">Child's name <span class="lbl-note">(optional)</span></label>
+        <input class="field" id="nm-child" type="text" placeholder="">
+      </div>
+      <div class="form-spacer">
+        <button type="button" class="btn-primary rust" id="btn-nm" onclick="submitLostRetry()">
+          <div class="btn-spinner"></div>
+          <span class="btn-label">Notify me when it shows up</span>
+        </button>
+      </div>
+      <div style="text-align:center;margin-top:14px">
+        <button type="button" class="btn-ghost" onclick="navigate('screen-landing','back')">Skip — back to home</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       NO MATCH DONE
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-no-match-done">
+    <div class="done-content">
+      <div class="done-icon s-pop">👀</div>
+      <h2 class="done-title s-item" style="animation-delay:0.06s">We're watching.</h2>
+      <div class="done-rule s-item" style="animation-delay:0.12s"></div>
+      <p class="done-sub s-item" style="animation-delay:0.16s">If something similar shows up in the school's lost &amp; found, we'll email you right away.</p>
+      <div class="done-actions">
+        <div class="app-cta s-item" style="animation-delay:0.22s">
+          <p>Want LOFO everywhere you go? Get the app for real-time AI matching.</p>
+          <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
+        </div>
+        <button type="button" class="btn-secondary s-item" style="animation-delay:0.28s" onclick="navigate('screen-landing','back')">Back to home</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SUBSCRIBE
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-subscribe" style="overflow-y:auto">
+    <div class="top-bar">
+      <button type="button" class="back-btn" onclick="navigate('screen-landing','back')">← Back</button>
+    </div>
+    <div class="form-content">
+      <h2 class="screen-heading">New item alerts</h2>
+      <p class="screen-sub">Get an email whenever something new is posted to lost &amp; found.</p>
+      <div class="field-group" style="margin-top:8px">
+        <label class="field-label">Email</label>
+        <input class="field" id="sub-email" type="email" placeholder="you@example.com" autocomplete="email">
+        <label class="field-label">Your name <span class="lbl-note">(optional)</span></label>
+        <input class="field" id="sub-name" type="text" placeholder="">
+      </div>
+      <div class="form-spacer">
+        <button type="button" class="btn-primary rust" id="btn-sub" onclick="doSubscribe()">
+          <div class="btn-spinner"></div>
+          <span class="btn-label">Subscribe</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       ADMIN LOGIN
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-admin-login">
+    <div class="top-bar">
+      <button type="button" class="back-btn" onclick="navigate('screen-landing','back')">← Back</button>
+    </div>
+    <div class="form-content">
+      <h2 class="screen-heading">Staff</h2>
+      <p class="screen-sub">Enter the school passcode to manage found items.</p>
+      <div class="field-group" style="margin-top:12px">
+        <label class="field-label">Passcode</label>
+        <input class="field" id="admin-pass" type="password" placeholder="••••••••" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter')adminLogin()">
+      </div>
+      <div class="form-spacer">
+        <button type="button" class="btn-primary" id="btn-admin-login" onclick="adminLogin()">
+          <div class="btn-spinner"></div>
+          <span class="btn-label">Log in</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       ADMIN DASH
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-admin-dash">
+    <div class="top-bar">
+      <button type="button" class="back-btn" onclick="adminLogout()">Log out</button>
+      <button type="button" class="back-btn" onclick="navigate('screen-admin-settings','forward')">Settings</button>
+    </div>
+    <div class="school-heading" style="text-align:left;font-size:18px;margin-bottom:16px">Posted items</div>
+    <button type="button" class="btn-primary rust" style="margin-bottom:16px" onclick="navigate('screen-admin-post','forward')">
+      <span class="btn-label">+ Post found item</span>
+    </button>
+    <div class="admin-scroll" id="admin-list"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       ADMIN POST
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-admin-post">
+    <div class="top-bar">
+      <button type="button" class="back-btn" onclick="navigate('screen-admin-dash','back')">← Cancel</button>
+    </div>
+    <div class="form-content">
+      <h2 class="screen-heading">Post photo</h2>
+      <p class="screen-sub" style="margin-bottom:20px">AI reads the image, classifies the item, and publishes it to the gallery instantly.</p>
+      <label class="photo-picker" id="photo-picker">
+        <input type="file" id="admin-file" accept="image/*" onchange="onFileChosen(this)">
+        <span class="photo-picker-icon" id="picker-icon">📷</span>
+        <div class="photo-picker-label" id="picker-label">Tap to choose a photo</div>
+        <div class="photo-picker-sub" id="picker-sub">JPEG, PNG, HEIC accepted</div>
+      </label>
+      <div class="form-spacer">
+        <button type="button" class="btn-primary" id="btn-upload" onclick="adminUpload()">
+          <div class="btn-spinner"></div>
+          <span class="btn-label">Upload &amp; publish</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       ADMIN SETTINGS
+  ══════════════════════════════════════════════ -->
+  <div class="screen" id="screen-admin-settings" style="overflow-y:auto">
+    <div class="top-bar">
+      <button type="button" class="back-btn" onclick="navigate('screen-admin-dash','back')">← Back</button>
+    </div>
+    <div class="form-content">
+      <h2 class="screen-heading">Settings</h2>
+      <div class="field-group">
+        <label class="field-label">Pickup info <span class="lbl-note">(shown to parents)</span></label>
+        <textarea class="field" id="set-pickup" style="min-height:90px"></textarea>
+        <label class="field-label">Admin email <span class="lbl-note">(receives claim notifications)</span></label>
+        <input class="field" id="set-email" type="email" placeholder="you@school.edu">
+      </div>
+      <div class="form-spacer">
+        <button type="button" class="btn-primary rust" id="btn-settings" onclick="saveSettings()">
+          <div class="btn-spinner"></div>
+          <span class="btn-label">Save changes</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.app-shell -->
+
+<script>
+(function () {
+'use strict';
+
+/* ── Config ─────────────────────────────────────── */
+const segs = window.location.pathname.split('/').filter(Boolean);
+const SLUG = (segs[0] === 'school' && segs[1]) ? segs[1] : 'sfws';
+const tokenKey = 'lofo_school_' + SLUG;
+
+let schoolData = { name: '', pickup_info: '', app_store_url: '#' };
+let selectedItem = null;
+let lastLostPayload = null;
+
+/* ── API helper ─────────────────────────────────── */
+function API(path, opts) {
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, (opts || {}).headers || {});
+  return fetch(path, Object.assign({}, opts, { headers }))
+    .then(r => {
+      if (!r.ok) return r.json().then(j => Promise.reject(j.detail || j || r.statusText), () => Promise.reject(r.statusText));
+      return r.json();
+    });
+}
+
+function authHeaders() {
+  const t = localStorage.getItem(tokenKey);
+  return t ? { Authorization: 'Bearer ' + t } : {};
+}
+
+/* ── Navigation ─────────────────────────────────── */
+const history_stack = ['screen-landing'];
+
+window.navigate = function (targetId, direction) {
+  const current = document.querySelector('.screen.active');
+  const next = document.getElementById(targetId);
+  if (!next || next === current) return;
+
+  // Push/pop the history stack
+  if (direction === 'forward') {
+    history_stack.push(targetId);
+  } else if (direction === 'back') {
+    history_stack.pop();
+  }
+
+  const inAnim  = direction === 'forward' ? 'push-in'  : 'pop-in';
+  const outAnim = direction === 'forward' ? 'push-out' : 'pop-out';
+
+  // Special: fade-up for overlay-feel screens
+  const fadeScreens = ['screen-thinking', 'screen-match'];
+  const actualIn = fadeScreens.includes(targetId) ? 'fade-in' : inAnim;
+
+  // Position next screen behind/alongside, then animate
+  next.style.display = 'flex';
+  next.style.position = 'absolute';
+  next.style.top = '0'; next.style.left = '0'; next.style.right = '0';
+  next.style.zIndex = '10';
+
+  // Remove old animation classes, apply new
+  next.classList.remove('push-in','push-out','pop-in','pop-out','fade-in','active');
+  next.classList.add(actualIn);
+
+  if (current) {
+    current.classList.remove('push-in','push-out','pop-in','pop-out','fade-in');
+    current.classList.add(outAnim);
+    current.classList.remove('active');
+    current.addEventListener('animationend', () => {
+      current.classList.remove(outAnim, 'active');
+      current.style.display = 'none';
+      current.style.position = '';
+      current.style.top = ''; current.style.left = ''; current.style.right = '';
+      current.style.zIndex = '';
+    }, { once: true });
+  }
+
+  next.addEventListener('animationend', () => {
+    next.classList.remove(actualIn);
+    next.classList.add('active');
+    next.style.position = '';
+    next.style.top = ''; next.style.left = ''; next.style.right = '';
+    next.style.zIndex = '';
+    onScreenEnter(targetId);
+  }, { once: true });
+};
+
+// Legacy alias — inline onclick="showScreen(...)" calls still work
+window.showScreen = window.navigate;
+
+/* ── Screen-enter hooks ─────────────────────────── */
+function onScreenEnter(id) {
+  staggerScreen(id);
+  if (id === 'screen-admin-settings') {
+    document.getElementById('set-pickup').value = schoolData.pickup_info || '';
+    document.getElementById('set-email').value = '';
+  }
+  if (id === 'screen-admin-dash') {
+    if (localStorage.getItem(tokenKey)) window.adminLoadDash();
+  }
+}
+
+function staggerScreen(id) {
+  const screen = document.getElementById(id);
+  if (!screen) return;
+  const items = screen.querySelectorAll('.s-item, .s-pop');
+  items.forEach(el => {
+    el.classList.remove('s-ready');
+    const delay = parseFloat(el.style.animationDelay) * 1000 || 0;
+    setTimeout(() => el.classList.add('s-ready'), 60 + delay);
+  });
+}
+
+// Stagger landing screen on load
+document.addEventListener('DOMContentLoaded', () => staggerScreen('screen-landing'));
+
+/* ── Toast ──────────────────────────────────────── */
+let _toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('visible');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('visible'), 3200);
+}
+
+/* ── Button loading state ───────────────────────── */
+function btnLoading(id, on) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.disabled = on;
+  btn.classList.toggle('loading', on);
+}
+
+/* ── App store links ────────────────────────────── */
+function setAppLinks(url) {
+  document.querySelectorAll('.app-store-link, #landing-app-link').forEach(a => {
+    a.href = url || '#';
+  });
+}
+
+/* ── School data ────────────────────────────────── */
+async function loadSchoolData() {
+  try {
+    schoolData = await API('/school/' + encodeURIComponent(SLUG) + '/data');
+    document.getElementById('landing-name').textContent = 'LOFO · ' + (schoolData.name || 'School');
+    document.title = 'LOFO · ' + (schoolData.name || 'School');
+    const pu = document.getElementById('landing-pickup');
+    if (schoolData.pickup_info) {
+      pu.style.display = 'block';
+      pu.textContent = schoolData.pickup_info;
+    }
+    setAppLinks(schoolData.app_store_url || '#');
+  } catch (e) {
+    // silently fall through — school name stays default
+  }
+}
+
+/* ── Browse ─────────────────────────────────────── */
+window.loadItems = async function () {
+  const q = document.getElementById('browse-search').value.trim();
+  const grid = document.getElementById('browse-grid');
+  grid.innerHTML = '<div class="empty-state">Loading…</div>';
+  try {
+    const data = await API('/school/' + encodeURIComponent(SLUG) + '/items?page=1&search=' + encodeURIComponent(q));
+    grid.innerHTML = '';
+    if (!data.items || !data.items.length) {
+      grid.innerHTML = '<div class="empty-state">No items posted yet.<br>Check back soon.</div>';
+      return;
+    }
+    data.items.forEach(it => {
+      const card = document.createElement('div');
+      card.className = 'photo-card';
+      card.onclick = () => openDetail(it);
+
+      if (it.photo_url) {
+        const img = document.createElement('img');
+        img.className = 'photo-card-img';
+        img.src = it.photo_url;
+        img.alt = it.item_type || '';
+        img.onerror = () => { img.replaceWith(makeNoPhoto(it.item_type)); };
+        card.appendChild(img);
+      } else {
+        card.appendChild(makeNoPhoto(it.item_type));
+      }
+
+      const meta = document.createElement('div');
+      meta.className = 'photo-card-meta';
+      meta.innerHTML = '<span class="item-chip">' + esc(it.item_type || 'Item') + '</span>' +
+        (it.created_at ? '<div class="item-date">' + fmtDate(it.created_at) + '</div>' : '');
+      card.appendChild(meta);
+      grid.appendChild(card);
+    });
+  } catch (e) {
+    grid.innerHTML = '<div class="empty-state">Could not load items. Try again.</div>';
+  }
+};
+
+function makeNoPhoto(itemType) {
+  const div = document.createElement('div');
+  div.className = 'photo-card-img no-photo';
+  div.textContent = itemEmoji(itemType);
+  return div;
+}
+
+/* ── Detail ─────────────────────────────────────── */
+window.openDetail = function (it) {
+  selectedItem = it;
+
+  const photoWrap = document.getElementById('detail-photo-wrap');
+  photoWrap.innerHTML = '';
+  if (it.photo_url) {
+    const img = document.createElement('img');
+    img.className = 'detail-photo';
+    img.src = it.photo_url; img.alt = it.item_type || '';
+    img.onclick = () => openLb(it.photo_url);
+    img.onerror = () => { img.replaceWith(makeDetailPlaceholder(it.item_type)); };
+    photoWrap.appendChild(img);
+  } else {
+    photoWrap.appendChild(makeDetailPlaceholder(it.item_type));
+  }
+
+  document.getElementById('detail-title').textContent = cap(it.item_type || 'Found item');
+
+  const tags = document.getElementById('detail-tags');
+  tags.innerHTML = '';
+  (it.color || []).forEach(c => tags.appendChild(makeTag(cap(c))));
+  if (it.material) tags.appendChild(makeTag(cap(it.material)));
+  if (it.size) tags.appendChild(makeTag(cap(it.size)));
+  (it.features || []).slice(0, 4).forEach(f => tags.appendChild(makeTag(f)));
+
+  document.getElementById('detail-pickup-text').textContent = schoolData.pickup_info || 'Ask the school office for pickup information.';
+
+  navigate('screen-detail', 'forward');
+};
+
+function makeDetailPlaceholder(type) {
+  const div = document.createElement('div');
+  div.className = 'detail-no-photo';
+  div.textContent = itemEmoji(type);
+  return div;
+}
+
+function makeTag(text) {
+  const span = document.createElement('span');
+  span.className = 'tag';
+  span.textContent = text;
+  return span;
+}
+
+window.openLb = function (src) {
+  if (!src) return;
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('visible');
+};
+
+/* ── Claim ──────────────────────────────────────── */
+window.submitClaim = async function () {
+  const child  = document.getElementById('claim-child').value.trim();
+  const parent = document.getElementById('claim-parent').value.trim();
+  const email  = document.getElementById('claim-email').value.trim();
+  const note   = document.getElementById('claim-note').value.trim();
+  if (!child || !parent || !email) {
+    toast('Please fill in child name, your name and email');
+    return;
+  }
+  btnLoading('btn-claim', true);
+  try {
+    await API('/school/' + encodeURIComponent(SLUG) + '/claim', {
+      method: 'POST',
+      body: JSON.stringify({ item_id: selectedItem.id, child_name: child, parent_name: parent, parent_email: email, claim_note: note || null })
+    });
+    document.getElementById('claim-done-pickup').textContent = schoolData.pickup_info || 'The school will be in touch to arrange pickup.';
+    navigate('screen-claim-done', 'forward');
+  } catch (e) {
+    toast(typeof e === 'string' ? e : 'Something went wrong — try again');
+  } finally {
+    btnLoading('btn-claim', false);
+  }
+};
+
+/* ── Lost ───────────────────────────────────────── */
+window.submitLost = async function () {
+  const desc  = document.getElementById('lost-desc').value.trim();
+  const email = document.getElementById('lost-email').value.trim();
+  if (desc.length < 5) { toast('Please describe the item'); return; }
+
+  lastLostPayload = {
+    description:  desc,
+    parent_email: email || null,
+    parent_name:  document.getElementById('lost-parent').value.trim() || null,
+    child_name:   document.getElementById('lost-child').value.trim()  || null,
+  };
+
+  btnLoading('btn-lost', true);
+  navigate('screen-thinking', 'forward');
+
+  try {
+    const res = await API('/school/' + encodeURIComponent(SLUG) + '/lost', {
+      method: 'POST', body: JSON.stringify(lastLostPayload)
+    });
+    if (res.matches && res.matches.length) {
+      showMatch(res.matches[0]);
+    } else if (res.pending_watch) {
+      navigate('screen-no-match-done', 'forward');
+    } else {
+      navigate('screen-no-match', 'forward');
+      document.getElementById('nm-email').value  = email;
+      document.getElementById('nm-parent').value = document.getElementById('lost-parent').value;
+      document.getElementById('nm-child').value  = document.getElementById('lost-child').value;
+    }
+  } catch (e) {
+    navigate('screen-lost', 'back');
+    toast(typeof e === 'string' ? e : 'Something went wrong — try again');
+  } finally {
+    btnLoading('btn-lost', false);
+  }
+};
+
+window.submitLostRetry = async function () {
+  const email = document.getElementById('nm-email').value.trim();
+  if (!email || !email.includes('@')) { toast('Valid email required'); return; }
+
+  lastLostPayload = Object.assign({}, lastLostPayload, {
+    parent_email: email,
+    parent_name:  document.getElementById('nm-parent').value.trim() || null,
+    child_name:   document.getElementById('nm-child').value.trim()  || null,
+  });
+
+  btnLoading('btn-nm', true);
+  navigate('screen-thinking', 'forward');
+
+  try {
+    await API('/school/' + encodeURIComponent(SLUG) + '/lost', {
+      method: 'POST', body: JSON.stringify(lastLostPayload)
+    });
+    navigate('screen-no-match-done', 'forward');
+  } catch (e) {
+    navigate('screen-no-match', 'back');
+    toast(typeof e === 'string' ? e : 'Something went wrong');
+  } finally {
+    btnLoading('btn-nm', false);
+  }
+};
+
+/* ── Match display ──────────────────────────────── */
+function showMatch(m) {
+  selectedItem = { id: m.id, item_type: m.item_type, color: m.color, features: m.features, photo_url: m.photo_url, material: m.material, size: m.size };
+
+  const pct = Math.min(99, Math.round((parseFloat(m.similarity_score) || 0) * 100));
+  document.getElementById('match-bar-label').textContent = pct + '% match';
+  const fill = document.getElementById('match-bar-fill');
+  fill.style.width = '0%';
+
+  // Thumb
+  const thumbWrap = document.getElementById('match-thumb-wrap');
+  thumbWrap.innerHTML = '';
+  if (m.photo_url) {
+    const img = document.createElement('img');
+    img.className = 'match-thumb'; img.src = m.photo_url; img.alt = '';
+    img.onerror = () => { img.replaceWith(makeMatchPlaceholder(m.item_type)); };
+    thumbWrap.appendChild(img);
+  } else {
+    thumbWrap.appendChild(makeMatchPlaceholder(m.item_type));
+  }
+
+  document.getElementById('match-item-name').textContent = cap(m.item_type || 'Found item');
+  document.getElementById('match-item-meta').textContent = (m.color || []).map(cap).join(', ');
+
+  const reasons = document.getElementById('match-reasons');
+  reasons.innerHTML = '';
+  (m.match_reasons || []).forEach((text, i) => {
+    const row = document.createElement('div');
+    row.className = 'reason s-item';
+    row.style.animationDelay = (0.20 + i * 0.06) + 's';
+    row.innerHTML = '<span class="check-dot">✓</span><span>' + esc(text) + '</span>';
+    reasons.appendChild(row);
+  });
+
+  navigate('screen-match', 'forward');
+
+  // Trigger bar animation after screen has entered
+  setTimeout(() => { fill.style.width = pct + '%'; }, 420);
+}
+
+function makeMatchPlaceholder(type) {
+  const div = document.createElement('div');
+  div.className = 'match-thumb-placeholder';
+  div.textContent = itemEmoji(type);
+  return div;
+}
+
+window.fromMatchToDetail = function () { openDetail(selectedItem); };
+
+/* ── Subscribe ──────────────────────────────────── */
+window.doSubscribe = async function () {
+  const email = document.getElementById('sub-email').value.trim();
+  const name  = document.getElementById('sub-name').value.trim() || null;
+  if (!email || !email.includes('@')) { toast('Valid email required'); return; }
+  btnLoading('btn-sub', true);
+  try {
+    await API('/school/' + encodeURIComponent(SLUG) + '/subscribe', {
+      method: 'POST', body: JSON.stringify({ email, parent_name: name })
+    });
+    toast("You're subscribed!");
+    navigate('screen-landing', 'back');
+  } catch (e) {
+    toast(typeof e === 'string' ? e : 'Subscribe failed');
+  } finally {
+    btnLoading('btn-sub', false);
+  }
+};
+
+/* ── Admin ──────────────────────────────────────── */
+window.adminLogin = async function () {
+  const pass = document.getElementById('admin-pass').value;
+  btnLoading('btn-admin-login', true);
+  try {
+    const res = await fetch('/school/' + encodeURIComponent(SLUG) + '/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode: pass })
+    });
+    const j = await res.json();
+    if (!res.ok) throw j.detail || 'Invalid passcode';
+    localStorage.setItem(tokenKey, j.token);
+    await window.adminLoadDash();
+    navigate('screen-admin-dash', 'forward');
+    document.getElementById('admin-pass').value = '';
+  } catch (e) {
+    toast(typeof e === 'string' ? e : 'Login failed');
+  } finally {
+    btnLoading('btn-admin-login', false);
+  }
+};
+
+window.adminLogout = function () {
+  localStorage.removeItem(tokenKey);
+  navigate('screen-landing', 'back');
+};
+
+window.adminLoadDash = async function () {
+  const res = await fetch('/school/' + encodeURIComponent(SLUG) + '/admin/items', {
+    headers: authHeaders()
+  });
+  if (res.status === 401) { window.adminLogout(); return; }
+  const data = await res.json();
+  const list = document.getElementById('admin-list');
+  list.innerHTML = '';
+  if (!data.items || !data.items.length) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:14px;text-align:center;padding:24px">No items posted yet.</p>';
+    return;
+  }
+  data.items.forEach(it => {
+    const row = document.createElement('div');
+    row.className = 'admin-row';
+    const left = document.createElement('div');
+    left.innerHTML = '<strong>' + esc(cap(it.item_type || 'Item')) + '</strong>' +
+      '<div class="admin-row-meta">' + fmtDate(it.created_at || '') + ' · ' + (it.status || 'active') + '</div>';
+    row.appendChild(left);
+    if (it.pending_claims > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'claim-badge';
+      badge.textContent = it.pending_claims + ' claim' + (it.pending_claims > 1 ? 's' : '');
+      row.appendChild(badge);
+    }
+    list.appendChild(row);
+  });
+};
+
+window.onFileChosen = function (input) {
+  const f = input.files[0];
+  if (!f) return;
+  const picker = document.getElementById('photo-picker');
+  picker.classList.add('has-file');
+  document.getElementById('picker-icon').textContent = '✅';
+  document.getElementById('picker-label').textContent = f.name;
+  document.getElementById('picker-sub').textContent = (f.size / 1024 / 1024).toFixed(1) + ' MB';
+};
+
+window.adminUpload = async function () {
+  const f = document.getElementById('admin-file').files[0];
+  if (!f) { toast('Choose a photo first'); return; }
+  btnLoading('btn-upload', true);
+  navigate('screen-thinking', 'forward');
+  try {
+    const fd = new FormData();
+    fd.append('file', f);
+    const res = await fetch('/school/' + encodeURIComponent(SLUG) + '/items/from-photo', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: fd
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw e.detail || res.statusText; }
+    await window.adminLoadDash();
+    navigate('screen-admin-dash', 'back');
+    toast('Posted successfully!');
+    // reset picker
+    document.getElementById('admin-file').value = '';
+    document.getElementById('photo-picker').classList.remove('has-file');
+    document.getElementById('picker-icon').textContent = '📷';
+    document.getElementById('picker-label').textContent = 'Tap to choose a photo';
+    document.getElementById('picker-sub').textContent = 'JPEG, PNG, HEIC accepted';
+  } catch (e) {
+    navigate('screen-admin-post', 'back');
+    toast(typeof e === 'string' ? e : 'Upload failed');
+  } finally {
+    btnLoading('btn-upload', false);
+  }
+};
+
+window.saveSettings = async function () {
+  btnLoading('btn-settings', true);
+  try {
+    const res = await fetch('/school/' + encodeURIComponent(SLUG) + '/settings', {
+      method: 'PATCH',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+      body: JSON.stringify({
+        pickup_info: document.getElementById('set-pickup').value.trim(),
+        admin_notify_email: document.getElementById('set-email').value.trim() || null
+      })
+    });
+    if (!res.ok) throw new Error('Save failed');
+    await loadSchoolData();
+    toast('Saved');
+    navigate('screen-admin-dash', 'back');
+  } catch (e) {
+    toast('Could not save — try again');
+  } finally {
+    btnLoading('btn-settings', false);
+  }
+};
+
+/* ── Utilities ──────────────────────────────────── */
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = String(s || '');
+  return d.innerHTML;
+}
+
+function cap(s) {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso.replace(' ', 'T'));
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch { return ''; }
+}
+
+function itemEmoji(type) {
+  if (!type) return '📦';
+  const t = type.toLowerCase();
+  if (/jacket|coat|parka|puffer|fleece|hoodie/.test(t)) return '🧥';
+  if (/shoe|boot|sneaker/.test(t)) return '👟';
+  if (/bag|backpack|tote|purse|handbag|satchel/.test(t)) return '🎒';
+  if (/wallet|billfold/.test(t)) return '👛';
+  if (/phone|iphone|android/.test(t)) return '📱';
+  if (/hat|beanie|cap/.test(t)) return '🧢';
+  if (/glove|mitten/.test(t)) return '🧤';
+  if (/scarf/.test(t)) return '🧣';
+  if (/glasses|sunglass/.test(t)) return '👓';
+  if (/key/.test(t)) return '🔑';
+  if (/watch/.test(t)) return '⌚';
+  if (/book|notebook/.test(t)) return '📚';
+  if (/headphone|airpod|earbud/.test(t)) return '🎧';
+  if (/water bottle|bottle/.test(t)) return '🍶';
+  if (/toy|stuffed|plush/.test(t)) return '🧸';
+  return '📦';
+}
+
+/* ── Boot ───────────────────────────────────────── */
+loadSchoolData();
+
+})();
+</script>
+</body>
+</html>

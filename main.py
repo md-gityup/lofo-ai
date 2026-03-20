@@ -45,6 +45,15 @@ _TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
 
 _CRON_SECRET = os.getenv("CRON_SECRET", "")
 
+# Resend — school notifications (optional)
+_RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+_RESEND_FROM = os.getenv("RESEND_FROM", "LOFO <onboarding@resend.dev>")
+_SCHOOL_DEFAULT_NOTIFY_EMAIL = os.getenv("SCHOOL_DEFAULT_NOTIFY_EMAIL", "")
+_LOFO_APP_STORE_URL = os.getenv(
+    "LOFO_APP_STORE_URL",
+    "https://apps.apple.com/app/lofo/id0000000000",
+)
+
 # APNs push notifications (iOS Phase F)
 # Set these in Railway env vars to enable push alongside SMS.
 # APNS_AUTH_KEY: full content of the .p8 file downloaded from Apple Developer Portal → Keys
@@ -533,8 +542,8 @@ def _validate_extracted_profile(extracted: dict) -> None:
 
 
 _INSERT_SQL = """
-    INSERT INTO items (type, item_type, color, material, size, features, latitude, longitude, secret_detail)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO items (type, item_type, color, material, size, features, latitude, longitude, secret_detail, school_id)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING
         id,
         type,
@@ -594,6 +603,54 @@ _MATCH_SQL = """
     FROM items f
     CROSS JOIN items l
     WHERE l.id = %s
+      AND f.type = 'finder'
+      AND f.status = 'active'
+      AND f.embedding IS NOT NULL
+      AND l.embedding IS NOT NULL
+      AND (
+          f.latitude IS NULL OR l.latitude IS NULL
+          OR 3958.8 * 2 * ASIN(SQRT(
+              POWER(SIN(RADIANS(f.latitude  - l.latitude)  / 2), 2) +
+              COS(RADIANS(l.latitude)) * COS(RADIANS(f.latitude)) *
+              POWER(SIN(RADIANS(f.longitude - l.longitude) / 2), 2)
+          )) <= 10
+      )
+    ORDER BY f.embedding <=> l.embedding
+    LIMIT 50
+"""
+
+# School-scoped retrieval: only finder items at the same school as the loser.
+_MATCH_SQL_SCHOOL = """
+    SELECT
+        f.id,
+        f.item_type,
+        f.color,
+        f.material,
+        f.size,
+        f.features,
+        f.status,
+        1 - (f.embedding <=> l.embedding) AS similarity_score,
+        (f.secret_detail IS NOT NULL) AS has_secret,
+        f.created_at::text,
+        f.photo_url,
+        CASE
+            WHEN f.latitude IS NOT NULL AND l.latitude IS NOT NULL THEN
+                ROUND(CAST(
+                    3958.8 * 2 * ASIN(SQRT(
+                        POWER(SIN(RADIANS(f.latitude  - l.latitude)  / 2), 2) +
+                        COS(RADIANS(l.latitude)) * COS(RADIANS(f.latitude)) *
+                        POWER(SIN(RADIANS(f.longitude - l.longitude) / 2), 2)
+                    ))
+                AS NUMERIC), 1)
+            ELSE NULL
+        END AS distance_miles
+    FROM items f
+    CROSS JOIN items l
+    WHERE l.id = %s
+      AND l.school_id IS NOT NULL
+      AND f.school_id IS NOT NULL
+      AND l.school_id = %s::uuid
+      AND f.school_id = %s::uuid
       AND f.type = 'finder'
       AND f.status = 'active'
       AND f.embedding IS NOT NULL
@@ -681,7 +738,7 @@ def create_item(item: ItemCreate):
             cur.execute(
                 _INSERT_SQL,
                 (item.type, item.item_type, item.color, item.material, item.size, item.features,
-                 item.latitude, item.longitude, item.secret_detail),
+                 item.latitude, item.longitude, item.secret_detail, None),
             )
             row = cur.fetchone()
         conn.commit()
@@ -776,6 +833,7 @@ def create_item_from_text(body: TextItemCreate):
                     stored_lat,
                     stored_lng,
                     stored_secret,
+                    None,
                 ),
             )
             row = cur.fetchone()
@@ -867,6 +925,7 @@ async def create_item_from_photo(
                     latitude,
                     longitude,
                     stored_secret,
+                    None,
                 ),
             )
             row = cur.fetchone()
@@ -907,7 +966,6 @@ def get_item(item_id: uuid.UUID):
 
 @app.post("/match", response_model=list[MatchResponse])
 def match_item(body: MatchRequest):
-    # Fetch loser item's full profile for filtering and scoring
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -922,124 +980,12 @@ def match_item(body: MatchRequest):
     if loser_row["embedding"] is None:
         raise HTTPException(status_code=422, detail="Item has no embedding yet")
 
-    # Stage B: pgvector retrieval — top-50 by embedding distance, GPS-filtered
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(_MATCH_SQL, (str(body.item_id),))
             rows = cur.fetchall()
 
-    loser_item_type = (loser_row["item_type"] or "").strip()
-    loser_colors    = [c.lower() for c in (loser_row["color"]    or [])]
-    loser_features  = [f.lower() for f in (loser_row["features"] or [])]
-    loser_attrs = {
-        "item_type": loser_row["item_type"],
-        "color":     loser_row["color"],
-        "material":  loser_row["material"],
-        "size":      loser_row["size"],
-        "features":  loser_row["features"],
-    }
-
-    # Stage A: Hard filters — incompatible candidates removed entirely before scoring
-    candidates: list[dict] = []
-    for r in rows:
-        # 1A: item_type — hard categorical gate (no threshold raise, full exclusion)
-        finder_item_type = (r.get("item_type") or "").strip()
-        if not _item_types_compatible(loser_item_type, finder_item_type):
-            continue
-
-        # Color hard gate — confirmed incompatible color families
-        finder_colors = [c.lower() for c in (r["color"] or [])]
-        if not _colors_compatible(loser_colors, finder_colors):
-            continue
-
-        # 1D: Sidedness hard gate (gloves, shoes, earbuds, earrings)
-        finder_features = [f.lower() for f in (r["features"] or [])]
-        if not _sides_compatible(loser_features, finder_features):
-            continue
-
-        candidates.append(dict(r))
-
-    if not candidates:
-        return []
-
-    richness  = _query_richness(loser_attrs)
-    threshold = _RERANK_THRESHOLDS[richness]
-
-    # Stage C: Cohere Rerank
-    reranker_scores = [0.0] * len(candidates)
-    cohere_ok = False
-
-    if _cohere_client:
-        try:
-            query_doc = _build_rerank_text(
-                loser_item_type,
-                loser_colors,
-                loser_row["material"] or "",
-                loser_row["size"] or "",
-                loser_row["features"] or [],
-            )
-            documents = [
-                _build_rerank_text(
-                    c.get("item_type") or "",
-                    [col.lower() for col in (c.get("color") or [])],
-                    c.get("material") or "",
-                    c.get("size") or "",
-                    c.get("features") or [],
-                )
-                for c in candidates
-            ]
-            rerank_result = _cohere_client.rerank(
-                model="rerank-english-v3.0",
-                query=query_doc,
-                documents=documents,
-                return_documents=False,
-            )
-            for result in rerank_result.results:
-                reranker_scores[result.index] = result.relevance_score
-            cohere_ok = True
-            print(f"[LOFO rerank] OK — {len(candidates)} candidates, top score={max(reranker_scores):.3f}, richness={richness}")
-        except Exception as exc:
-            print(f"[LOFO rerank] Cohere error: {exc} — falling back to cosine-only")
-
-    if cohere_ok:
-        # Stage D: Composite score + Stage E: Dynamic threshold on final_score
-        scored: list[tuple[float, dict]] = []
-        for i, c in enumerate(candidates):
-            cosine   = float(c["similarity_score"])
-            reranker = reranker_scores[i]
-            f_colors = [col.lower() for col in (c.get("color") or [])]
-            f_feats  = [f.lower() for f in (c.get("features") or [])]
-            c_score  = _color_score(loser_colors, f_colors)
-            f_score  = _feature_overlap(loser_features, f_feats)
-
-            # Distance bonus — only when both items have coordinates.
-            # Multiplier: 1.12 at 0 miles → 1.0 at 10 miles → no effect when coords absent.
-            dist = c.get("distance_miles")
-            proximity_mult = (1.0 + 0.12 * max(0.0, 1.0 - float(dist) / 10.0)) if dist is not None else 1.0
-
-            final    = (0.55 * reranker
-                        + 0.20 * cosine
-                        + 0.15 * c_score
-                        + 0.10 * f_score) * proximity_mult
-            if final < threshold:
-                continue
-            c["similarity_score"] = round(final, 4)
-            scored.append((final, c))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
-        return [c for _, c in scored[:5]]
-
-    else:
-        # Cosine-only fallback: Cohere unavailable or errored.
-        # item_type hard gate + color + sidedness already applied above, so false
-        # positives are controlled. Use richness-adjusted cosine thresholds —
-        # lower than the old 0.78 because the hard type gate now does the precision work.
-        cosine_thresholds = {"sparse": 0.58, "medium": 0.62, "rich": 0.68}
-        floor = cosine_thresholds[richness]
-        results = [c for c in candidates if float(c["similarity_score"]) >= floor]
-        results.sort(key=lambda x: float(x["similarity_score"]), reverse=True)
-        print(f"[LOFO rerank] cosine-only fallback — floor={floor}, richness={richness}, results={len(results)}")
-        return results[:5]
+    return _run_match_stages(dict(loser_row), [dict(r) for r in rows])
 
 
 _ITEM_TYPE_SYNONYMS: list[set[str]] = [
@@ -1255,6 +1201,106 @@ _RERANK_THRESHOLDS: dict[str, float] = {
     "medium": 0.40,
     "rich":   0.55,
 }
+
+
+def _run_match_stages(loser_row: dict, rows: list[dict]) -> list[dict]:
+    """
+    Stages A–E: hard filters, Cohere rerank (or cosine fallback), composite score.
+    Shared by POST /match and school-scoped matching.
+    """
+    if not loser_row.get("embedding"):
+        return []
+
+    loser_item_type = (loser_row["item_type"] or "").strip()
+    loser_colors = [c.lower() for c in (loser_row["color"] or [])]
+    loser_features = [f.lower() for f in (loser_row["features"] or [])]
+    loser_attrs = {
+        "item_type": loser_row["item_type"],
+        "color": loser_row["color"],
+        "material": loser_row["material"],
+        "size": loser_row["size"],
+        "features": loser_row["features"],
+    }
+
+    candidates: list[dict] = []
+    for r in rows:
+        finder_item_type = (r.get("item_type") or "").strip()
+        if not _item_types_compatible(loser_item_type, finder_item_type):
+            continue
+        finder_colors = [c.lower() for c in (r["color"] or [])]
+        if not _colors_compatible(loser_colors, finder_colors):
+            continue
+        finder_features = [f.lower() for f in (r["features"] or [])]
+        if not _sides_compatible(loser_features, finder_features):
+            continue
+        candidates.append(dict(r))
+
+    if not candidates:
+        return []
+
+    richness = _query_richness(loser_attrs)
+    threshold = _RERANK_THRESHOLDS[richness]
+
+    reranker_scores = [0.0] * len(candidates)
+    cohere_ok = False
+
+    if _cohere_client:
+        try:
+            query_doc = _build_rerank_text(
+                loser_item_type,
+                loser_colors,
+                loser_row["material"] or "",
+                loser_row["size"] or "",
+                loser_row["features"] or [],
+            )
+            documents = [
+                _build_rerank_text(
+                    c.get("item_type") or "",
+                    [col.lower() for col in (c.get("color") or [])],
+                    c.get("material") or "",
+                    c.get("size") or "",
+                    c.get("features") or [],
+                )
+                for c in candidates
+            ]
+            rerank_result = _cohere_client.rerank(
+                model="rerank-english-v3.0",
+                query=query_doc,
+                documents=documents,
+                return_documents=False,
+            )
+            for result in rerank_result.results:
+                reranker_scores[result.index] = result.relevance_score
+            cohere_ok = True
+            print(f"[LOFO rerank] OK — {len(candidates)} candidates, top score={max(reranker_scores):.3f}, richness={richness}")
+        except Exception as exc:
+            print(f"[LOFO rerank] Cohere error: {exc} — falling back to cosine-only")
+
+    if cohere_ok:
+        scored: list[tuple[float, dict]] = []
+        for i, c in enumerate(candidates):
+            cosine = float(c["similarity_score"])
+            reranker = reranker_scores[i]
+            f_colors = [col.lower() for col in (c.get("color") or [])]
+            f_feats = [f.lower() for f in (c.get("features") or [])]
+            c_score = _color_score(loser_colors, f_colors)
+            f_score = _feature_overlap(loser_features, f_feats)
+            dist = c.get("distance_miles")
+            proximity_mult = (1.0 + 0.12 * max(0.0, 1.0 - float(dist) / 10.0)) if dist is not None else 1.0
+            final = (0.55 * reranker + 0.20 * cosine + 0.15 * c_score + 0.10 * f_score) * proximity_mult
+            if final < threshold:
+                continue
+            c["similarity_score"] = round(final, 4)
+            scored.append((final, c))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [c for _, c in scored[:5]]
+
+    cosine_thresholds = {"sparse": 0.58, "medium": 0.62, "rich": 0.68}
+    floor = cosine_thresholds[richness]
+    results = [c for c in candidates if float(c["similarity_score"]) >= floor]
+    results.sort(key=lambda x: float(x["similarity_score"]), reverse=True)
+    print(f"[LOFO rerank] cosine-only fallback — floor={floor}, richness={richness}, results={len(results)}")
+    return results[:5]
 
 
 _VERIFY_SYSTEM_PROMPT = (
@@ -1934,6 +1980,666 @@ def validate_handoff_token(body: HandoffValidateRequest):
         raise HTTPException(status_code=409, detail="Handoff token has already been used")
 
     return {"valid": True, "item_id": item_id}
+
+
+# --------------------------------------------------------------------------- #
+# LOFO for Schools                                                             #
+# --------------------------------------------------------------------------- #
+
+_SCHOOL_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
+
+
+def _jwt_secret_for_tokens() -> str:
+    return os.getenv("JWT_SECRET", "dev-secret")
+
+
+def _require_valid_school_slug(slug: str) -> None:
+    if not slug or not _SCHOOL_SLUG_RE.match(slug):
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+def _get_school_public(slug: str) -> dict:
+    """id, slug, name, pickup_info, admin_notify_email (email ok for admin use only)."""
+    _require_valid_school_slug(slug)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, slug, name, pickup_info, admin_notify_email
+                FROM schools WHERE slug = %s
+                """,
+                (slug,),
+            )
+            row = cur.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="School not found")
+    return dict(row)
+
+
+def _get_school_with_hash(slug: str) -> dict:
+    _require_valid_school_slug(slug)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, slug, name, pickup_info, admin_notify_email, admin_passcode_hash
+                FROM schools WHERE slug = %s
+                """,
+                (slug,),
+            )
+            row = cur.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="School not found")
+    return dict(row)
+
+
+def _require_school_admin(slug: str, authorization: Optional[str]) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="School admin authentication required")
+    token = authorization[7:].strip()
+    try:
+        payload = jwt.decode(token, _jwt_secret_for_tokens(), algorithms=["HS256"])
+        if payload.get("role") != "school_admin":
+            raise HTTPException(status_code=403, detail="Not a school admin token")
+        if payload.get("slug") != slug:
+            raise HTTPException(status_code=403, detail="Token not valid for this school")
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Session expired — please log in again")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid session token")
+
+
+def _create_school_admin_token(school_id: str, slug: str) -> str:
+    payload = {
+        "role": "school_admin",
+        "school_id": school_id,
+        "slug": slug,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, _jwt_secret_for_tokens(), algorithm="HS256")
+
+
+def _resend_send_html(to_list: list[str], subject: str, html: str) -> None:
+    to_list = [e.strip() for e in to_list if e and e.strip()]
+    if not to_list:
+        return
+    if not _RESEND_API_KEY:
+        print(f"[LOFO school email] RESEND_API_KEY not set — skip: {subject}")
+        return
+    try:
+        import resend
+
+        resend.api_key = _RESEND_API_KEY
+        resend.Emails.send(
+            {
+                "from": _RESEND_FROM,
+                "to": to_list[:50],
+                "subject": subject,
+                "html": html,
+            }
+        )
+    except Exception as exc:
+        print(f"[LOFO school email] send error: {exc}")
+
+
+def _school_match_internal(loser_id: uuid.UUID, school_id: uuid.UUID) -> list[dict]:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT embedding, item_type, color, material, size, features, school_id
+                   FROM items WHERE id = %s AND type = 'loser'""",
+                (str(loser_id),),
+            )
+            loser_row = cur.fetchone()
+    if not loser_row or not loser_row.get("school_id"):
+        return []
+    if str(loser_row["school_id"]) != str(school_id):
+        return []
+    if loser_row["embedding"] is None:
+        return []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                _MATCH_SQL_SCHOOL,
+                (str(loser_id), str(school_id), str(school_id)),
+            )
+            rows = cur.fetchall()
+    return _run_match_stages(dict(loser_row), [dict(r) for r in rows])
+
+
+def _school_match_reasons(m: dict) -> list[str]:
+    reasons: list[str] = []
+    it = (m.get("item_type") or "").strip()
+    if it:
+        reasons.append(f"Looks like a {it}")
+    sc = m.get("similarity_score")
+    if sc is not None:
+        try:
+            reasons.append(f"AI confidence {int(round(float(sc) * 100))}%")
+        except (TypeError, ValueError):
+            pass
+    cols = m.get("color") or []
+    if cols:
+        reasons.append("Colors: " + ", ".join(str(c) for c in cols))
+    fts = m.get("features") or []
+    if fts:
+        reasons.append("Details: " + ", ".join(str(f) for f in fts[:3]))
+    return reasons
+
+
+def _school_notify_subscribers_new_item(school: dict, item: dict, extracted: dict) -> None:
+    sid = str(school["id"])
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT DISTINCT email FROM school_subscriptions WHERE school_id = %s",
+                (sid,),
+            )
+            rows = cur.fetchall()
+    emails = [r["email"] for r in rows]
+    if not emails:
+        return
+    label = extracted.get("item_type") or "item"
+    photo = item.get("photo_url") or ""
+    html = f"""
+    <p>New found item at <strong>{school["name"]}</strong> lost &amp; found.</p>
+    <p><strong>{label}</strong></p>
+    <p><a href="{_APP_URL}">Open LOFO</a> or visit the school lost &amp; found page to browse.</p>
+    """
+    if photo:
+        html += f'<p><img src="{photo}" alt="" style="max-width:320px;border-radius:8px"/></p>'
+    _resend_send_html(
+        emails,
+        f"New found item — {school['name']}",
+        html,
+    )
+
+
+def _school_notify_claim_admin(school: dict, claim: dict, item: dict) -> None:
+    to_addr = (school.get("admin_notify_email") or "").strip() or _SCHOOL_DEFAULT_NOTIFY_EMAIL
+    if not to_addr:
+        print("[LOFO school] No admin_notify_email — skip claim notification")
+        return
+    html = f"""
+    <p>A parent submitted a claim at <strong>{school["name"]}</strong>.</p>
+    <ul>
+      <li>Item: {item.get("item_type", "")} (id {item.get("id")})</li>
+      <li>Child: {claim.get("child_name", "")}</li>
+      <li>Parent: {claim.get("parent_name", "")} &lt;{claim.get("parent_email", "")}&gt;</li>
+      <li>Note: {claim.get("claim_note") or "—"}</li>
+    </ul>
+    """
+    _resend_send_html([to_addr], f"LOFO — claim for {school['name']}", html)
+
+
+def _school_notify_parent_possible_match(
+    school: dict,
+    pending: dict,
+    finder_item: dict,
+    score: float,
+) -> None:
+    html = f"""
+    <p>Good news — something new was posted at <strong>{school["name"]}</strong> that might match
+    what you described for <strong>{pending.get("child_name") or "your child"}</strong>.</p>
+    <p>Open the school lost &amp; found page to take a look.</p>
+    <p>AI match strength: about {int(round(float(score) * 100))}%.</p>
+    """
+    _resend_send_html(
+        [pending["parent_email"]],
+        f"Possible match — {school['name']} lost & found",
+        html,
+    )
+
+
+def _school_after_new_finder_post(school: dict, item: dict, extracted: dict) -> None:
+    try:
+        _school_notify_subscribers_new_item(school, item, extracted)
+    except Exception as exc:
+        print(f"[LOFO school] subscriber notify error: {exc}")
+    school_id = uuid.UUID(str(school["id"]))
+    new_finder_id = uuid.UUID(str(item["id"]))
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, loser_item_id, parent_email, parent_name, child_name
+                    FROM school_lost_pending WHERE school_id = %s
+                    """,
+                    (str(school_id),),
+                )
+                pending_rows = cur.fetchall()
+        for p in pending_rows:
+            loser_id = uuid.UUID(str(p["loser_item_id"]))
+            results = _school_match_internal(loser_id, school_id)
+            for r in results:
+                if uuid.UUID(str(r["id"])) == new_finder_id:
+                    try:
+                        _school_notify_parent_possible_match(school, dict(p), item, float(r["similarity_score"]))
+                    except Exception as exc:
+                        print(f"[LOFO school] parent match email error: {exc}")
+                    with get_connection() as conn:
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                "DELETE FROM school_lost_pending WHERE id = %s",
+                                (str(p["id"]),),
+                            )
+                        conn.commit()
+                    break
+    except Exception as exc:
+        print(f"[LOFO school] pending match scan error: {exc}")
+
+
+class SchoolAdminLoginRequest(BaseModel):
+    passcode: str
+
+
+class SchoolSettingsPatch(BaseModel):
+    pickup_info: Optional[str] = None
+    admin_notify_email: Optional[str] = None
+
+
+class SchoolSubscribeRequest(BaseModel):
+    email: str
+    parent_name: Optional[str] = None
+
+
+class SchoolClaimRequest(BaseModel):
+    item_id: uuid.UUID
+    child_name: str
+    parent_name: str
+    parent_email: str
+    claim_note: Optional[str] = None
+
+
+class SchoolLostRequest(BaseModel):
+    description: str
+    parent_email: Optional[str] = None
+    parent_name: Optional[str] = None
+    child_name: Optional[str] = None
+
+
+@app.get("/school/{slug}", include_in_schema=False)
+def serve_school_page(slug: str):
+    _get_school_public(slug)
+    return FileResponse(os.path.join(os.path.dirname(__file__), "school.html"))
+
+
+@app.get("/school/{slug}/data")
+def school_public_data(slug: str):
+    school = _get_school_public(slug)
+    return {
+        "slug": school["slug"],
+        "name": school["name"],
+        "pickup_info": school["pickup_info"] or "",
+        "app_store_url": _LOFO_APP_STORE_URL,
+    }
+
+
+@app.get("/school/{slug}/items")
+def school_list_items(slug: str, page: int = 1, search: str = ""):
+    school = _get_school_public(slug)
+    limit = 30
+    offset = (max(1, page) - 1) * limit
+    pat = f"%{search.strip()}%" if search.strip() else None
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if pat:
+                cur.execute(
+                    """
+                    SELECT id, item_type, color, material, size, features, photo_url, created_at::text
+                    FROM items
+                    WHERE school_id = %s AND type = 'finder' AND status = 'active'
+                      AND item_type ILIKE %s
+                    ORDER BY created_at DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (str(school["id"]), pat, limit, offset),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, item_type, color, material, size, features, photo_url, created_at::text
+                    FROM items
+                    WHERE school_id = %s AND type = 'finder' AND status = 'active'
+                    ORDER BY created_at DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (str(school["id"]), limit, offset),
+                )
+            rows = cur.fetchall()
+    return {"items": [dict(r) for r in rows]}
+
+
+@app.get("/school/{slug}/admin/items")
+def school_admin_items(slug: str, request: Request):
+    _require_school_admin(slug, request.headers.get("Authorization"))
+    school = _get_school_public(slug)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT i.id, i.item_type, i.color, i.material, i.size, i.features,
+                       i.photo_url, i.created_at::text, i.status,
+                       (SELECT COUNT(*)::int FROM school_claims sc
+                        WHERE sc.item_id = i.id AND sc.status = 'pending') AS pending_claims
+                FROM items i
+                WHERE i.school_id = %s AND i.type = 'finder'
+                ORDER BY i.created_at DESC
+                LIMIT 200
+                """,
+                (str(school["id"]),),
+            )
+            rows = cur.fetchall()
+    return {"items": [dict(r) for r in rows]}
+
+
+@app.post("/school/{slug}/admin/login")
+def school_admin_login(slug: str, body: SchoolAdminLoginRequest):
+    row = _get_school_with_hash(slug)
+    ph = row.get("admin_passcode_hash") or ""
+    if not ph or not verify_secret(body.passcode, ph):
+        raise HTTPException(status_code=401, detail="Invalid passcode")
+    token = _create_school_admin_token(str(row["id"]), slug)
+    return {"token": token, "slug": slug}
+
+
+@app.patch("/school/{slug}/settings")
+def school_patch_settings(slug: str, body: SchoolSettingsPatch, request: Request):
+    _require_school_admin(slug, request.headers.get("Authorization"))
+    school = _get_school_public(slug)
+    updates: list[str] = []
+    params: list = []
+    if body.pickup_info is not None:
+        updates.append("pickup_info = %s")
+        params.append(body.pickup_info)
+    if body.admin_notify_email is not None:
+        updates.append("admin_notify_email = %s")
+        params.append(body.admin_notify_email.strip() or None)
+    if not updates:
+        return {"ok": True}
+    params.append(str(school["id"]))
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"UPDATE schools SET {', '.join(updates)} WHERE id = %s",
+                params,
+            )
+        conn.commit()
+    return {"ok": True}
+
+
+@app.post("/school/{slug}/subscribe", status_code=201)
+def school_subscribe(slug: str, body: SchoolSubscribeRequest):
+    school = _get_school_public(slug)
+    email = body.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Valid email required")
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO school_subscriptions (school_id, email, parent_name)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (school_id, email) DO UPDATE SET parent_name = EXCLUDED.parent_name
+                """,
+                (str(school["id"]), email, body.parent_name),
+            )
+        conn.commit()
+    return {"ok": True}
+
+
+@app.post("/school/{slug}/claim", status_code=201)
+def school_claim(slug: str, body: SchoolClaimRequest, request: Request):
+    school = _get_school_public(slug)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, item_type, school_id FROM items
+                WHERE id = %s AND type = 'finder' AND status = 'active'
+                """,
+                (str(body.item_id),),
+            )
+            item_row = cur.fetchone()
+    if not item_row or str(item_row.get("school_id")) != str(school["id"]):
+        raise HTTPException(status_code=404, detail="Item not found at this school")
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO school_claims
+                    (item_id, school_id, child_name, parent_name, parent_email, claim_note)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    str(body.item_id),
+                    str(school["id"]),
+                    body.child_name.strip(),
+                    body.parent_name.strip(),
+                    body.parent_email.strip().lower(),
+                    (body.claim_note or "").strip() or None,
+                ),
+            )
+            cur.fetchone()
+        conn.commit()
+    claim_dict = {
+        "child_name": body.child_name,
+        "parent_name": body.parent_name,
+        "parent_email": body.parent_email,
+        "claim_note": body.claim_note,
+    }
+    try:
+        _school_notify_claim_admin(school, claim_dict, dict(item_row))
+    except Exception as exc:
+        print(f"[LOFO school] claim email error: {exc}")
+    return {"ok": True}
+
+
+@app.post("/school/{slug}/lost")
+def school_lost_match(slug: str, body: SchoolLostRequest):
+    school = _get_school_public(slug)
+    desc = body.description.strip()
+    if len(desc) < 3:
+        raise HTTPException(status_code=422, detail="Please describe the item")
+
+    user_message = f"Extract item information from this description: {desc}"
+    try:
+        message = claude_client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=_TEXT_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIError as exc:
+        raise HTTPException(status_code=502, detail=f"Claude API error: {exc}") from exc
+
+    extracted = _parse_claude_json(message.content[0].text.strip())
+    _validate_extracted_profile(extracted)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                _INSERT_SQL,
+                (
+                    "loser",
+                    extracted["item_type"],
+                    extracted["color"],
+                    extracted.get("material"),
+                    extracted.get("size"),
+                    extracted.get("features", []),
+                    None,
+                    None,
+                    None,
+                    str(school["id"]),
+                ),
+            )
+            row = cur.fetchone()
+        conn.commit()
+
+    item = dict(row)
+    _store_embedding(item["id"], extracted)
+
+    matches_raw = _school_match_internal(uuid.UUID(str(item["id"])), uuid.UUID(str(school["id"])))
+    matches_out: list[dict] = []
+    for m in matches_raw[:5]:
+        d = dict(m)
+        d["match_reasons"] = _school_match_reasons(d)
+        # JSON-serializable ids
+        d["id"] = str(d["id"])
+        matches_out.append(d)
+
+    pending_watch = False
+    if not matches_out and body.parent_email and body.parent_email.strip():
+        email = body.parent_email.strip().lower()
+        if "@" in email:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO school_lost_pending
+                            (school_id, parent_email, parent_name, child_name, loser_item_id)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (
+                            str(school["id"]),
+                            email,
+                            (body.parent_name or "").strip() or None,
+                            (body.child_name or "").strip() or None,
+                            str(item["id"]),
+                        ),
+                    )
+                conn.commit()
+            pending_watch = True
+            _resend_send_html(
+                [email],
+                f"We're watching for a match — {school['name']}",
+                f"<p>We didn't find a close match yet, but we'll email you if something similar "
+                f"is posted at <strong>{school['name']}</strong>.</p>",
+            )
+    elif not matches_out:
+        # No match and no watch email — remove orphan loser row
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM items WHERE id = %s", (str(item["id"]),))
+            conn.commit()
+        return {
+            "loser_item_id": None,
+            "matches": [],
+            "pending_watch": False,
+            "extracted_summary": {
+                "item_type": extracted.get("item_type"),
+                "color": extracted.get("color"),
+            },
+        }
+
+    return {
+        "loser_item_id": str(item["id"]),
+        "matches": matches_out,
+        "pending_watch": pending_watch,
+        "extracted_summary": {
+            "item_type": extracted.get("item_type"),
+            "color": extracted.get("color"),
+        },
+    }
+
+
+@app.post("/school/{slug}/items/from-photo", status_code=201)
+async def school_create_from_photo(
+    slug: str,
+    request: Request,
+    file: UploadFile = File(...),
+):
+    _require_school_admin(slug, request.headers.get("Authorization"))
+    school = _get_school_public(slug)
+
+    media_type = file.content_type or "image/jpeg"
+    if media_type not in _SUPPORTED_MEDIA_TYPES | _HEIC_MEDIA_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported media type '{media_type}'.",
+        )
+
+    image_bytes = await file.read()
+
+    if media_type in _HEIC_MEDIA_TYPES:
+        heif_image = pillow_heif.read_heif(image_bytes)
+        pil_image = Image.frombytes(heif_image.mode, heif_image.size, heif_image.data)
+        buf = io.BytesIO()
+        pil_image.save(buf, format="JPEG")
+        image_bytes = buf.getvalue()
+        media_type = "image/jpeg"
+
+    image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+
+    try:
+        message = await asyncio.to_thread(
+            claude_client.messages.create,
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            system=_VISION_SYSTEM_PROMPT,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": image_b64,
+                            },
+                        },
+                        {"type": "text", "text": "Analyze this image and extract the item information."},
+                    ],
+                }
+            ],
+        )
+    except anthropic.APIError as exc:
+        raise HTTPException(status_code=502, detail=f"Claude API error: {exc}") from exc
+
+    extracted = _parse_claude_json(message.content[0].text.strip())
+    _validate_extracted_profile(extracted)
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                _INSERT_SQL,
+                (
+                    "finder",
+                    extracted["item_type"],
+                    extracted["color"],
+                    extracted.get("material"),
+                    extracted.get("size"),
+                    extracted.get("features", []),
+                    None,
+                    None,
+                    None,
+                    str(school["id"]),
+                ),
+            )
+            row = cur.fetchone()
+        conn.commit()
+
+    item = dict(row)
+    await asyncio.to_thread(_store_embedding, item["id"], extracted)
+
+    photo_url = await _upload_photo(item["id"], image_bytes)
+    if photo_url:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE items SET photo_url = %s WHERE id = %s",
+                    (photo_url, str(item["id"])),
+                )
+            conn.commit()
+        item["photo_url"] = photo_url
+
+    _school_after_new_finder_post(school, item, extracted)
+    return item
 
 
 # --------------------------------------------------------------------------- #

@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS reunions (
 CREATE INDEX IF NOT EXISTS reunions_finder_phone_idx ON reunions(finder_phone);
 CREATE INDEX IF NOT EXISTS reunions_loser_phone_idx  ON reunions(loser_phone);
 
+-- LOFO for Schools (see migration_school_mvp.sql + seed_school_sfws.sql)
+-- schools, school_subscriptions, school_claims, school_lost_pending; items.school_id
+
 CREATE TABLE IF NOT EXISTS tips (
     id                        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     finder_item_id            UUID        NOT NULL REFERENCES items(id),
