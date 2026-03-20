@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 20, 2026 — LOFO for Schools MVP built and ready to deploy. school.html + 10 backend endpoints + DB migration. TestFlight build 1.0.0 (6) in external review.*
+*Last updated: March 20, 2026 — LOFO for Schools live at lofo-ai-production.up.railway.app/school/sfws. Desktop UI redesigned (Claude-style icon sidebar). School isolation audited and hardened. TestFlight build 1.0.0 (6) in external review.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -633,19 +633,25 @@ Then redeploy Railway.
 > - New env vars: `RESEND_API_KEY`, `RESEND_FROM`, `SCHOOL_DEFAULT_NOTIFY_EMAIL`, `LOFO_APP_STORE_URL`
 > - `resend` added to `requirements.txt`
 >
-> **⚠️ School MVP not live yet — 4 steps required before it works:**
-> 1. **Supabase:** run `migration_school_mvp.sql`, then `seed_school_sfws.sql`
-> 2. **Railway:** add `RESEND_API_KEY` (from resend.com), optionally `RESEND_FROM`, `SCHOOL_DEFAULT_NOTIFY_EMAIL`, `LOFO_APP_STORE_URL`
-> 3. **Change passcode:** `python3 -c "from security import hash_secret; print(hash_secret('YOUR_PASSCODE'))"` → `UPDATE schools SET admin_passcode_hash='...' WHERE slug='sfws'`
-> 4. **Staff → Settings** in the school UI: fill pickup info + admin email for claim notifications
+> **✅ School MVP is LIVE — all 5 go-live steps completed March 20, 2026:**
+> 1. ✅ `migration_school_mvp.sql` run in Supabase (fixed ordering bug: ALTER TABLE before CREATE INDEX)
+> 2. ✅ `seed_school_sfws.sql` run in Supabase
+> 3. ✅ `RESEND_API_KEY` added to Railway env vars
+> 4. ✅ Passcode rotated (Argon2id hash updated in DB)
+> 5. ✅ Smoke tested — school app loads, staff login works
 >
-> Once done, live at: `https://lofo-ai-production.up.railway.app/school/sfws`
+> **Live at:** `https://lofo-ai-production.up.railway.app/school/sfws`
+>
+> **School isolation hardened (March 20, 2026):**
+> - `_MATCH_SQL` (main app): added `AND f.school_id IS NULL` — consumer losers can never surface school finder items
+> - Admin stats: added `AND school_id IS NULL` to active_lost/active_found counts
+> - Architecture confirmed multi-school ready: any new school is one `INSERT INTO schools` row + passcode seed, zero code changes
 >
 > **Next priorities:**
-> 1. **School MVP go-live** — run migration + seed + Railway env vars (steps above). Test: staff login → post photo → browse → parent lost flow → match.
-> 2. **TestFlight external review** — build 1.0.0 (6) currently "Waiting for Review". Once approved, enable public link in "testers" group Settings tab. Minimum iOS 26.2 required on testers' devices.
-> 3. **Twilio A2P approval** — resubmitted with corrected CTA + public URL + Privacy/Terms. Awaiting TCR review (days to a week). No code changes needed when approved.
-> 4. **App Store listing** — screenshots (6.7" 1290×2796), 6 screens. Copy is already drafted in progress doc. Can submit for App Store review once screenshots are ready.
+> 1. **Staff onboarding at SFWS** — share URL + passcode `steiner` with staff. Have them: post a few photos via admin → Settings (set pickup info + admin email).
+> 2. **TestFlight external review** — build 1.0.0 (6) currently "Waiting for Review". Once approved, enable public link in "testers" group Settings tab.
+> 3. **Twilio A2P approval** — awaiting TCR review. No code changes needed when approved.
+> 4. **App Store listing** — screenshots (6.7" 1290×2796), 6 screens. Copy already drafted. Can submit for App Store review once screenshots are ready.
 > 5. `CLGeocoder` deprecated in iOS 26 — non-blocking warnings. Future: migrate to `MKReverseGeocodingRequest`.
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
@@ -653,6 +659,38 @@ Then redeploy Railway.
 ---
 
 ## Session History
+
+### School Go-Live + UI Redesign — March 20, 2026 (afternoon)
+
+**What shipped:**
+
+**School MVP go-live — 5 ops steps completed:**
+1. Fixed `migration_school_mvp.sql` ordering bug (CREATE INDEX on `school_id` ran before `ALTER TABLE items ADD COLUMN school_id` — reordered).
+2. Ran migration in Supabase SQL editor.
+3. Ran `seed_school_sfws.sql` in Supabase.
+4. Added `RESEND_API_KEY` to Railway env vars (from resend.com). Default `RESEND_FROM` = `onboarding@resend.dev` (Resend test domain — fine for MVP).
+5. Rotated passcode from `sfws-change-me` to `steiner` (Argon2id hash generated locally, UPDATE run in Supabase).
+6. Pushed all uncommitted school code to GitHub (school.html, main.py changes, requirements.txt, migration + seed SQL files were untracked — Railway was running old code without school routes).
+
+**School app now live at:** `https://lofo-ai-production.up.railway.app/school/sfws`
+
+**Desktop UI redesign of `school.html`:**
+- Full desktop-first layout: 52px icon sidebar + main content area (no more 480px mobile shell on desktop).
+- Sidebar: cream background, thin right border — matches Claude.ai aesthetic. Removed orange asterisk. Icon-only nav with SVG line icons (stroke-width 1.5, round caps) in rust/muted/navy palette. CSS tooltips on hover. Active state: rust icon + soft rust tint.
+- Landing screen: LOFO wordmark + italic DM Serif Display school name + large "What did your child *lose?*" heading.
+- Browse: auto-fill grid (minmax 200px), sticky header with search.
+- Detail: 2-col layout (sticky photo left, info + claim right).
+- Forms: centered max-width 540px.
+- Admin dash: card grid with photo thumbnails.
+- Mobile fully preserved: sidebar hidden, push/pop transitions, top-bars.
+- Transitions: simple fade on desktop (no push/pop), push/pop restored at <768px.
+
+**School isolation audit + hardening (`main.py`):**
+- `_MATCH_SQL`: added `AND f.school_id IS NULL` — prevents consumer app loser from surfacing school finder items.
+- Admin stats (`GET /admin/stats`): added `AND school_id IS NULL` to active_lost/active_found counts — school items no longer inflate consumer app metrics.
+- Architecture confirmed: `_MATCH_SQL_SCHOOL` already correctly scopes both loser and finder to same `school_id`. Browse/admin listings already scoped. Multi-school support is zero-code — new school = new row in `schools` table.
+
+---
 
 ### LOFO for Schools MVP — March 20, 2026
 
