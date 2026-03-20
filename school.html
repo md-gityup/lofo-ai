@@ -17,7 +17,7 @@
   --border:     #E0DBD1;
   --rust:       #C17A4A;
   --rust-light: #F5EDE3;
-  --sidebar-w:  52px;
+  --sidebar-w:  44px;
 }
 
 html, body { height: 100%; }
@@ -51,11 +51,11 @@ body {
 
 .sidebar-logo { display: none; }
 
-.sidebar-nav { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 16px 6px 0; width: 100%; }
+.sidebar-nav { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 14px 5px 0; width: 100%; }
 
 .nav-item {
   display: flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 8px;
+  width: 32px; height: 32px; border-radius: 7px;
   border: none; background: none;
   color: var(--muted);
   cursor: pointer;
@@ -87,7 +87,7 @@ body {
 }
 .nav-item:hover::after { opacity: 1; }
 
-.sidebar-sep { width: 24px; height: 1px; background: var(--border); margin: 8px 0; }
+.sidebar-sep { width: 20px; height: 1px; background: var(--border); margin: 6px 0; }
 .sidebar-section-label { display: none; }
 
 #sidebar-staff-in { display: none; flex-direction: column; align-items: center; gap: 2px; width: 100%; padding: 0 6px; }
@@ -203,12 +203,9 @@ textarea.field { min-height: 110px; resize: vertical; }
 .page-sub   { font-size: 15px; color: var(--muted); font-weight: 300; line-height: 1.65; max-width: 420px; margin-bottom: 28px; }
 
 /* ─── App CTA ────────────────────────────────────── */
-.app-cta {
-  background: var(--rust-light); border: 1px solid var(--border);
-  border-radius: 12px; padding: 18px 20px; margin-top: 20px;
-}
-.app-cta p { font-size: 13.5px; color: var(--navy); line-height: 1.6; margin-bottom: 10px; }
-.app-cta a { font-size: 13px; font-weight: 600; color: var(--rust); text-decoration: none; }
+.app-cta { margin-top: 28px; }
+.app-cta p { font-size: 12px; color: var(--muted); font-weight: 300; line-height: 1.6; margin-bottom: 4px; }
+.app-cta a { font-size: 12px; font-weight: 500; color: var(--rust); text-decoration: none; letter-spacing: 0.01em; }
 .app-cta a:hover { text-decoration: underline; }
 
 /* ─── Toast ──────────────────────────────────────── */
@@ -237,46 +234,43 @@ textarea.field { min-height: 110px; resize: vertical; }
    LANDING
 ════════════════════════════════════════════════════ */
 #screen-landing { background: var(--cream); }
-.landing-inner { max-width: 720px; margin: 0 auto; padding: 72px 56px 80px; }
+.landing-inner { max-width: 680px; margin: 0 auto; padding: 56px 48px 72px; }
 
 .landing-wordmark {
-  font-size: 10px; font-weight: 600; letter-spacing: 0.32em;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.32em;
   text-transform: uppercase; color: var(--rust);
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 .landing-eyebrow {
   font-family: 'DM Serif Display', serif;
-  font-size: 15px; font-weight: 400; font-style: italic;
-  color: var(--muted); margin-bottom: 24px; letter-spacing: 0;
+  font-size: 13px; font-weight: 400; font-style: italic;
+  color: var(--muted); margin-bottom: 20px; letter-spacing: 0;
 }
 .landing-heading {
   font-family: 'DM Serif Display', serif;
-  font-size: 62px; line-height: 1.00; color: var(--navy); margin-bottom: 18px;
+  font-size: 48px; line-height: 1.04; color: var(--navy); margin-bottom: 14px;
 }
 .landing-heading em { font-style: italic; color: var(--rust); }
 .landing-sub {
-  font-size: 16px; color: var(--muted); font-weight: 300;
-  line-height: 1.72; max-width: 420px; margin-bottom: 40px;
+  font-size: 14.5px; color: var(--muted); font-weight: 300;
+  line-height: 1.72; max-width: 400px; margin-bottom: 32px;
 }
 .pickup-pill {
-  display: inline-flex; align-items: flex-start; gap: 10px;
-  background: var(--navy); color: rgba(255,255,255,0.72);
-  padding: 12px 16px; border-radius: 9px;
-  font-size: 13px; line-height: 1.55; margin-bottom: 40px; max-width: 500px;
+  font-size: 12px; color: var(--muted); font-weight: 300;
+  line-height: 1.6; margin-top: 16px;
 }
-.cta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px; }
+.cta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
 .cta-card {
-  background: #fff; border: 1.5px solid var(--border); border-radius: 14px;
-  padding: 28px 26px; cursor: pointer; text-align: left;
+  background: #fff; border: 1px solid var(--border); border-radius: 12px;
+  padding: 22px 20px; cursor: pointer; text-align: left;
   font-family: inherit; color: inherit;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s;
 }
-.cta-card:hover { border-color: rgba(26,26,46,0.18); box-shadow: 0 6px 24px rgba(26,26,46,0.09); transform: translateY(-2px); }
+.cta-card:hover { border-color: rgba(26,26,46,0.15); box-shadow: 0 4px 18px rgba(26,26,46,0.07); transform: translateY(-1px); }
 .cta-card:active { transform: translateY(0) scale(0.99); }
-.cta-card-icon { font-size: 28px; margin-bottom: 14px; display: block; }
-.cta-card-title { font-family: 'DM Serif Display', serif; font-size: 22px; line-height: 1.15; margin-bottom: 7px; color: var(--navy); }
+.cta-card-title { font-family: 'DM Serif Display', serif; font-size: 18px; line-height: 1.2; margin-bottom: 6px; color: var(--navy); }
 .cta-card-title em { font-style: italic; color: var(--rust); }
-.cta-card-sub { font-size: 13px; color: var(--muted); font-weight: 300; line-height: 1.55; }
+.cta-card-sub { font-size: 12.5px; color: var(--muted); font-weight: 300; line-height: 1.55; }
 
 .landing-links { display: flex; gap: 20px; align-items: center; }
 .text-link {
@@ -466,10 +460,9 @@ textarea.field { min-height: 110px; resize: vertical; }
 
   /* Landing */
   .landing-inner { padding: 28px 22px 48px; }
-  .landing-heading { font-size: 38px; }
-  .landing-sub { font-size: 15px; }
-  .cta-grid { grid-template-columns: 1fr; gap: 12px; }
-  .pickup-pill { display: block; }
+  .landing-heading { font-size: 34px; }
+  .landing-sub { font-size: 14px; }
+  .cta-grid { grid-template-columns: 1fr; gap: 10px; }
 
   /* Browse */
   .browse-header { padding: 12px 22px 10px; flex-wrap: wrap; position: relative; }
@@ -514,7 +507,7 @@ textarea.field { min-height: 110px; resize: vertical; }
   /* Landing mobile */
   .landing-wordmark { font-size: 9px; }
   .landing-eyebrow { font-size: 13px; margin-bottom: 16px; }
-  .landing-heading { font-size: 40px; }
+  .landing-heading { font-size: 36px; }
 }
 </style>
 </head>
@@ -539,38 +532,38 @@ textarea.field { min-height: 110px; resize: vertical; }
   <!-- Public nav -->
   <nav class="sidebar-nav" id="sidebar-nav-public">
     <button class="nav-item active" data-nav="screen-browse" data-tooltip="Browse found items" onclick="goNav('screen-browse')" title="Browse found items">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8.5" r="5"/><path d="M13 13l3.5 3.5"/></svg>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8.5" r="5"/><path d="M13 13l3.5 3.5"/></svg>
     </button>
     <button class="nav-item" data-nav="screen-lost" data-tooltip="I lost something" onclick="goNav('screen-lost')" title="I lost something">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2H5a1 1 0 00-1 1v14a1 1 0 001 1h10a1 1 0 001-1V8l-5-6z"/><path d="M11 2v6h6"/><path d="M7 11h6M7 14h4"/></svg>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2H5a1 1 0 00-1 1v14a1 1 0 001 1h10a1 1 0 001-1V8l-5-6z"/><path d="M11 2v6h6"/><path d="M7 11h6M7 14h4"/></svg>
     </button>
     <button class="nav-item" data-nav="screen-subscribe" data-tooltip="Get new-item alerts" onclick="goNav('screen-subscribe')" title="Get new-item alerts">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a5.5 5.5 0 015.5 5.5c0 2.5.5 4.5 1.5 5.5H3c1-1 1.5-3 1.5-5.5A5.5 5.5 0 0110 2z"/><path d="M8.5 16.5a1.5 1.5 0 003 0"/></svg>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a5.5 5.5 0 015.5 5.5c0 2.5.5 4.5 1.5 5.5H3c1-1 1.5-3 1.5-5.5A5.5 5.5 0 0110 2z"/><path d="M8.5 16.5a1.5 1.5 0 003 0"/></svg>
     </button>
   </nav>
 
   <div class="sidebar-sep"></div>
 
   <!-- Staff nav (logged out) -->
-  <div id="sidebar-staff-out" style="display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;padding:0 8px">
+  <div id="sidebar-staff-out" style="display:flex;flex-direction:column;align-items:center;gap:1px;width:100%;padding:0 5px">
     <button class="nav-item" data-nav="screen-admin-login" data-tooltip="Staff login" onclick="goNav('screen-admin-login')" title="Staff login">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="12" height="9" rx="2"/><path d="M7 9V7a3 3 0 016 0v2"/></svg>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="12" height="9" rx="2"/><path d="M7 9V7a3 3 0 016 0v2"/></svg>
     </button>
   </div>
 
   <!-- Staff nav (logged in) -->
-  <div id="sidebar-staff-in" style="display:none;flex-direction:column;align-items:center;gap:2px;width:100%;padding:0 8px">
+  <div id="sidebar-staff-in" style="display:none;flex-direction:column;align-items:center;gap:1px;width:100%;padding:0 5px">
     <button class="nav-item" data-nav="screen-admin-dash" data-tooltip="Posted items" onclick="goNav('screen-admin-dash');window.adminLoadDash()" title="Posted items">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>
     </button>
     <button class="nav-item" data-nav="screen-admin-post" data-tooltip="Post new item" onclick="goNav('screen-admin-post')" title="Post new item">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7.5A1.5 1.5 0 013.5 6h.63a1.5 1.5 0 001.06-.44l.62-.62A1.5 1.5 0 016.87 4.5h6.26a1.5 1.5 0 011.06.44l.62.62A1.5 1.5 0 0015.87 6h.63A1.5 1.5 0 0118 7.5v8A1.5 1.5 0 0116.5 17h-13A1.5 1.5 0 012 15.5v-8z"/><circle cx="10" cy="11.5" r="2.5"/></svg>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7.5A1.5 1.5 0 013.5 6h.63a1.5 1.5 0 001.06-.44l.62-.62A1.5 1.5 0 016.87 4.5h6.26a1.5 1.5 0 011.06.44l.62.62A1.5 1.5 0 0015.87 6h.63A1.5 1.5 0 0118 7.5v8A1.5 1.5 0 0116.5 17h-13A1.5 1.5 0 012 15.5v-8z"/><circle cx="10" cy="11.5" r="2.5"/></svg>
     </button>
     <button class="nav-item" data-nav="screen-admin-settings" data-tooltip="Settings" onclick="goNav('screen-admin-settings')" title="Settings">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2.5"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.4 4.4l1.42 1.42M14.18 14.18l1.42 1.42M4.4 15.6l1.42-1.42M14.18 5.82l1.42-1.42"/></svg>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2.5"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.4 4.4l1.42 1.42M14.18 14.18l1.42 1.42M4.4 15.6l1.42-1.42M14.18 5.82l1.42-1.42"/></svg>
     </button>
     <button class="nav-item logout" data-tooltip="Log out" onclick="adminLogout()" title="Log out">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10H3m0 0l3-3M3 10l3 3"/><path d="M8 4h5a2 2 0 012 2v8a2 2 0 01-2 2H8"/></svg>
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10H3m0 0l3-3M3 10l3 3"/><path d="M8 4h5a2 2 0 012 2v8a2 2 0 01-2 2H8"/></svg>
     </button>
   </div>
 
@@ -608,23 +601,21 @@ textarea.field { min-height: 110px; resize: vertical; }
       <div class="landing-eyebrow s-item" id="landing-name">School Lost &amp; Found</div>
       <h1 class="landing-heading s-item" style="animation-delay:0.04s">What did<br>your child <em>lose?</em></h1>
       <p class="landing-sub s-item" style="animation-delay:0.06s">Browse what's been found on campus — or describe what your child lost and let AI search for you.</p>
-      <div id="landing-pickup" class="pickup-pill s-item" style="display:none;animation-delay:0.08s"></div>
-      <div class="cta-grid s-item" style="animation-delay:0.10s">
+      <div class="cta-grid s-item" style="animation-delay:0.08s">
         <button type="button" class="cta-card" onclick="navigate('screen-browse','forward');loadItems()">
-          <span class="cta-card-icon">🔍</span>
           <div class="cta-card-title">Browse <em>found</em> items</div>
           <div class="cta-card-sub">Photos from the school's collection. Tap anything that looks familiar.</div>
         </button>
         <button type="button" class="cta-card" onclick="navigate('screen-lost','forward')">
-          <span class="cta-card-icon">📝</span>
           <div class="cta-card-title">I <em>lost</em> something</div>
           <div class="cta-card-sub">Describe it — our AI searches what was found on campus.</div>
         </button>
       </div>
-      <div class="landing-links s-item" style="animation-delay:0.16s">
+      <div class="landing-links s-item" style="animation-delay:0.13s">
         <button type="button" class="text-link" onclick="navigate('screen-subscribe','forward')">Get new-item alerts</button>
         <button type="button" class="text-link" onclick="navigate('screen-admin-login','forward')">Staff login</button>
       </div>
+      <div id="landing-pickup" class="pickup-pill s-item" style="display:none;animation-delay:0.17s"></div>
       <div class="app-cta s-item" style="animation-delay:0.22s;margin-top:28px">
         <p>Like what you see? LOFO works anywhere things get lost — not just at school.</p>
         <a id="landing-app-link" href="#" target="_blank" rel="noopener">Get the LOFO app →</a>
@@ -1014,7 +1005,7 @@ window.goNav = function(screenId) {
   navigate(screenId, 'forward');
   if (screenId === 'screen-admin-settings') {
     document.getElementById('set-pickup').value = schoolData.pickup_info || '';
-    document.getElementById('set-email').value = '';
+    document.getElementById('set-email').value = schoolData.admin_notify_email || '';
   }
 };
 
@@ -1077,7 +1068,7 @@ function onScreenEnter(id) {
   staggerScreen(id);
   if (id === 'screen-admin-settings') {
     document.getElementById('set-pickup').value = schoolData.pickup_info || '';
-    document.getElementById('set-email').value = '';
+    document.getElementById('set-email').value = schoolData.admin_notify_email || '';
   }
   if (id === 'screen-admin-dash') {
     if (localStorage.getItem(tokenKey)) window.adminLoadDash();
@@ -1135,7 +1126,7 @@ async function loadSchoolData() {
     document.title = 'LOFO · ' + name;
     const pu = document.getElementById('landing-pickup');
     if (schoolData.pickup_info) {
-      pu.style.display = 'flex';
+      pu.style.display = 'block';
       pu.textContent = schoolData.pickup_info;
       // Sidebar pickup
       document.getElementById('sidebar-pickup-text').textContent = schoolData.pickup_info;
