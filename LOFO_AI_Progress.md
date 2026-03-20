@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 20, 2026 (evening) — lofoapp.com fully live (homepage + /privacy + /terms + /school/* proxy). support@lofoapp.com active. Twilio A2P resubmitted (3rd attempt). TestFlight 1.0.0 (6) in review with updated test notes. Staff URL: lofoapp.com/school/sfws.*
+*Last updated: March 20, 2026 (evening, session 2) — school.html UI polish + mobile hamburger nav. School email flows fully working: noreply@lofoapp.com verified in Resend, all 4 email templates rewritten with correct links + LOFO-branded HTML. SFWS ready to hand off.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -666,18 +666,74 @@ Then redeploy Railway.
 > - Error 30896 (opt-in verification failure) addressed with: 3 opt-in screenshots in repo, updated opt-in description with screenshot URLs + web verification path, Privacy URL `lofoapp.com/privacy`, Terms URL `lofoapp.com/terms`
 > - Awaiting TCR review. No code changes needed when approved.
 >
+> **New this session (March 20, 2026 evening, session 2):**
+>
+> **school.html UI polish (8 changes):**
+> - **Photo picker fixed** — `overflow:hidden` + SVG upload arrow replaces OS camera emoji. Was visually clipping on desktop.
+> - **Sidebar home button** — LOFO asterisk shown at top of sidebar (was `display:none`), now a clickable button that navigates to landing.
+> - **Mobile hamburger nav** — hamburger icon on landing top-bar (mobile only). Tapping opens a 280px slide-in drawer from left: Browse / I lost something / Get alerts / Staff login (labeled). Backdrop tap to close.
+> - **Removed app-cta promo blocks** from 4 in-flow screens (item detail, claim confirmed, match, no-match-done). Parents no longer see "Download LOFO →" mid-flow.
+> - **item-chip** (browse card type badge) — navy fill → rust-light/rust, matching tag pills on detail screen.
+> - **Thinking screen** — copy cycles through 3 messages every 1.8s: "Reading your description…" → "Comparing to found items…" → "Checking for a match…". Clears on screen exit.
+> - **Admin login button** → rust (was navy, inconsistent with all other form CTAs).
+> - **Claim-done checkmark** — SVG circle check (was raw `✓` text character at 56px).
+>
+> **School email flows — fully working:**
+> - Added `_school_page_url(slug)` helper → `https://lofoapp.com/school/{slug}` (was incorrectly linking to consumer LOFO app)
+> - Added `_school_email_html()` shared wrapper: navy LOFO header + school name, white card body, footer with school page + lofoapp.com links
+> - Added `_email_cta_btn()` for rust/navy CTA buttons in emails
+> - **Subscriber new-item email**: photo thumbnail + item type + color, "View found items →" button to school page
+> - **Admin claim email**: structured table (child / parent name / email / note), "Open admin dashboard →" navy CTA
+> - **Parent possible-match email**: item label + AI confidence % + photo + "Check it out →" CTA
+> - **Parent watching-confirmation email**: "Browse found items →" CTA with school URL (was bare text, no link)
+>
+> **Resend domain — noreply@lofoapp.com live:**
+> - `lofoapp.com` verified as sending domain in Resend (DNS records were already in Vercel from ImprovMX setup)
+> - `RESEND_FROM = LOFO <noreply@lofoapp.com>` added to Railway env vars
+> - All school emails now send from `noreply@lofoapp.com` — looks trustworthy, won't go to spam
+>
 > **Next priorities:**
-> 1. **Staff onboarding at SFWS** — share URL `https://lofoapp.com/school/sfws` + passcode `steiner`. Have staff go to Settings first → set pickup info + admin email.
-> 2. **TestFlight external review** — build 1.0.0 (6) "Waiting for Review" with updated test notes + `support@lofoapp.com` feedback email. Once approved, enable public link in "testers" group Settings tab.
-> 3. **Twilio A2P** — awaiting approval. No code changes needed when approved. Once approved, test full SMS flow end-to-end.
-> 4. **Next iOS build (7)** — `support@lofoapp.com` in MenuSheet already changed in code. Archive when ready.
-> 5. **App Store listing** — screenshots (6.7" 1290×2796), 6 screens. Copy already drafted in progress doc (Phase 26 checklist).
+> 1. **Staff onboarding at SFWS** — share URL `https://lofoapp.com/school/sfws` + passcode `steiner`. Staff go to Settings first → set pickup info + admin email. Smoke test: post item → confirm subscriber email arrives from `noreply@lofoapp.com`.
+> 2. **TestFlight external review** — build 1.0.0 (6) "Waiting for Review". Once approved, enable public link in "testers" group Settings tab.
+> 3. **Twilio A2P** — awaiting TCR approval (3rd submission, Error 30896). No code changes needed when approved. Once approved, test full SMS flow end-to-end, then revisit resolve page tip flow.
+> 4. **Next iOS build (7)** — `support@lofoapp.com` in MenuSheet already in code. Archive when ready.
+> 5. **App Store screenshots** — 6.7" 1290×2796, 6 screens. Copy already drafted in Phase 26 checklist. Needs Xcode simulator + manual capture.
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
 ---
 
 ## Session History
+
+### School UI Polish + Email Flows + Resend Domain — March 20, 2026 (evening, session 2)
+
+**What shipped:**
+
+**school.html — 8 cosmetic/UX fixes:**
+- Photo picker (`screen-admin-post`): was visually clipped on desktop — fixed with `overflow:hidden`. Replaced OS camera emoji with rust SVG upload arrow; JS reset uses `innerHTML` to restore SVG after upload.
+- Sidebar home button: `.sidebar-logo` was `display:none` — changed to visible flex button, navigates to landing on click.
+- Mobile hamburger nav: hamburger added to landing `top-bar` (mobile only). Opens a 280px left drawer with labeled nav items (Browse, I lost something, Get alerts, Staff login). Backdrop click closes. `openMobileNav()` / `closeMobileNav()` in JS.
+- Removed `.app-cta` promo blocks from: `screen-detail`, `screen-claim-done`, `screen-match`, `screen-no-match-done`. Landing page app-cta kept.
+- `item-chip`: `background: var(--navy); color: #fff` → `background: var(--rust-light); color: var(--rust)`.
+- Thinking screen: `startThinkingCycle()` JS timer cycles 3 messages every 1.8s. Started in `onScreenEnter`, cleared on exit.
+- Admin login button: added `rust` class.
+- Claim-done icon: `✓` text → `<svg>` circle + path checkmark.
+
+**main.py — school email overhaul:**
+- `_school_page_url(slug)` → `https://lofoapp.com/school/{slug}`
+- `_school_email_html(school_name, body_html, slug)` → full HTML wrapper with navy LOFO header, white card, footer
+- `_email_cta_btn(label, url, color)` → inline-style anchor button
+- `_school_notify_subscribers_new_item()` rewritten: photo thumbnail, item type + colors, "View found items →" CTA to school page
+- `_school_notify_claim_admin()` rewritten: HTML table with child/parent/email/note rows, clickable mailto, "Open admin dashboard →" navy CTA
+- `_school_notify_parent_possible_match()` rewritten: item label + confidence % + photo + "Check it out →" CTA
+- Inline "watching" email in `school_lost_match()` rewritten: "Browse found items →" CTA with school URL
+
+**Resend domain verification:**
+- `lofoapp.com` added and verified in Resend (DNS records for DKIM/SPF/MX/DMARC were already in Vercel from ImprovMX setup — no new records needed)
+- `RESEND_FROM = LOFO <noreply@lofoapp.com>` added to Railway Variables
+- All school emails now send from `noreply@lofoapp.com`
+
+---
 
 ### lofoapp.com School Proxy + Twilio Wrap-Up — March 20, 2026 (evening, cont.)
 
