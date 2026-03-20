@@ -2,490 +2,579 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LOFO — School Lost & Found</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <style>
+/* ─── Reset & tokens ─────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 :root {
   --navy:       #1A1A2E;
   --cream:      #F5F2EC;
-  --bg:         #EAE6DE;
+  --bg:         #EDEAE2;
   --muted:      #9A9488;
   --border:     #E0DBD1;
   --rust:       #C17A4A;
   --rust-light: #F5EDE3;
-  --tag-bg:     #EAE8F2;
+  --sidebar-w:  260px;
 }
 
 html, body { height: 100%; }
-
 body {
   font-family: 'DM Sans', sans-serif;
-  background: var(--bg);
+  background: var(--navy);
   color: var(--navy);
   -webkit-font-smoothing: antialiased;
+  min-height: 100%;
 }
 
-/* ─── App shell ─────────────────────────────────── */
-.app-shell {
-  max-width: 480px;
-  margin: 0 auto;
-  min-height: 100dvh;
-  background: #fff;
-  box-shadow: 0 0 80px rgba(26,26,46,0.10);
+/* ─── Layout ─────────────────────────────────────── */
+.layout { display: flex; min-height: 100vh; }
+
+/* ─── Sidebar ────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--navy);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  overflow-y: auto;
+  z-index: 200;
+  flex-shrink: 0;
+}
+
+.sidebar-brand {
+  padding: 28px 20px 22px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.sidebar-wordmark {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.30em;
+  text-transform: uppercase; color: var(--rust); margin-bottom: 8px;
+}
+.sidebar-school-name {
+  font-family: 'DM Serif Display', serif;
+  font-size: 17px; color: rgba(255,255,255,0.92); line-height: 1.3;
+}
+
+.sidebar-nav { padding: 10px 10px; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 12px; border-radius: 7px;
+  border: none; background: none;
+  color: rgba(255,255,255,0.48);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px; font-weight: 400;
+  cursor: pointer; text-align: left;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: 2px; position: relative;
+}
+.nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.80); }
+.nav-item.active { background: rgba(193,122,74,0.15); color: #fff; font-weight: 500; }
+.nav-item.active::before {
+  content: '';
+  position: absolute; left: 0; top: 7px; bottom: 7px;
+  width: 2.5px; background: var(--rust); border-radius: 0 2px 2px 0;
+}
+.nav-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+
+.sidebar-sep { height: 1px; background: rgba(255,255,255,0.06); margin: 8px 12px; }
+.sidebar-section-label {
+  padding: 8px 12px 4px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(255,255,255,0.22);
+}
+
+#sidebar-staff-in { display: none; }
+.nav-item.logout { color: rgba(255,255,255,0.28); }
+.nav-item.logout:hover { color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.04); }
+
+.sidebar-pickup {
+  margin-top: auto;
+  padding: 16px 20px 28px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: none;
+}
+.sidebar-pickup-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(255,255,255,0.22); margin-bottom: 6px;
+}
+.sidebar-pickup-text { font-size: 12px; color: rgba(255,255,255,0.36); line-height: 1.65; }
+
+/* ─── Main area ──────────────────────────────────── */
+.main-area {
+  flex: 1;
+  margin-left: var(--sidebar-w);
+  background: var(--cream);
   position: relative;
   overflow-x: hidden;
+  min-height: 100vh;
 }
 
 /* ─── Screen system ──────────────────────────────── */
-.screen {
-  display: none;
-  flex-direction: column;
-  min-height: 100dvh;
-  background: #fff;
-  will-change: transform, opacity;
-}
+.screen { display: none; flex-direction: column; min-height: 100vh; will-change: opacity; }
 .screen.active { display: flex; }
 
-/* Push-forward transitions */
-@keyframes slideInFromRight {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
-}
-@keyframes slideOutToLeft {
-  from { transform: translateX(0);   opacity: 1; }
-  to   { transform: translateX(-28%); opacity: 0.35; }
-}
-/* Pop-back transitions */
-@keyframes slideInFromLeft {
-  from { transform: translateX(-28%); opacity: 0.35; }
-  to   { transform: translateX(0);    opacity: 1; }
-}
-@keyframes slideOutToRight {
-  from { transform: translateX(0); }
-  to   { transform: translateX(100%); }
-}
-/* Fade-up for modal-style screens (thinking, match) */
-@keyframes fadeUpIn {
-  from { transform: translateY(18px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
-}
+/* Desktop: fade transitions */
+@keyframes dtFadeIn  { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes dtFadeOut { from { opacity: 1; } to { opacity: 0; } }
 
-.screen.push-in  { animation: slideInFromRight 0.40s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
-.screen.push-out { animation: slideOutToLeft   0.40s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; pointer-events: none; }
-.screen.pop-in   { animation: slideInFromLeft  0.36s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
-.screen.pop-out  { animation: slideOutToRight  0.36s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; pointer-events: none; }
-.screen.fade-in  { animation: fadeUpIn         0.32s cubic-bezier(0.34, 1.20, 0.64, 1)   both; }
+.screen.push-in, .screen.pop-in  { animation: dtFadeIn  0.22s ease both; }
+.screen.push-out, .screen.pop-out { animation: dtFadeOut 0.15s ease both; pointer-events: none; }
+.screen.fade-in { animation: dtFadeIn 0.28s ease both; }
 
-/* ─── Stagger entry ──────────────────────────────── */
-.s-item {
-  opacity: 0;
-  transform: translateY(14px);
-}
-.s-item.s-ready {
-  animation: staggerUp 0.50s cubic-bezier(0.34, 1.20, 0.64, 1) forwards;
-}
-@keyframes staggerUp {
-  to { opacity: 1; transform: translateY(0); }
-}
-.s-pop {
-  opacity: 0;
-  transform: scale(0.72);
-}
-.s-pop.s-ready {
-  animation: staggerPop 0.48s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-@keyframes staggerPop {
-  to { opacity: 1; transform: scale(1); }
-}
+/* ─── Stagger ────────────────────────────────────── */
+.s-item { opacity: 0; transform: translateY(12px); }
+.s-item.s-ready { animation: sUp 0.44s cubic-bezier(0.34, 1.20, 0.64, 1) forwards; }
+@keyframes sUp { to { opacity: 1; transform: translateY(0); } }
+.s-pop { opacity: 0; transform: scale(0.78); }
+.s-pop.s-ready { animation: sPop 0.40s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+@keyframes sPop { to { opacity: 1; transform: scale(1); } }
 
-/* ─── Buttons ────────────────────────────────────── */
-.btn-primary, .btn-secondary, .btn-ghost {
-  display: flex; align-items: center; justify-content: center;
-  border: none; border-radius: 14px; cursor: pointer; font-family: inherit;
-  font-size: 15px; font-weight: 600; letter-spacing: -0.1px;
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s;
-  position: relative;
-  gap: 8px;
-}
-.btn-primary:active  { transform: scale(0.96) !important; opacity: 0.92; }
-.btn-secondary:active{ transform: scale(0.97) !important; opacity: 0.9; }
-.btn-ghost:active    { transform: scale(0.98) !important; }
+/* ─── Mobile top-bar (hidden on desktop) ────────── */
+.top-bar { display: none; }
 
-.btn-primary {
-  width: calc(100% - 44px); margin: 0 22px;
-  padding: 17px; background: var(--navy); color: #fff;
-}
-.btn-primary.rust { background: var(--rust); }
-.btn-primary.white { background: #fff; color: var(--navy); }
-
-.btn-secondary {
-  width: calc(100% - 44px); margin: 0 22px;
-  padding: 15px; background: none; color: var(--navy);
-  border: 1.5px solid var(--border);
-}
-.btn-ghost {
-  background: none; border: none; color: var(--muted);
-  font-family: inherit; font-size: 13px; font-weight: 400;
-  cursor: pointer; padding: 8px 4px;
-  transition: color 0.15s;
-}
-.btn-ghost:hover { color: var(--navy); }
-.btn-spinner {
-  width: 16px; height: 16px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
-  animation: spin 0.7s linear infinite;
-  display: none;
-}
-.btn-primary.loading .btn-spinner { display: inline-block; }
-.btn-primary.loading .btn-label   { opacity: 0.6; }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ─── Top bar ────────────────────────────────────── */
-.top-bar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 22px 8px;
-  padding-top: max(16px, env(safe-area-inset-top));
-  flex-shrink: 0;
-}
+/* ─── Breadcrumb (desktop back nav) ─────────────── */
+.breadcrumb { padding: 32px 48px 0; }
 .back-btn {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 14px; font-weight: 400; color: var(--muted);
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 13px; font-weight: 400; color: var(--muted);
   background: none; border: none; cursor: pointer; font-family: inherit;
-  padding: 4px 0; transition: color 0.15s;
+  padding: 0; transition: color 0.15s;
 }
 .back-btn:hover { color: var(--navy); }
 
+/* ─── Buttons ────────────────────────────────────── */
+.btn-primary, .btn-secondary, .btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 9px; cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 600; letter-spacing: -0.1px;
+  transition: transform 0.18s ease, opacity 0.15s, background 0.15s, box-shadow 0.15s;
+  position: relative; gap: 7px; height: 42px; padding: 0 20px; white-space: nowrap;
+}
+.btn-primary:active  { transform: scale(0.97) !important; }
+.btn-secondary:active{ transform: scale(0.98) !important; }
+
+.btn-primary { background: var(--navy); color: #fff; }
+.btn-primary:hover { background: #2a2a48; box-shadow: 0 2px 12px rgba(26,26,46,0.18); }
+.btn-primary.rust { background: var(--rust); }
+.btn-primary.rust:hover { background: #b36840; box-shadow: 0 2px 12px rgba(193,122,74,0.22); }
+.btn-primary.white { background: #fff; color: var(--navy); }
+.btn-primary.white:hover { background: var(--cream); }
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+
+.btn-secondary { background: none; color: var(--navy); border: 1.5px solid var(--border); }
+.btn-secondary:hover { border-color: var(--navy); background: rgba(0,0,0,0.03); }
+
+.btn-ghost { background: none; border: none; color: var(--muted); font-size: 13px; font-weight: 400; height: auto; padding: 0; }
+.btn-ghost:hover { color: var(--navy); }
+
+.btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 28px; }
+
+.btn-spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  animation: spin 0.7s linear infinite; display: none; flex-shrink: 0;
+}
+.btn-primary.loading .btn-spinner { display: inline-block; }
+.btn-primary.loading .btn-label   { opacity: 0.6; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ─── Forms ──────────────────────────────────────── */
-.field-group { margin: 0 22px; }
 .field-label {
   display: block; font-size: 11px; font-weight: 600;
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
-  margin-bottom: 7px; margin-top: 18px;
+  margin-bottom: 7px; margin-top: 20px;
 }
 .field-label .lbl-note { font-weight: 300; text-transform: none; letter-spacing: 0; }
-input.field, textarea.field, select.field {
-  display: block; width: 100%;
-  padding: 14px 16px; border-radius: 12px;
-  border: 1.5px solid var(--border); background: var(--cream);
-  font-family: inherit; font-size: 15px; color: var(--navy);
-  outline: none; transition: border-color 0.2s;
-  -webkit-appearance: none;
+input.field, textarea.field {
+  display: block; width: 100%; padding: 11px 14px;
+  border-radius: 9px; border: 1.5px solid var(--border);
+  background: #fff; font-family: inherit; font-size: 15px; color: var(--navy);
+  outline: none; transition: border-color 0.18s, box-shadow 0.18s; -webkit-appearance: none;
 }
 input.field::placeholder, textarea.field::placeholder { color: var(--muted); font-weight: 300; }
-input.field:focus, textarea.field:focus { border-color: var(--navy); background: #fff; }
+input.field:focus, textarea.field:focus {
+  border-color: var(--navy); box-shadow: 0 0 0 3px rgba(26,26,46,0.06);
+}
 textarea.field { min-height: 110px; resize: vertical; }
 
-/* ─── Wordmark / header ──────────────────────────── */
-.wordmark {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.22em;
-  text-transform: uppercase; color: var(--rust); text-align: center;
-  padding-top: max(20px, env(safe-area-inset-top));
-  padding-bottom: 4px;
-}
-.school-heading {
-  font-family: 'DM Serif Display', serif;
-  font-size: 22px; text-align: center; line-height: 1.25;
-  margin: 8px 24px 0; color: var(--navy);
-}
-.screen-heading {
-  font-family: 'DM Serif Display', serif;
-  font-size: 30px; line-height: 1.1; color: var(--navy);
-  margin-bottom: 8px;
-}
-.screen-sub { font-size: 14px; color: var(--muted); font-weight: 300; line-height: 1.6; }
+/* ─── Centered content wrapper ───────────────────── */
+.cx      { max-width: 540px; margin: 0 auto; padding: 56px 48px 80px; width: 100%; }
+.cx-wide { max-width: 680px; margin: 0 auto; padding: 56px 48px 80px; width: 100%; }
 
-/* ─── Landing screen ─────────────────────────────── */
-#screen-landing { background: var(--cream); }
-.landing-content { padding: 0 0 40px; flex: 1; display: flex; flex-direction: column; }
-.pickup-pill {
-  margin: 14px 22px 0;
-  background: var(--navy); color: var(--cream);
-  padding: 12px 16px; border-radius: 12px;
-  font-size: 13px; line-height: 1.5; font-weight: 400;
-}
-.cta-card {
-  display: block; margin: 12px 22px 0; padding: 22px 22px 20px;
-  border-radius: 18px; border: 1.5px solid var(--border); background: #fff;
-  cursor: pointer; text-align: left; font-family: inherit; color: inherit;
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.2s ease;
-}
-.cta-card:active { transform: scale(0.98); box-shadow: none; }
-.cta-card-title {
-  font-family: 'DM Serif Display', serif;
-  font-size: 26px; line-height: 1.15; margin-bottom: 6px;
-}
-.cta-card-title em { font-style: italic; color: var(--rust); }
-.cta-card-sub { font-size: 13px; color: var(--muted); font-weight: 300; line-height: 1.5; }
-.links-row {
-  display: flex; justify-content: center; gap: 24px;
-  margin-top: 20px; padding: 0 22px;
-}
-.text-link {
-  font-size: 13px; color: var(--muted); cursor: pointer;
-  background: none; border: none; font-family: inherit;
-  text-decoration: underline; text-underline-offset: 3px;
-  transition: color 0.15s;
-}
-.text-link:hover { color: var(--navy); }
+.page-title { font-family: 'DM Serif Display', serif; font-size: 38px; line-height: 1.08; color: var(--navy); margin-bottom: 10px; }
+.page-sub   { font-size: 15px; color: var(--muted); font-weight: 300; line-height: 1.65; max-width: 420px; margin-bottom: 28px; }
 
-/* ─── App CTA block ──────────────────────────────── */
+/* ─── App CTA ────────────────────────────────────── */
 .app-cta {
-  margin: 28px 22px 0; padding: 20px 22px;
-  border-radius: 16px; background: var(--rust-light);
-  border: 1px solid var(--border); text-align: center;
+  background: var(--rust-light); border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px 20px; margin-top: 20px;
 }
-.app-cta p { font-size: 13px; color: var(--navy); line-height: 1.55; margin-bottom: 12px; }
-.app-cta a {
-  display: inline-block; font-size: 13px; font-weight: 600;
-  color: var(--rust); text-decoration: none;
-}
+.app-cta p { font-size: 13.5px; color: var(--navy); line-height: 1.6; margin-bottom: 10px; }
+.app-cta a { font-size: 13px; font-weight: 600; color: var(--rust); text-decoration: none; }
 .app-cta a:hover { text-decoration: underline; }
-
-/* ─── Browse screen ──────────────────────────────── */
-.search-bar-wrap { padding: 10px 22px 14px; }
-.search-bar {
-  width: 100%; padding: 12px 16px; border-radius: 12px;
-  border: 1.5px solid var(--border); background: var(--cream);
-  font-family: inherit; font-size: 15px; color: var(--navy); outline: none;
-  transition: border-color 0.2s;
-}
-.search-bar:focus { border-color: var(--navy); background: #fff; }
-.search-bar::placeholder { color: var(--muted); }
-
-.photo-grid {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 11px; padding: 0 22px 32px;
-}
-.photo-card {
-  border-radius: 14px; overflow: hidden;
-  border: 1.5px solid var(--border); background: var(--cream);
-  cursor: pointer;
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.photo-card:active { transform: scale(0.97); }
-.photo-card-img {
-  width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
-  background: var(--bg);
-}
-.photo-card-img.no-photo {
-  display: flex; align-items: center; justify-content: center;
-  font-size: 36px; background: var(--bg);
-}
-.photo-card-meta { padding: 9px 10px 11px; }
-.item-chip {
-  display: inline-block; font-size: 10px; font-weight: 600;
-  letter-spacing: 0.05em; text-transform: uppercase;
-  background: var(--navy); color: #fff; padding: 3px 8px; border-radius: 6px;
-}
-.item-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
-.empty-state {
-  grid-column: 1/-1; text-align: center; padding: 40px 16px;
-  color: var(--muted); font-size: 14px; font-weight: 300; line-height: 1.7;
-}
-
-/* ─── Detail screen ──────────────────────────────── */
-#screen-detail { overflow-y: auto; }
-.detail-photo-wrap { padding: 0 22px; margin-top: 4px; }
-.detail-photo {
-  width: 100%; max-height: 300px; object-fit: cover;
-  border-radius: 16px; display: block; cursor: zoom-in;
-  border: 1.5px solid var(--border); background: var(--bg);
-}
-.detail-no-photo {
-  width: 100%; height: 200px; border-radius: 16px;
-  background: var(--bg); border: 1.5px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 56px;
-}
-.detail-title {
-  font-family: 'DM Serif Display', serif;
-  font-size: 24px; line-height: 1.2;
-  margin: 16px 22px 0;
-}
-.tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 22px; }
-.tag {
-  background: var(--rust-light); color: var(--navy);
-  padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 500;
-}
-.pickup-row {
-  margin: 0 22px 4px; padding: 14px 16px; border-radius: 12px;
-  background: var(--navy); color: var(--cream);
-  font-size: 13px; line-height: 1.5;
-}
-.pickup-row-label {
-  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: rgba(255,255,255,0.45); margin-bottom: 4px; font-weight: 600;
-}
-
-/* ─── Claim / form screens ───────────────────────── */
-.form-content { padding: 8px 22px 40px; flex: 1; display: flex; flex-direction: column; }
-.form-spacer { margin-top: 24px; }
-
-/* ─── Success / done screens ─────────────────────── */
-.done-content {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: flex-start;
-  text-align: center; padding: 48px 28px 40px;
-}
-.done-icon { font-size: 52px; margin-bottom: 20px; }
-.done-title { font-family: 'DM Serif Display', serif; font-size: 32px; line-height: 1.1; }
-.done-rule { width: 32px; height: 1.5px; background: var(--border); margin: 18px auto; }
-.done-sub { font-size: 15px; color: var(--muted); font-weight: 300; line-height: 1.65; max-width: 300px; }
-.done-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
-
-/* ─── Thinking screen ────────────────────────────── */
-#screen-thinking { background: var(--navy); justify-content: center; align-items: center; }
-.breathe-wrap {
-  width: 160px; height: 160px; position: relative;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 44px;
-}
-.breathe-ring {
-  position: absolute; border-radius: 50%;
-  background: rgba(255,255,255,0.045);
-  animation: breatheRing 4s ease-in-out infinite;
-}
-.breathe-ring:nth-child(1) { width: 160px; height: 160px; animation-delay: 0s; }
-.breathe-ring:nth-child(2) { width: 120px; height: 120px; animation-delay: -1.33s; }
-.breathe-ring:nth-child(3) { width: 82px;  height: 82px;  animation-delay: -2.66s; }
-@keyframes breatheRing {
-  0%,100% { transform: scale(0.72); opacity: 0; }
-  35%     { opacity: 1; }
-  65%     { opacity: 0.5; }
-  100%    { transform: scale(1.28); opacity: 0; }
-}
-.breathe-center {
-  width: 54px; height: 54px; border-radius: 50%;
-  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
-  z-index: 2; animation: breatheCenter 4s ease-in-out infinite;
-}
-@keyframes breatheCenter {
-  0%,100% { transform: scale(0.88); box-shadow: 0 0 0 0 rgba(255,255,255,0.04); }
-  50%     { transform: scale(1.12); box-shadow: 0 0 32px 8px rgba(255,255,255,0.06); }
-}
-.thinking-title {
-  font-family: 'DM Serif Display', serif; font-size: 30px;
-  color: #fff; text-align: center; line-height: 1.1; padding: 0 32px;
-}
-.thinking-title em { font-style: italic; color: rgba(255,255,255,0.4); }
-.thinking-sub {
-  text-align: center; color: rgba(255,255,255,0.3); font-size: 13px;
-  font-weight: 300; margin-top: 14px; letter-spacing: 0.02em;
-  animation: textPulse 2s ease-in-out infinite;
-}
-@keyframes textPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 0.9; } }
-
-/* ─── Match screen ───────────────────────────────── */
-#screen-match { background: var(--navy); overflow-y: auto; }
-.match-banner {
-  padding: 24px 22px 20px;
-  padding-top: max(24px, env(safe-area-inset-top));
-  flex-shrink: 0;
-}
-.match-eyebrow {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase;
-  color: rgba(255,255,255,0.45); margin-bottom: 10px;
-}
-.match-headline {
-  font-family: 'DM Serif Display', serif; font-size: 38px;
-  color: #fff; line-height: 1.05;
-}
-.match-headline em { font-style: italic; color: rgba(255,255,255,0.5); }
-.confidence-bar { margin-top: 18px; display: flex; align-items: center; gap: 12px; }
-.bar-track { flex: 1; height: 2px; background: rgba(255,255,255,0.10); border-radius: 2px; overflow: hidden; }
-.bar-fill {
-  height: 100%; width: 0%; background: rgba(255,255,255,0.75);
-  border-radius: 2px;
-  transition: width 1.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.35s;
-}
-.bar-label { font-size: 12px; color: rgba(255,255,255,0.35); white-space: nowrap; }
-.match-card {
-  margin: 0 22px 16px; background: #fff; border-radius: 18px;
-  padding: 14px; display: flex; gap: 14px; align-items: center; color: var(--navy);
-}
-.match-thumb {
-  width: 90px; height: 90px; border-radius: 12px; object-fit: cover; flex-shrink: 0;
-  background: var(--bg); display: block;
-}
-.match-thumb-placeholder {
-  width: 90px; height: 90px; border-radius: 12px; flex-shrink: 0;
-  background: var(--bg); display: flex; align-items: center; justify-content: center;
-  font-size: 32px;
-}
-.match-item-name { font-family: 'DM Serif Display', serif; font-size: 20px; line-height: 1.2; }
-.match-item-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
-.match-reasons { padding: 0 22px; margin-bottom: 16px; }
-.reason {
-  display: flex; gap: 10px; align-items: flex-start;
-  font-size: 13px; color: rgba(255,255,255,0.55);
-  font-weight: 300; margin-bottom: 10px; line-height: 1.5;
-}
-.check-dot {
-  width: 20px; height: 20px; background: rgba(255,255,255,0.12);
-  border-radius: 50%; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 9px; color: #fff; font-weight: 700;
-}
-.match-actions { padding: 0 22px 40px; display: flex; flex-direction: column; gap: 12px; }
-
-/* ─── Admin photo picker ─────────────────────────── */
-.photo-picker {
-  margin: 0; border: 2px dashed var(--border); border-radius: 14px;
-  background: var(--cream); padding: 36px 24px;
-  text-align: center; cursor: pointer; position: relative;
-  transition: border-color 0.2s, background 0.2s;
-}
-.photo-picker:hover, .photo-picker.has-file { border-color: var(--navy); background: #fff; }
-.photo-picker input[type="file"] {
-  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
-}
-.photo-picker-icon { font-size: 36px; margin-bottom: 10px; display: block; }
-.photo-picker-label { font-size: 14px; color: var(--navy); font-weight: 500; }
-.photo-picker-sub { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 300; }
-
-/* ─── Admin list ─────────────────────────────────── */
-.admin-scroll { flex: 1; overflow-y: auto; padding: 0 22px 40px; }
-.admin-row {
-  border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 14px;
-  margin-bottom: 10px; display: flex; justify-content: space-between;
-  align-items: center; font-size: 14px;
-}
-.admin-row-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
-.claim-badge {
-  background: var(--rust-light); color: var(--rust);
-  padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 600;
-  white-space: nowrap;
-}
 
 /* ─── Toast ──────────────────────────────────────── */
 .toast {
-  position: fixed; bottom: max(24px, env(safe-area-inset-bottom));
-  left: 50%; transform: translateX(-50%) translateY(120px);
-  background: var(--navy); color: #fff; padding: 12px 20px;
-  border-radius: 12px; font-size: 13px; z-index: 500;
-  white-space: nowrap; max-width: calc(100vw - 44px);
-  transition: transform 0.32s cubic-bezier(0.34, 1.20, 0.64, 1);
-  pointer-events: none;
+  position: fixed; bottom: 28px;
+  left: calc(var(--sidebar-w) + (100vw - var(--sidebar-w)) / 2);
+  transform: translateX(-50%) translateY(80px);
+  background: var(--navy); color: #fff;
+  padding: 12px 20px; border-radius: 10px; font-size: 13px;
+  z-index: 500; white-space: nowrap;
+  transition: transform 0.28s cubic-bezier(0.34, 1.20, 0.64, 1);
+  pointer-events: none; box-shadow: 0 4px 24px rgba(0,0,0,0.18);
 }
 .toast.visible { transform: translateX(-50%) translateY(0); }
 
 /* ─── Lightbox ───────────────────────────────────── */
 .lightbox {
-  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92);
-  z-index: 400; align-items: center; justify-content: center; padding: 20px;
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.90); z-index: 400;
+  align-items: center; justify-content: center; padding: 40px;
 }
 .lightbox.visible { display: flex; }
-.lightbox img { max-width: 100%; max-height: 90dvh; border-radius: 8px; }
+.lightbox img { max-width: 100%; max-height: 90vh; border-radius: 8px; }
+
+/* ════════════════════════════════════════════════════
+   LANDING
+════════════════════════════════════════════════════ */
+#screen-landing { background: var(--cream); }
+.landing-inner { max-width: 720px; margin: 0 auto; padding: 72px 56px 80px; }
+
+.landing-eyebrow {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--rust); margin-bottom: 20px;
+}
+.landing-heading {
+  font-family: 'DM Serif Display', serif;
+  font-size: 60px; line-height: 1.01; color: var(--navy); margin-bottom: 18px;
+}
+.landing-heading em { font-style: italic; color: var(--rust); }
+.landing-sub {
+  font-size: 17px; color: var(--muted); font-weight: 300;
+  line-height: 1.70; max-width: 440px; margin-bottom: 40px;
+}
+.pickup-pill {
+  display: inline-flex; align-items: flex-start; gap: 10px;
+  background: var(--navy); color: rgba(255,255,255,0.72);
+  padding: 12px 16px; border-radius: 9px;
+  font-size: 13px; line-height: 1.55; margin-bottom: 40px; max-width: 500px;
+}
+.cta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px; }
+.cta-card {
+  background: #fff; border: 1.5px solid var(--border); border-radius: 14px;
+  padding: 28px 26px; cursor: pointer; text-align: left;
+  font-family: inherit; color: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.cta-card:hover { border-color: rgba(26,26,46,0.18); box-shadow: 0 6px 24px rgba(26,26,46,0.09); transform: translateY(-2px); }
+.cta-card:active { transform: translateY(0) scale(0.99); }
+.cta-card-icon { font-size: 28px; margin-bottom: 14px; display: block; }
+.cta-card-title { font-family: 'DM Serif Display', serif; font-size: 22px; line-height: 1.15; margin-bottom: 7px; color: var(--navy); }
+.cta-card-title em { font-style: italic; color: var(--rust); }
+.cta-card-sub { font-size: 13px; color: var(--muted); font-weight: 300; line-height: 1.55; }
+
+.landing-links { display: flex; gap: 20px; align-items: center; }
+.text-link {
+  font-size: 13px; color: var(--muted); cursor: pointer;
+  background: none; border: none; font-family: inherit;
+  text-decoration: underline; text-underline-offset: 3px; transition: color 0.15s; padding: 0;
+}
+.text-link:hover { color: var(--navy); }
+
+/* ════════════════════════════════════════════════════
+   BROWSE
+════════════════════════════════════════════════════ */
+#screen-browse { background: var(--cream); }
+.browse-header {
+  padding: 36px 48px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  border-bottom: 1px solid var(--border); background: var(--cream);
+  position: sticky; top: 0; z-index: 10;
+}
+.browse-heading { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--navy); flex-shrink: 0; }
+.search-bar {
+  max-width: 360px; width: 100%; padding: 9px 14px; border-radius: 9px;
+  border: 1.5px solid var(--border); background: #fff;
+  font-family: inherit; font-size: 14px; color: var(--navy);
+  outline: none; transition: border-color 0.18s;
+}
+.search-bar:focus { border-color: var(--navy); }
+.search-bar::placeholder { color: var(--muted); }
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px; padding: 28px 48px 72px;
+}
+.photo-card {
+  border-radius: 12px; overflow: hidden;
+  border: 1.5px solid var(--border); background: #fff; cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+}
+.photo-card:hover { box-shadow: 0 6px 24px rgba(26,26,46,0.10); transform: translateY(-2px); border-color: rgba(26,26,46,0.15); }
+.photo-card:active { transform: translateY(0); box-shadow: none; }
+.photo-card-img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--bg); }
+.photo-card-img.no-photo { display: flex; align-items: center; justify-content: center; font-size: 44px; }
+.photo-card-meta { padding: 10px 12px 12px; }
+.item-chip { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; background: var(--navy); color: #fff; padding: 3px 8px; border-radius: 5px; }
+.item-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.empty-state { grid-column: 1/-1; text-align: center; padding: 64px 20px; color: var(--muted); font-size: 15px; font-weight: 300; line-height: 1.75; }
+
+/* ════════════════════════════════════════════════════
+   DETAIL  (2-col desktop layout)
+════════════════════════════════════════════════════ */
+#screen-detail { background: #fff; }
+.detail-layout { display: flex; flex: 1; min-height: 100vh; }
+
+.detail-photo-col {
+  flex: 0 0 44%; padding: 40px 32px 40px 48px;
+  background: var(--cream); border-right: 1px solid var(--border);
+  position: sticky; top: 0; align-self: flex-start; height: 100vh;
+  display: flex; flex-direction: column;
+}
+.detail-photo-back { margin-bottom: 24px; }
+.detail-photo {
+  width: 100%; max-height: 420px; object-fit: cover;
+  border-radius: 14px; display: block; cursor: zoom-in;
+  border: 1.5px solid var(--border); background: var(--bg);
+}
+.detail-no-photo {
+  width: 100%; height: 340px; border-radius: 14px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center; font-size: 72px;
+}
+
+.detail-info-col { flex: 1; padding: 40px 48px 80px 36px; overflow-y: auto; }
+.detail-title { font-family: 'DM Serif Display', serif; font-size: 34px; line-height: 1.1; margin-bottom: 16px; color: var(--navy); }
+.tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.tag { background: var(--rust-light); color: var(--navy); padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; }
+.pickup-row { padding: 14px 16px; border-radius: 11px; background: var(--navy); color: var(--cream); font-size: 13px; line-height: 1.55; margin-bottom: 28px; }
+.pickup-row-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.38); margin-bottom: 4px; font-weight: 600; }
+
+/* ════════════════════════════════════════════════════
+   DONE / SUCCESS
+════════════════════════════════════════════════════ */
+.done-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 48px; }
+.done-inner { max-width: 460px; width: 100%; text-align: center; }
+.done-icon { font-size: 56px; margin-bottom: 24px; display: block; }
+.done-title { font-family: 'DM Serif Display', serif; font-size: 42px; line-height: 1.08; color: var(--navy); margin-bottom: 8px; }
+.done-rule { width: 32px; height: 1.5px; background: var(--border); margin: 20px auto; }
+.done-sub { font-size: 16px; color: var(--muted); font-weight: 300; line-height: 1.70; margin-bottom: 32px; }
+.done-actions { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.done-actions .btn-secondary { min-width: 200px; }
+
+/* ════════════════════════════════════════════════════
+   THINKING
+════════════════════════════════════════════════════ */
+#screen-thinking { background: var(--navy); justify-content: center; align-items: center; }
+.breathe-wrap { width: 160px; height: 160px; position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 48px; }
+.breathe-ring { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.04); animation: breatheRing 4s ease-in-out infinite; }
+.breathe-ring:nth-child(1) { width: 160px; height: 160px; animation-delay: 0s; }
+.breathe-ring:nth-child(2) { width: 118px; height: 118px; animation-delay: -1.33s; }
+.breathe-ring:nth-child(3) { width: 80px;  height: 80px;  animation-delay: -2.66s; }
+@keyframes breatheRing { 0%,100% { transform: scale(0.72); opacity: 0; } 35% { opacity: 1; } 65% { opacity: 0.5; } 100% { transform: scale(1.28); opacity: 0; } }
+.breathe-center { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); z-index: 2; animation: breatheCenter 4s ease-in-out infinite; }
+@keyframes breatheCenter { 0%,100% { transform: scale(0.88); } 50% { transform: scale(1.12); box-shadow: 0 0 32px 8px rgba(255,255,255,0.05); } }
+.thinking-title { font-family: 'DM Serif Display', serif; font-size: 32px; color: #fff; text-align: center; line-height: 1.1; padding: 0 40px; }
+.thinking-title em { font-style: italic; color: rgba(255,255,255,0.35); }
+.thinking-sub { text-align: center; color: rgba(255,255,255,0.28); font-size: 13px; font-weight: 300; margin-top: 14px; letter-spacing: 0.02em; animation: textPulse 2s ease-in-out infinite; }
+@keyframes textPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+/* ════════════════════════════════════════════════════
+   MATCH
+════════════════════════════════════════════════════ */
+#screen-match { background: var(--navy); overflow-y: auto; }
+.match-inner { max-width: 640px; margin: 0 auto; padding: 68px 48px 80px; }
+.match-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: rgba(255,255,255,0.38); margin-bottom: 12px; }
+.match-headline { font-family: 'DM Serif Display', serif; font-size: 48px; color: #fff; line-height: 1.02; }
+.match-headline em { font-style: italic; color: rgba(255,255,255,0.42); }
+.confidence-bar { margin-top: 20px; display: flex; align-items: center; gap: 12px; }
+.bar-track { flex: 1; height: 2px; background: rgba(255,255,255,0.10); border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; width: 0%; background: rgba(255,255,255,0.68); border-radius: 2px; transition: width 1.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.35s; }
+.bar-label { font-size: 12px; color: rgba(255,255,255,0.32); white-space: nowrap; }
+.match-card { margin: 32px 0 20px; background: #fff; border-radius: 16px; padding: 16px; display: flex; gap: 16px; align-items: center; color: var(--navy); }
+.match-thumb { width: 96px; height: 96px; border-radius: 11px; object-fit: cover; flex-shrink: 0; background: var(--bg); display: block; }
+.match-thumb-placeholder { width: 96px; height: 96px; border-radius: 11px; flex-shrink: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 36px; }
+.match-item-name { font-family: 'DM Serif Display', serif; font-size: 22px; line-height: 1.2; }
+.match-item-meta { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.match-reasons { margin-bottom: 28px; }
+.reason { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: rgba(255,255,255,0.50); font-weight: 300; margin-bottom: 10px; line-height: 1.55; }
+.check-dot { width: 20px; height: 20px; background: rgba(255,255,255,0.10); border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #fff; font-weight: 700; }
+.match-actions { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+
+/* ════════════════════════════════════════════════════
+   ADMIN DASH
+════════════════════════════════════════════════════ */
+#screen-admin-dash { background: var(--cream); }
+.admin-header {
+  padding: 36px 48px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border); background: var(--cream);
+  position: sticky; top: 0; z-index: 10;
+}
+.admin-heading { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--navy); }
+.admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; padding: 28px 48px 72px; }
+.admin-card { background: #fff; border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; transition: box-shadow 0.2s, transform 0.2s; }
+.admin-card:hover { box-shadow: 0 4px 16px rgba(26,26,46,0.08); transform: translateY(-1px); }
+.admin-card-img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--bg); }
+.admin-card-no-photo { width: 100%; aspect-ratio: 1; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 44px; }
+.admin-card-meta { padding: 12px 14px 14px; }
+.admin-card-name { font-weight: 500; font-size: 14px; color: var(--navy); margin-bottom: 4px; }
+.admin-card-date { font-size: 12px; color: var(--muted); }
+.claim-badge { display: inline-block; margin-top: 6px; background: var(--rust-light); color: var(--rust); padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.admin-empty { padding: 64px 48px; text-align: center; color: var(--muted); font-size: 15px; font-weight: 300; line-height: 1.7; }
+
+/* ─── Photo picker ───────────────────────────────── */
+.photo-picker { border: 2px dashed var(--border); border-radius: 12px; background: #fff; padding: 56px 24px; text-align: center; cursor: pointer; position: relative; transition: border-color 0.2s; }
+.photo-picker:hover, .photo-picker.has-file { border-color: var(--navy); }
+.photo-picker input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.photo-picker-icon { font-size: 40px; margin-bottom: 12px; display: block; }
+.photo-picker-label { font-size: 15px; color: var(--navy); font-weight: 500; }
+.photo-picker-sub { font-size: 12px; color: var(--muted); margin-top: 5px; font-weight: 300; }
+
+/* ════════════════════════════════════════════════════
+   MOBILE  (< 768px) — restore original mobile behavior
+════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  body { background: var(--cream); }
+  .sidebar { display: none; }
+  .main-area { margin-left: 0; overflow-x: hidden; }
+  .screen { min-height: 100dvh; background: #fff; }
+  #screen-landing { background: var(--cream); }
+  #screen-thinking { background: var(--navy); }
+  #screen-match { background: var(--navy); }
+
+  /* Restore push/pop sliding transitions */
+  @keyframes slideInFromRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  @keyframes slideOutToLeft   { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-28%); opacity: 0.35; } }
+  @keyframes slideInFromLeft  { from { transform: translateX(-28%); opacity: 0.35; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes slideOutToRight  { from { transform: translateX(0); } to { transform: translateX(100%); } }
+  .screen.push-in  { animation: slideInFromRight 0.40s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+  .screen.push-out { animation: slideOutToLeft   0.40s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; pointer-events: none; }
+  .screen.pop-in   { animation: slideInFromLeft  0.36s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+  .screen.pop-out  { animation: slideOutToRight  0.36s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; pointer-events: none; }
+
+  /* Show mobile top-bars */
+  .top-bar { display: flex !important; align-items: center; justify-content: space-between; padding: 16px 22px 8px; padding-top: max(16px, env(safe-area-inset-top)); flex-shrink: 0; }
+  .back-btn { font-size: 14px; font-weight: 400; color: var(--muted); }
+  .breadcrumb { display: none; }
+
+  /* Landing */
+  .landing-inner { padding: 28px 22px 48px; }
+  .landing-heading { font-size: 38px; }
+  .landing-sub { font-size: 15px; }
+  .cta-grid { grid-template-columns: 1fr; gap: 12px; }
+  .pickup-pill { display: block; }
+
+  /* Browse */
+  .browse-header { padding: 12px 22px 10px; flex-wrap: wrap; position: relative; }
+  .browse-heading { font-size: 20px; }
+  .search-bar { max-width: 100%; }
+  .photo-grid { grid-template-columns: 1fr 1fr; gap: 11px; padding: 14px 22px 48px; }
+
+  /* Detail */
+  .detail-layout { flex-direction: column; }
+  .detail-photo-col { position: static; height: auto; padding: 4px 22px 0; background: var(--cream); border-right: none; }
+  .detail-photo-back { margin-bottom: 0; }
+  .detail-info-col { padding: 16px 22px 60px; overflow-y: visible; border-top: 1px solid var(--border); }
+  .detail-title { font-size: 26px; }
+
+  /* Centered content */
+  .cx, .cx-wide { padding: 20px 22px 60px; }
+  .page-title { font-size: 28px; }
+
+  /* Done */
+  .done-wrap { padding: 48px 22px; justify-content: flex-start; }
+  .done-title { font-size: 32px; }
+
+  /* Buttons */
+  .btn-primary { width: 100%; height: 52px; border-radius: 14px; font-size: 15px; }
+  .btn-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .done-actions .btn-secondary { min-width: auto; width: calc(100% - 0px); }
+
+  /* Match */
+  .match-inner { padding: 32px 22px 60px; }
+  .match-headline { font-size: 38px; }
+  .match-actions .btn-primary { width: 100%; }
+
+  /* Admin */
+  .admin-header { padding: 12px 22px 10px; position: relative; }
+  .admin-heading { font-size: 20px; }
+  .admin-grid { grid-template-columns: 1fr 1fr; gap: 11px; padding: 14px 22px 48px; }
+  .admin-empty { padding: 40px 22px; }
+
+  /* Toast */
+  .toast { left: 50%; transform: translateX(-50%) translateY(80px); bottom: max(24px, env(safe-area-inset-bottom)); max-width: calc(100vw - 44px); }
+  .toast.visible { transform: translateX(-50%) translateY(0); }
+}
 </style>
 </head>
 <body>
-<div class="app-shell">
+<div class="layout">
+
+<!-- ══════════════════════════════════════════════
+     SIDEBAR
+══════════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-wordmark">LOFO</div>
+    <div class="sidebar-school-name" id="sidebar-school-name">School Lost &amp; Found</div>
+  </div>
+
+  <nav class="sidebar-nav" id="sidebar-nav-public">
+    <button class="nav-item active" data-nav="screen-browse" onclick="goNav('screen-browse')">
+      <span class="nav-icon">🔍</span> Browse found items
+    </button>
+    <button class="nav-item" data-nav="screen-lost" onclick="goNav('screen-lost')">
+      <span class="nav-icon">📝</span> I lost something
+    </button>
+    <button class="nav-item" data-nav="screen-subscribe" onclick="goNav('screen-subscribe')">
+      <span class="nav-icon">🔔</span> Get new-item alerts
+    </button>
+  </nav>
+
+  <div class="sidebar-sep"></div>
+  <div class="sidebar-section-label">Staff</div>
+
+  <nav class="sidebar-nav">
+    <!-- Logged out -->
+    <div id="sidebar-staff-out">
+      <button class="nav-item" data-nav="screen-admin-login" onclick="goNav('screen-admin-login')">
+        <span class="nav-icon">🔐</span> Log in
+      </button>
+    </div>
+    <!-- Logged in -->
+    <div id="sidebar-staff-in">
+      <button class="nav-item" data-nav="screen-admin-dash" onclick="goNav('screen-admin-dash');window.adminLoadDash()">
+        <span class="nav-icon">📋</span> Posted items
+      </button>
+      <button class="nav-item" data-nav="screen-admin-post" onclick="goNav('screen-admin-post')">
+        <span class="nav-icon">📷</span> Post new item
+      </button>
+      <button class="nav-item" data-nav="screen-admin-settings" onclick="goNav('screen-admin-settings')">
+        <span class="nav-icon">⚙️</span> Settings
+      </button>
+      <button class="nav-item logout" onclick="adminLogout()">
+        <span class="nav-icon">↩</span> Log out
+      </button>
+    </div>
+  </nav>
+
+  <div class="sidebar-pickup" id="sidebar-pickup">
+    <div class="sidebar-pickup-label">Pickup</div>
+    <div class="sidebar-pickup-text" id="sidebar-pickup-text"></div>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════════
+     MAIN AREA
+══════════════════════════════════════════════ -->
+<div class="main-area">
 
   <!-- Lightbox -->
   <div id="lightbox" class="lightbox" onclick="this.classList.remove('visible')">
@@ -499,23 +588,32 @@ textarea.field { min-height: 110px; resize: vertical; }
        LANDING
   ══════════════════════════════════════════════ -->
   <div class="screen active" id="screen-landing">
-    <div class="wordmark">LOFO</div>
-    <div class="school-heading s-item" id="landing-name">School Lost &amp; Found</div>
-    <div class="landing-content">
-      <div id="landing-pickup" class="pickup-pill s-item" style="display:none"></div>
-      <button type="button" class="cta-card s-item" style="animation-delay:0.06s" onclick="navigate('screen-browse','forward');loadItems()">
-        <div class="cta-card-title">Browse <em>found</em> items</div>
-        <div class="cta-card-sub">Photos from the school's collection. Tap anything that looks familiar.</div>
-      </button>
-      <button type="button" class="cta-card s-item" style="animation-delay:0.12s" onclick="navigate('screen-lost','forward')">
-        <div class="cta-card-title">I <em>lost</em> something</div>
-        <div class="cta-card-sub">Describe it — our AI searches what was found on campus.</div>
-      </button>
-      <div class="links-row s-item" style="animation-delay:0.18s">
+    <div class="top-bar">
+      <div></div>
+      <button type="button" class="back-btn" onclick="goNav('screen-admin-login')">Staff login</button>
+    </div>
+    <div class="landing-inner">
+      <div class="landing-eyebrow">LOFO · Lost &amp; Found</div>
+      <h1 class="landing-heading s-item" id="landing-name">School<br><em>Lost &amp; Found</em></h1>
+      <p class="landing-sub s-item" style="animation-delay:0.06s">Browse what's been found on campus — or describe what your child lost and let AI search for you.</p>
+      <div id="landing-pickup" class="pickup-pill s-item" style="display:none;animation-delay:0.08s"></div>
+      <div class="cta-grid s-item" style="animation-delay:0.10s">
+        <button type="button" class="cta-card" onclick="navigate('screen-browse','forward');loadItems()">
+          <span class="cta-card-icon">🔍</span>
+          <div class="cta-card-title">Browse <em>found</em> items</div>
+          <div class="cta-card-sub">Photos from the school's collection. Tap anything that looks familiar.</div>
+        </button>
+        <button type="button" class="cta-card" onclick="navigate('screen-lost','forward')">
+          <span class="cta-card-icon">📝</span>
+          <div class="cta-card-title">I <em>lost</em> something</div>
+          <div class="cta-card-sub">Describe it — our AI searches what was found on campus.</div>
+        </button>
+      </div>
+      <div class="landing-links s-item" style="animation-delay:0.16s">
         <button type="button" class="text-link" onclick="navigate('screen-subscribe','forward')">Get new-item alerts</button>
         <button type="button" class="text-link" onclick="navigate('screen-admin-login','forward')">Staff login</button>
       </div>
-      <div class="app-cta s-item" style="animation-delay:0.24s">
+      <div class="app-cta s-item" style="animation-delay:0.22s;margin-top:28px">
         <p>Like what you see? LOFO works anywhere things get lost — not just at school.</p>
         <a id="landing-app-link" href="#" target="_blank" rel="noopener">Get the LOFO app →</a>
       </div>
@@ -525,13 +623,13 @@ textarea.field { min-height: 110px; resize: vertical; }
   <!-- ══════════════════════════════════════════════
        BROWSE
   ══════════════════════════════════════════════ -->
-  <div class="screen" id="screen-browse" style="overflow-y:auto">
+  <div class="screen" id="screen-browse">
     <div class="top-bar">
       <button type="button" class="back-btn" onclick="navigate('screen-landing','back')">← Back</button>
     </div>
-    <div class="school-heading" style="text-align:left;font-size:18px;margin-bottom:0">Found items</div>
-    <div class="search-bar-wrap">
-      <input type="search" class="search-bar" id="browse-search" placeholder="Search by type — jacket, backpack…" onkeydown="if(event.key==='Enter')loadItems()">
+    <div class="browse-header">
+      <h2 class="browse-heading">Found items</h2>
+      <input type="search" class="search-bar" id="browse-search" placeholder="Search — jacket, backpack, water bottle…" onkeydown="if(event.key==='Enter')loadItems()">
     </div>
     <div class="photo-grid" id="browse-grid"></div>
   </div>
@@ -539,51 +637,57 @@ textarea.field { min-height: 110px; resize: vertical; }
   <!-- ══════════════════════════════════════════════
        DETAIL
   ══════════════════════════════════════════════ -->
-  <div class="screen" id="screen-detail" style="overflow-y:auto">
+  <div class="screen" id="screen-detail">
     <div class="top-bar">
       <button type="button" class="back-btn" onclick="navigate('screen-browse','back')">← Back</button>
     </div>
-    <div class="detail-photo-wrap" id="detail-photo-wrap">
-      <img class="detail-photo" id="detail-img" src="" alt="" onclick="openLb(this.src)">
-    </div>
-    <div class="detail-title" id="detail-title"></div>
-    <div class="tag-row" id="detail-tags"></div>
-    <div class="pickup-row" id="detail-pickup">
-      <div class="pickup-row-label">Pickup</div>
-      <div id="detail-pickup-text"></div>
-    </div>
-    <div style="margin-top:20px">
-      <button type="button" class="btn-primary rust" onclick="navigate('screen-claim','forward')">
-        <span class="btn-label">This belongs to my child →</span>
-      </button>
-    </div>
-    <div class="app-cta" style="margin-bottom:32px">
-      <p>LOFO reunites lost things everywhere — download the app for matches on the go.</p>
-      <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
+    <div class="detail-layout">
+      <div class="detail-photo-col">
+        <div class="detail-photo-back breadcrumb" style="padding:0 0 20px">
+          <button type="button" class="back-btn" onclick="navigate('screen-browse','back')">← Found items</button>
+        </div>
+        <div id="detail-photo-wrap"></div>
+      </div>
+      <div class="detail-info-col">
+        <h2 class="detail-title" id="detail-title"></h2>
+        <div class="tag-row" id="detail-tags"></div>
+        <div class="pickup-row" id="detail-pickup">
+          <div class="pickup-row-label">Pickup</div>
+          <div id="detail-pickup-text"></div>
+        </div>
+        <button type="button" class="btn-primary rust" onclick="navigate('screen-claim','forward')">
+          <span class="btn-label">This belongs to my child →</span>
+        </button>
+        <div class="app-cta">
+          <p>LOFO reunites lost things everywhere — download the app for matches on the go.</p>
+          <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════════
        CLAIM
   ══════════════════════════════════════════════ -->
-  <div class="screen" id="screen-claim" style="overflow-y:auto">
+  <div class="screen" id="screen-claim">
     <div class="top-bar">
       <button type="button" class="back-btn" onclick="navigate('screen-detail','back')">← Back</button>
     </div>
-    <div class="form-content">
-      <h2 class="screen-heading">Claim this item</h2>
-      <p class="screen-sub">The school will follow up with you directly to verify.</p>
-      <div class="field-group">
-        <label class="field-label">Child's name</label>
-        <input class="field" id="claim-child" type="text" placeholder="First name" autocomplete="given-name">
-        <label class="field-label">Your name</label>
-        <input class="field" id="claim-parent" type="text" placeholder="Parent or guardian" autocomplete="name">
-        <label class="field-label">Your email</label>
-        <input class="field" id="claim-email" type="email" placeholder="you@example.com" autocomplete="email">
-        <label class="field-label">Anything that helps identify it? <span class="lbl-note">(optional)</span></label>
-        <textarea class="field" id="claim-note" placeholder="e.g. initials inside, tear on strap, keychain attached"></textarea>
+    <div class="cx">
+      <div class="breadcrumb" style="padding:0 0 32px">
+        <button type="button" class="back-btn" onclick="navigate('screen-detail','back')">← Item detail</button>
       </div>
-      <div class="form-spacer">
+      <h2 class="page-title">Claim this item</h2>
+      <p class="page-sub">The school will follow up with you directly to verify.</p>
+      <label class="field-label">Child's name</label>
+      <input class="field" id="claim-child" type="text" placeholder="First name" autocomplete="given-name">
+      <label class="field-label">Your name</label>
+      <input class="field" id="claim-parent" type="text" placeholder="Parent or guardian" autocomplete="name">
+      <label class="field-label">Your email</label>
+      <input class="field" id="claim-email" type="email" placeholder="you@example.com" autocomplete="email">
+      <label class="field-label">Anything that helps identify it? <span class="lbl-note">(optional)</span></label>
+      <textarea class="field" id="claim-note" placeholder="e.g. initials inside, tear on strap, keychain attached"></textarea>
+      <div class="btn-row">
         <button type="button" class="btn-primary rust" id="btn-claim" onclick="submitClaim()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Submit claim</span>
@@ -596,17 +700,19 @@ textarea.field { min-height: 110px; resize: vertical; }
        CLAIM DONE
   ══════════════════════════════════════════════ -->
   <div class="screen" id="screen-claim-done">
-    <div class="done-content">
-      <div class="done-icon s-pop">✓</div>
-      <h2 class="done-title s-item" style="animation-delay:0.06s">We've notified<br>the school.</h2>
-      <div class="done-rule s-item" style="animation-delay:0.12s"></div>
-      <p class="done-sub s-item" style="animation-delay:0.16s" id="claim-done-pickup"></p>
-      <div class="done-actions">
-        <div class="app-cta s-item" style="animation-delay:0.22s">
-          <p>LOFO works beyond school too — lost & found, reinvented on your phone.</p>
-          <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
+    <div class="done-wrap">
+      <div class="done-inner">
+        <span class="done-icon s-pop">✓</span>
+        <h2 class="done-title s-item" style="animation-delay:0.06s">We've notified<br>the school.</h2>
+        <div class="done-rule s-item" style="animation-delay:0.12s"></div>
+        <p class="done-sub s-item" style="animation-delay:0.16s" id="claim-done-pickup"></p>
+        <div class="done-actions">
+          <div class="app-cta s-item" style="animation-delay:0.22s;text-align:left">
+            <p>LOFO works beyond school too — lost & found, reinvented on your phone.</p>
+            <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
+          </div>
+          <button type="button" class="btn-secondary s-item" style="animation-delay:0.28s" onclick="navigate('screen-landing','back')">Back to home</button>
         </div>
-        <button type="button" class="btn-secondary s-item" style="animation-delay:0.28s" onclick="navigate('screen-landing','back')">Back to home</button>
       </div>
     </div>
   </div>
@@ -614,23 +720,21 @@ textarea.field { min-height: 110px; resize: vertical; }
   <!-- ══════════════════════════════════════════════
        LOST FORM
   ══════════════════════════════════════════════ -->
-  <div class="screen" id="screen-lost" style="overflow-y:auto">
+  <div class="screen" id="screen-lost">
     <div class="top-bar">
       <button type="button" class="back-btn" onclick="navigate('screen-landing','back')">← Back</button>
     </div>
-    <div class="form-content">
-      <h2 class="screen-heading">What did your<br>child lose?</h2>
-      <p class="screen-sub">Be specific — colors, brand, size, any details.</p>
-      <div class="field-group" style="margin-top:16px">
-        <textarea class="field" id="lost-desc" style="min-height:130px" placeholder="e.g. navy Patagonia fleece jacket, kids size M, small hole on right sleeve, has her name on the tag"></textarea>
-        <label class="field-label">Your email <span class="lbl-note">(we'll watch and alert you if no match yet)</span></label>
-        <input class="field" id="lost-email" type="email" placeholder="you@example.com">
-        <label class="field-label">Your name <span class="lbl-note">(optional)</span></label>
-        <input class="field" id="lost-parent" type="text" placeholder="Parent or guardian name">
-        <label class="field-label">Child's name <span class="lbl-note">(optional)</span></label>
-        <input class="field" id="lost-child" type="text" placeholder="First name">
-      </div>
-      <div class="form-spacer">
+    <div class="cx">
+      <h2 class="page-title">What did your<br>child lose?</h2>
+      <p class="page-sub">Be specific — colors, brand, size, any details help.</p>
+      <textarea class="field" id="lost-desc" style="min-height:130px" placeholder="e.g. navy Patagonia fleece jacket, kids size M, small hole on right sleeve, has her name on the tag"></textarea>
+      <label class="field-label">Your email <span class="lbl-note">(we'll watch and alert you if no match yet)</span></label>
+      <input class="field" id="lost-email" type="email" placeholder="you@example.com">
+      <label class="field-label">Your name <span class="lbl-note">(optional)</span></label>
+      <input class="field" id="lost-parent" type="text" placeholder="Parent or guardian name">
+      <label class="field-label">Child's name <span class="lbl-note">(optional)</span></label>
+      <input class="field" id="lost-child" type="text" placeholder="First name">
+      <div class="btn-row">
         <button type="button" class="btn-primary rust" id="btn-lost" onclick="submitLost()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Find it →</span>
@@ -657,30 +761,30 @@ textarea.field { min-height: 110px; resize: vertical; }
        MATCH
   ══════════════════════════════════════════════ -->
   <div class="screen" id="screen-match">
-    <div class="match-banner">
+    <div class="match-inner">
       <div class="match-eyebrow s-item">AI found a match</div>
       <h2 class="match-headline s-item" style="animation-delay:0.06s">Could this<br><em>be it?</em></h2>
       <div class="confidence-bar s-item" style="animation-delay:0.12s">
         <div class="bar-track"><div class="bar-fill" id="match-bar-fill"></div></div>
         <span class="bar-label" id="match-bar-label">—</span>
       </div>
-    </div>
-    <div class="match-card s-item" style="animation-delay:0.18s" id="match-card">
-      <div id="match-thumb-wrap"></div>
-      <div>
-        <div class="match-item-name" id="match-item-name"></div>
-        <div class="match-item-meta" id="match-item-meta"></div>
+      <div class="match-card s-item" style="animation-delay:0.18s" id="match-card">
+        <div id="match-thumb-wrap"></div>
+        <div>
+          <div class="match-item-name" id="match-item-name"></div>
+          <div class="match-item-meta" id="match-item-meta"></div>
+        </div>
       </div>
-    </div>
-    <div class="match-reasons" id="match-reasons"></div>
-    <div class="match-actions">
-      <button type="button" class="btn-primary white s-item" style="margin:0;animation-delay:0.26s;width:100%" onclick="fromMatchToDetail()">
-        <span class="btn-label">View item details →</span>
-      </button>
-      <button type="button" class="btn-ghost s-item" style="animation-delay:0.32s;color:rgba(255,255,255,0.4);text-align:center" onclick="navigate('screen-landing','back')">Not a match — back to home</button>
-      <div class="app-cta s-item" style="animation-delay:0.38s;background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.12)">
-        <p style="color:rgba(255,255,255,0.8)">Get the full LOFO app — matches anywhere, not just at school.</p>
-        <a class="app-store-link" href="#" target="_blank" rel="noopener" style="color:#fff">Download LOFO →</a>
+      <div class="match-reasons" id="match-reasons"></div>
+      <div class="match-actions">
+        <button type="button" class="btn-primary white s-item" style="animation-delay:0.26s" onclick="fromMatchToDetail()">
+          <span class="btn-label">View item details →</span>
+        </button>
+        <button type="button" class="btn-ghost s-item" style="animation-delay:0.32s;color:rgba(255,255,255,0.38)" onclick="navigate('screen-landing','back')">Not a match — back to home</button>
+        <div class="app-cta s-item" style="animation-delay:0.38s;background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.12)">
+          <p style="color:rgba(255,255,255,0.75)">Get the full LOFO app — matches anywhere, not just at school.</p>
+          <a class="app-store-link" href="#" target="_blank" rel="noopener" style="color:#fff">Download LOFO →</a>
+        </div>
       </div>
     </div>
   </div>
@@ -688,28 +792,27 @@ textarea.field { min-height: 110px; resize: vertical; }
   <!-- ══════════════════════════════════════════════
        NO MATCH
   ══════════════════════════════════════════════ -->
-  <div class="screen" id="screen-no-match" style="overflow-y:auto">
+  <div class="screen" id="screen-no-match">
     <div class="top-bar">
       <button type="button" class="back-btn" onclick="navigate('screen-lost','back')">← Back</button>
     </div>
-    <div class="form-content">
-      <h2 class="screen-heading">No close match <em style="font-style:italic;color:var(--rust)">yet.</em></h2>
-      <p class="screen-sub" style="margin-top:8px">Leave your email — we'll notify you the moment something matching is posted.</p>
-      <div class="field-group" style="margin-top:4px">
-        <label class="field-label">Email</label>
-        <input class="field" id="nm-email" type="email" placeholder="you@example.com">
-        <label class="field-label">Your name <span class="lbl-note">(optional)</span></label>
-        <input class="field" id="nm-parent" type="text" placeholder="">
-        <label class="field-label">Child's name <span class="lbl-note">(optional)</span></label>
-        <input class="field" id="nm-child" type="text" placeholder="">
+    <div class="cx">
+      <div class="breadcrumb" style="padding:0 0 32px">
+        <button type="button" class="back-btn" onclick="navigate('screen-lost','back')">← Try again</button>
       </div>
-      <div class="form-spacer">
+      <h2 class="page-title">No close match <em style="font-style:italic;color:var(--rust)">yet.</em></h2>
+      <p class="page-sub">Leave your email — we'll notify you the moment something matching is posted.</p>
+      <label class="field-label">Email</label>
+      <input class="field" id="nm-email" type="email" placeholder="you@example.com">
+      <label class="field-label">Your name <span class="lbl-note">(optional)</span></label>
+      <input class="field" id="nm-parent" type="text" placeholder="">
+      <label class="field-label">Child's name <span class="lbl-note">(optional)</span></label>
+      <input class="field" id="nm-child" type="text" placeholder="">
+      <div class="btn-row">
         <button type="button" class="btn-primary rust" id="btn-nm" onclick="submitLostRetry()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Notify me when it shows up</span>
         </button>
-      </div>
-      <div style="text-align:center;margin-top:14px">
         <button type="button" class="btn-ghost" onclick="navigate('screen-landing','back')">Skip — back to home</button>
       </div>
     </div>
@@ -719,17 +822,19 @@ textarea.field { min-height: 110px; resize: vertical; }
        NO MATCH DONE
   ══════════════════════════════════════════════ -->
   <div class="screen" id="screen-no-match-done">
-    <div class="done-content">
-      <div class="done-icon s-pop">👀</div>
-      <h2 class="done-title s-item" style="animation-delay:0.06s">We're watching.</h2>
-      <div class="done-rule s-item" style="animation-delay:0.12s"></div>
-      <p class="done-sub s-item" style="animation-delay:0.16s">If something similar shows up in the school's lost &amp; found, we'll email you right away.</p>
-      <div class="done-actions">
-        <div class="app-cta s-item" style="animation-delay:0.22s">
-          <p>Want LOFO everywhere you go? Get the app for real-time AI matching.</p>
-          <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
+    <div class="done-wrap">
+      <div class="done-inner">
+        <span class="done-icon s-pop">👀</span>
+        <h2 class="done-title s-item" style="animation-delay:0.06s">We're watching.</h2>
+        <div class="done-rule s-item" style="animation-delay:0.12s"></div>
+        <p class="done-sub s-item" style="animation-delay:0.16s">If something similar shows up in the school's lost &amp; found, we'll email you right away.</p>
+        <div class="done-actions">
+          <div class="app-cta s-item" style="animation-delay:0.22s;text-align:left">
+            <p>Want LOFO everywhere you go? Get the app for real-time AI matching.</p>
+            <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
+          </div>
+          <button type="button" class="btn-secondary s-item" style="animation-delay:0.28s" onclick="navigate('screen-landing','back')">Back to home</button>
         </div>
-        <button type="button" class="btn-secondary s-item" style="animation-delay:0.28s" onclick="navigate('screen-landing','back')">Back to home</button>
       </div>
     </div>
   </div>
@@ -737,20 +842,18 @@ textarea.field { min-height: 110px; resize: vertical; }
   <!-- ══════════════════════════════════════════════
        SUBSCRIBE
   ══════════════════════════════════════════════ -->
-  <div class="screen" id="screen-subscribe" style="overflow-y:auto">
+  <div class="screen" id="screen-subscribe">
     <div class="top-bar">
       <button type="button" class="back-btn" onclick="navigate('screen-landing','back')">← Back</button>
     </div>
-    <div class="form-content">
-      <h2 class="screen-heading">New item alerts</h2>
-      <p class="screen-sub">Get an email whenever something new is posted to lost &amp; found.</p>
-      <div class="field-group" style="margin-top:8px">
-        <label class="field-label">Email</label>
-        <input class="field" id="sub-email" type="email" placeholder="you@example.com" autocomplete="email">
-        <label class="field-label">Your name <span class="lbl-note">(optional)</span></label>
-        <input class="field" id="sub-name" type="text" placeholder="">
-      </div>
-      <div class="form-spacer">
+    <div class="cx">
+      <h2 class="page-title">New item alerts</h2>
+      <p class="page-sub">Get an email whenever something new is posted to lost &amp; found.</p>
+      <label class="field-label">Email</label>
+      <input class="field" id="sub-email" type="email" placeholder="you@example.com" autocomplete="email">
+      <label class="field-label">Your name <span class="lbl-note">(optional)</span></label>
+      <input class="field" id="sub-name" type="text" placeholder="">
+      <div class="btn-row">
         <button type="button" class="btn-primary rust" id="btn-sub" onclick="doSubscribe()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Subscribe</span>
@@ -766,15 +869,13 @@ textarea.field { min-height: 110px; resize: vertical; }
     <div class="top-bar">
       <button type="button" class="back-btn" onclick="navigate('screen-landing','back')">← Back</button>
     </div>
-    <div class="form-content">
-      <h2 class="screen-heading">Staff</h2>
-      <p class="screen-sub">Enter the school passcode to manage found items.</p>
-      <div class="field-group" style="margin-top:12px">
-        <label class="field-label">Passcode</label>
-        <input class="field" id="admin-pass" type="password" placeholder="••••••••" autocomplete="current-password"
-               onkeydown="if(event.key==='Enter')adminLogin()">
-      </div>
-      <div class="form-spacer">
+    <div class="cx" style="max-width:420px">
+      <h2 class="page-title">Staff login</h2>
+      <p class="page-sub">Enter the school passcode to manage found items.</p>
+      <label class="field-label">Passcode</label>
+      <input class="field" id="admin-pass" type="password" placeholder="••••••••" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')adminLogin()">
+      <div class="btn-row">
         <button type="button" class="btn-primary" id="btn-admin-login" onclick="adminLogin()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Log in</span>
@@ -791,11 +892,13 @@ textarea.field { min-height: 110px; resize: vertical; }
       <button type="button" class="back-btn" onclick="adminLogout()">Log out</button>
       <button type="button" class="back-btn" onclick="navigate('screen-admin-settings','forward')">Settings</button>
     </div>
-    <div class="school-heading" style="text-align:left;font-size:18px;margin-bottom:16px">Posted items</div>
-    <button type="button" class="btn-primary rust" style="margin-bottom:16px" onclick="navigate('screen-admin-post','forward')">
-      <span class="btn-label">+ Post found item</span>
-    </button>
-    <div class="admin-scroll" id="admin-list"></div>
+    <div class="admin-header">
+      <h2 class="admin-heading">Posted items</h2>
+      <button type="button" class="btn-primary rust" onclick="navigate('screen-admin-post','forward')">
+        <span class="btn-label">+ Post found item</span>
+      </button>
+    </div>
+    <div class="admin-grid" id="admin-list"></div>
   </div>
 
   <!-- ══════════════════════════════════════════════
@@ -805,16 +908,19 @@ textarea.field { min-height: 110px; resize: vertical; }
     <div class="top-bar">
       <button type="button" class="back-btn" onclick="navigate('screen-admin-dash','back')">← Cancel</button>
     </div>
-    <div class="form-content">
-      <h2 class="screen-heading">Post photo</h2>
-      <p class="screen-sub" style="margin-bottom:20px">AI reads the image, classifies the item, and publishes it to the gallery instantly.</p>
+    <div class="cx">
+      <div class="breadcrumb" style="padding:0 0 32px">
+        <button type="button" class="back-btn" onclick="navigate('screen-admin-dash','back')">← Cancel</button>
+      </div>
+      <h2 class="page-title">Post a photo</h2>
+      <p class="page-sub" style="margin-bottom:24px">AI reads the image, classifies the item, and publishes it to the gallery instantly.</p>
       <label class="photo-picker" id="photo-picker">
         <input type="file" id="admin-file" accept="image/*" onchange="onFileChosen(this)">
         <span class="photo-picker-icon" id="picker-icon">📷</span>
-        <div class="photo-picker-label" id="picker-label">Tap to choose a photo</div>
+        <div class="photo-picker-label" id="picker-label">Click to choose a photo</div>
         <div class="photo-picker-sub" id="picker-sub">JPEG, PNG, HEIC accepted</div>
       </label>
-      <div class="form-spacer">
+      <div class="btn-row">
         <button type="button" class="btn-primary" id="btn-upload" onclick="adminUpload()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Upload &amp; publish</span>
@@ -826,19 +932,20 @@ textarea.field { min-height: 110px; resize: vertical; }
   <!-- ══════════════════════════════════════════════
        ADMIN SETTINGS
   ══════════════════════════════════════════════ -->
-  <div class="screen" id="screen-admin-settings" style="overflow-y:auto">
+  <div class="screen" id="screen-admin-settings">
     <div class="top-bar">
       <button type="button" class="back-btn" onclick="navigate('screen-admin-dash','back')">← Back</button>
     </div>
-    <div class="form-content">
-      <h2 class="screen-heading">Settings</h2>
-      <div class="field-group">
-        <label class="field-label">Pickup info <span class="lbl-note">(shown to parents)</span></label>
-        <textarea class="field" id="set-pickup" style="min-height:90px"></textarea>
-        <label class="field-label">Admin email <span class="lbl-note">(receives claim notifications)</span></label>
-        <input class="field" id="set-email" type="email" placeholder="you@school.edu">
+    <div class="cx">
+      <div class="breadcrumb" style="padding:0 0 32px">
+        <button type="button" class="back-btn" onclick="navigate('screen-admin-dash','back')">← Posted items</button>
       </div>
-      <div class="form-spacer">
+      <h2 class="page-title">Settings</h2>
+      <label class="field-label">Pickup info <span class="lbl-note">(shown to parents)</span></label>
+      <textarea class="field" id="set-pickup" style="min-height:90px"></textarea>
+      <label class="field-label">Admin email <span class="lbl-note">(receives claim notifications)</span></label>
+      <input class="field" id="set-email" type="email" placeholder="you@school.edu">
+      <div class="btn-row">
         <button type="button" class="btn-primary rust" id="btn-settings" onclick="saveSettings()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Save changes</span>
@@ -847,7 +954,8 @@ textarea.field { min-height: 110px; resize: vertical; }
     </div>
   </div>
 
-</div><!-- /.app-shell -->
+</div><!-- /.main-area -->
+</div><!-- /.layout -->
 
 <script>
 (function () {
@@ -877,6 +985,27 @@ function authHeaders() {
   return t ? { Authorization: 'Bearer ' + t } : {};
 }
 
+/* ── Sidebar nav state ──────────────────────────── */
+function updateNav(screenId) {
+  document.querySelectorAll('.nav-item[data-nav]').forEach(el => {
+    el.classList.toggle('active', el.dataset.nav === screenId);
+  });
+}
+
+function setAdminSidebarMode(loggedIn) {
+  document.getElementById('sidebar-staff-out').style.display = loggedIn ? 'none' : 'block';
+  document.getElementById('sidebar-staff-in').style.display  = loggedIn ? 'block' : 'none';
+}
+
+/* ── goNav helper (sidebar clicks → always forward) */
+window.goNav = function(screenId) {
+  navigate(screenId, 'forward');
+  if (screenId === 'screen-admin-settings') {
+    document.getElementById('set-pickup').value = schoolData.pickup_info || '';
+    document.getElementById('set-email').value = '';
+  }
+};
+
 /* ── Navigation ─────────────────────────────────── */
 const history_stack = ['screen-landing'];
 
@@ -885,7 +1014,6 @@ window.navigate = function (targetId, direction) {
   const next = document.getElementById(targetId);
   if (!next || next === current) return;
 
-  // Push/pop the history stack
   if (direction === 'forward') {
     history_stack.push(targetId);
   } else if (direction === 'back') {
@@ -895,17 +1023,14 @@ window.navigate = function (targetId, direction) {
   const inAnim  = direction === 'forward' ? 'push-in'  : 'pop-in';
   const outAnim = direction === 'forward' ? 'push-out' : 'pop-out';
 
-  // Special: fade-up for overlay-feel screens
   const fadeScreens = ['screen-thinking', 'screen-match'];
   const actualIn = fadeScreens.includes(targetId) ? 'fade-in' : inAnim;
 
-  // Position next screen behind/alongside, then animate
   next.style.display = 'flex';
   next.style.position = 'absolute';
   next.style.top = '0'; next.style.left = '0'; next.style.right = '0';
   next.style.zIndex = '10';
 
-  // Remove old animation classes, apply new
   next.classList.remove('push-in','push-out','pop-in','pop-out','fade-in','active');
   next.classList.add(actualIn);
 
@@ -929,10 +1054,10 @@ window.navigate = function (targetId, direction) {
     next.style.top = ''; next.style.left = ''; next.style.right = '';
     next.style.zIndex = '';
     onScreenEnter(targetId);
+    updateNav(targetId);
   }, { once: true });
 };
 
-// Legacy alias — inline onclick="showScreen(...)" calls still work
 window.showScreen = window.navigate;
 
 /* ── Screen-enter hooks ─────────────────────────── */
@@ -958,8 +1083,11 @@ function staggerScreen(id) {
   });
 }
 
-// Stagger landing screen on load
-document.addEventListener('DOMContentLoaded', () => staggerScreen('screen-landing'));
+document.addEventListener('DOMContentLoaded', () => {
+  staggerScreen('screen-landing');
+  // If already logged in as admin, show admin sidebar
+  if (localStorage.getItem(tokenKey)) setAdminSidebarMode(true);
+});
 
 /* ── Toast ──────────────────────────────────────── */
 let _toastTimer = null;
@@ -990,16 +1118,21 @@ function setAppLinks(url) {
 async function loadSchoolData() {
   try {
     schoolData = await API('/school/' + encodeURIComponent(SLUG) + '/data');
-    document.getElementById('landing-name').textContent = 'LOFO · ' + (schoolData.name || 'School');
-    document.title = 'LOFO · ' + (schoolData.name || 'School');
+    const name = schoolData.name || 'School';
+    document.getElementById('landing-name').textContent = name + ' Lost & Found';
+    document.getElementById('sidebar-school-name').textContent = name;
+    document.title = 'LOFO · ' + name;
     const pu = document.getElementById('landing-pickup');
     if (schoolData.pickup_info) {
-      pu.style.display = 'block';
+      pu.style.display = 'flex';
       pu.textContent = schoolData.pickup_info;
+      // Sidebar pickup
+      document.getElementById('sidebar-pickup-text').textContent = schoolData.pickup_info;
+      document.getElementById('sidebar-pickup').style.display = 'block';
     }
     setAppLinks(schoolData.app_store_url || '#');
   } catch (e) {
-    // silently fall through — school name stays default
+    // silently fall through
   }
 }
 
@@ -1199,7 +1332,6 @@ function showMatch(m) {
   const fill = document.getElementById('match-bar-fill');
   fill.style.width = '0%';
 
-  // Thumb
   const thumbWrap = document.getElementById('match-thumb-wrap');
   thumbWrap.innerHTML = '';
   if (m.photo_url) {
@@ -1225,8 +1357,6 @@ function showMatch(m) {
   });
 
   navigate('screen-match', 'forward');
-
-  // Trigger bar animation after screen has entered
   setTimeout(() => { fill.style.width = pct + '%'; }, 420);
 }
 
@@ -1271,6 +1401,7 @@ window.adminLogin = async function () {
     const j = await res.json();
     if (!res.ok) throw j.detail || 'Invalid passcode';
     localStorage.setItem(tokenKey, j.token);
+    setAdminSidebarMode(true);
     await window.adminLoadDash();
     navigate('screen-admin-dash', 'forward');
     document.getElementById('admin-pass').value = '';
@@ -1283,6 +1414,7 @@ window.adminLogin = async function () {
 
 window.adminLogout = function () {
   localStorage.removeItem(tokenKey);
+  setAdminSidebarMode(false);
   navigate('screen-landing', 'back');
 };
 
@@ -1295,25 +1427,41 @@ window.adminLoadDash = async function () {
   const list = document.getElementById('admin-list');
   list.innerHTML = '';
   if (!data.items || !data.items.length) {
-    list.innerHTML = '<p style="color:var(--muted);font-size:14px;text-align:center;padding:24px">No items posted yet.</p>';
+    list.innerHTML = '<div class="admin-empty">No items posted yet.<br>Click "+ Post found item" to add the first one.</div>';
     return;
   }
   data.items.forEach(it => {
-    const row = document.createElement('div');
-    row.className = 'admin-row';
-    const left = document.createElement('div');
-    left.innerHTML = '<strong>' + esc(cap(it.item_type || 'Item')) + '</strong>' +
-      '<div class="admin-row-meta">' + fmtDate(it.created_at || '') + ' · ' + (it.status || 'active') + '</div>';
-    row.appendChild(left);
-    if (it.pending_claims > 0) {
-      const badge = document.createElement('span');
-      badge.className = 'claim-badge';
-      badge.textContent = it.pending_claims + ' claim' + (it.pending_claims > 1 ? 's' : '');
-      row.appendChild(badge);
+    const card = document.createElement('div');
+    card.className = 'admin-card';
+
+    if (it.photo_url) {
+      const img = document.createElement('img');
+      img.className = 'admin-card-img';
+      img.src = it.photo_url; img.alt = it.item_type || '';
+      img.onerror = () => { img.replaceWith(makeAdminNoPhoto(it.item_type)); };
+      card.appendChild(img);
+    } else {
+      card.appendChild(makeAdminNoPhoto(it.item_type));
     }
-    list.appendChild(row);
+
+    const meta = document.createElement('div');
+    meta.className = 'admin-card-meta';
+    meta.innerHTML = '<div class="admin-card-name">' + esc(cap(it.item_type || 'Item')) + '</div>' +
+      '<div class="admin-card-date">' + fmtDate(it.created_at || '') + ' · ' + (it.status || 'active') + '</div>';
+    if (it.pending_claims > 0) {
+      meta.innerHTML += '<span class="claim-badge">' + it.pending_claims + ' claim' + (it.pending_claims > 1 ? 's' : '') + '</span>';
+    }
+    card.appendChild(meta);
+    list.appendChild(card);
   });
 };
+
+function makeAdminNoPhoto(type) {
+  const div = document.createElement('div');
+  div.className = 'admin-card-no-photo';
+  div.textContent = itemEmoji(type);
+  return div;
+}
 
 window.onFileChosen = function (input) {
   const f = input.files[0];
@@ -1342,11 +1490,10 @@ window.adminUpload = async function () {
     await window.adminLoadDash();
     navigate('screen-admin-dash', 'back');
     toast('Posted successfully!');
-    // reset picker
     document.getElementById('admin-file').value = '';
     document.getElementById('photo-picker').classList.remove('has-file');
     document.getElementById('picker-icon').textContent = '📷';
-    document.getElementById('picker-label').textContent = 'Tap to choose a photo';
+    document.getElementById('picker-label').textContent = 'Click to choose a photo';
     document.getElementById('picker-sub').textContent = 'JPEG, PNG, HEIC accepted';
   } catch (e) {
     navigate('screen-admin-post', 'back');
@@ -1421,6 +1568,7 @@ function itemEmoji(type) {
 
 /* ── Boot ───────────────────────────────────────── */
 loadSchoolData();
+loadItems(); // pre-load browse items
 
 })();
 </script>
