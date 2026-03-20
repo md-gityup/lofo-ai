@@ -2724,8 +2724,8 @@
         <div class="phone-flag">🇺🇸</div>
         <input class="phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
       </div>
-      <div class="phone-privacy s-item" data-delay="260">Your number is hashed immediately and never stored in plain text. <span>Privacy policy</span></div>
-      <button class="btn-full s-item" data-delay="320" style="margin-top: 32px" onclick="sendCode()">Send code →</button>
+      <button class="btn-full s-item" data-delay="260" style="margin-top: 32px" onclick="sendCode()">Send code →</button>
+      <div class="phone-privacy s-item" data-delay="320">By tapping "Send code" you agree to receive SMS notifications from LOFO. Msg &amp; data rates may apply. Reply STOP to opt out. <a href="privacy-policy.html" style="color:inherit;text-decoration:underline;">Privacy policy</a></div>
     </div>
   </div>
 
@@ -2890,6 +2890,7 @@
           <input class="phone-input" id="loser-phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
         </div>
         <button class="btn-full" id="loser-notify-btn" style="margin-top:0;" onclick="saveLoserPhone()">Notify me →</button>
+        <div style="text-align:center; font-size:11px; color:var(--muted); font-weight:300; line-height:1.65; margin-top:10px;">By submitting, you agree to receive SMS notifications from LOFO. Msg &amp; data rates may apply. Reply STOP to opt out.</div>
         <div id="loser-notify-confirmed" style="display:none; text-align:center; font-size:13px; color:var(--muted); font-weight:300; margin-top:12px; line-height:1.65;">
           ✓ You're on the list. Safe to close — we'll text you.
         </div>
