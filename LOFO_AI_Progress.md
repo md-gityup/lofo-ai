@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 20, 2026 — LOFO for Schools live at lofo-ai-production.up.railway.app/school/sfws. Desktop UI redesigned (Claude-style icon sidebar). School isolation audited and hardened. TestFlight build 1.0.0 (6) in external review.*
+*Last updated: March 20, 2026 (afternoon) — school.html UI refined. lofoapp.com live with homepage + /privacy + /terms. support@lofoapp.com forwarding via ImprovMX. Twilio A2P resubmitted with opt-in screenshots + updated terms. iOS MenuSheet email updated.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -647,18 +647,74 @@ Then redeploy Railway.
 > - Admin stats: added `AND school_id IS NULL` to active_lost/active_found counts
 > - Architecture confirmed multi-school ready: any new school is one `INSERT INTO schools` row + passcode seed, zero code changes
 >
+> **New this session (March 20, 2026 afternoon):**
+> - **school.html UI refined**: sidebar 52→44px, nav icons 20→16px, landing heading 62→48px, emoji icons removed from CTA cards, pickup pill moved below CTAs + restyled to subtle text, app-cta box replaced with plain text line.
+> - **Settings email pre-fill bug fixed**: admin email now pre-fills from `schoolData` when opening Settings screen (was always blank).
+> - **lofoapp.com live**: static site deployed at `~/Desktop/lofoapp-web` (GitHub: `md-gityup/lofoapp-web`). Homepage + `/privacy` + `/terms` — all on `lofoapp.com`. Deployed via Vercel.
+> - **support@lofoapp.com**: ImprovMX forwarding active → marcdaniels@gmail.com. MX + SPF records added in Vercel DNS.
+> - **Terms + privacy updated**: SMS consent language matches in-app button text. Support contact → `support@lofoapp.com`. Both Railway and lofoapp.com versions updated.
+> - **Twilio A2P resubmitted** (Error 30896): Added 3 opt-in screenshots to repo (`optin-screenshot.png`, `optin-screenshot-finder.png`, `optin-screenshot-terms.png`). Updated opt-in description with screenshot URLs + web verification link. New Privacy/Terms URLs: `lofoapp.com/privacy` + `lofoapp.com/terms`.
+> - **iOS MenuSheet**: `support@lofo.ai` → `support@lofoapp.com` (goes into next build).
+>
 > **Next priorities:**
-> 1. **Staff onboarding at SFWS** — share URL + passcode `steiner` with staff. Have them: post a few photos via admin → Settings (set pickup info + admin email).
-> 2. **TestFlight external review** — build 1.0.0 (6) currently "Waiting for Review". Once approved, enable public link in "testers" group Settings tab.
-> 3. **Twilio A2P approval** — awaiting TCR review. No code changes needed when approved.
-> 4. **App Store listing** — screenshots (6.7" 1290×2796), 6 screens. Copy already drafted. Can submit for App Store review once screenshots are ready.
-> 5. `CLGeocoder` deprecated in iOS 26 — non-blocking warnings. Future: migrate to `MKReverseGeocodingRequest`.
+> 1. **Vercel deploy**: Connect `md-gityup/lofoapp-web` repo in Vercel → assign `lofoapp.com` domain. Then confirm `lofoapp.com/privacy` and `lofoapp.com/terms` are live before next Twilio resubmit.
+> 2. **Twilio A2P** — resubmitted with new opt-in description + screenshots. Awaiting TCR review. Update Privacy/Terms URLs to `lofoapp.com/privacy` + `lofoapp.com/terms` once Vercel deploy is live.
+> 3. **Staff onboarding at SFWS** — share URL `https://lofo-ai-production.up.railway.app/school/sfws` + passcode `steiner`. Have staff: Settings → set pickup info + admin email.
+> 4. **TestFlight external review** — build 1.0.0 (6) "Waiting for Review". Once approved, enable public link in "testers" group Settings tab.
+> 5. **Next iOS build (7)** — includes `support@lofoapp.com` MenuSheet fix. Archive when ready.
+> 6. **App Store listing** — screenshots (6.7" 1290×2796), 6 screens. Copy already drafted.
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
 ---
 
 ## Session History
+
+### Staff Onboarding Prep + Twilio A2P + lofoapp.com — March 20, 2026 (evening)
+
+**What shipped:**
+
+**school.html UI refinements:**
+- Sidebar narrowed: `--sidebar-w` 52→44px, nav items 38→32px, SVG icons 20→16px
+- Landing heading 62→48px, eyebrow 15→13px, body sub 16→14.5px, container padding reduced
+- Emoji icons (🔍📝) removed from CTA cards; border 1.5→1px, padding reduced, title 22→18px
+- Pickup info pill moved below CTA grid + links; restyled from heavy navy block to subtle muted text line
+- App CTA rust-light box replaced with plain 12px text line
+
+**Settings email pre-fill bug fixed (`school.html`):**
+- `goNav` and `onScreenEnter` for `screen-admin-settings` now pre-fill admin email from `schoolData.admin_notify_email`
+- Was always clearing to `''`, causing staff to not see their saved email
+
+**lofoapp.com static site:**
+- New repo `~/Desktop/lofoapp-web` (GitHub: `md-gityup/lofoapp-web`)
+- `index.html` — clean homepage: LOFO wordmark, headline, "iOS app coming soon" badge, footer with Privacy/Terms/email links
+- `privacy/index.html` — full privacy policy at `lofoapp.com/privacy`
+- `terms/index.html` — full terms of service at `lofoapp.com/terms`
+- Deployed via Vercel; `lofoapp.com` domain connected
+
+**support@lofoapp.com:**
+- ImprovMX account created; `lofoapp.com` added with catch-all `*@lofoapp.com → marcdaniels@gmail.com`
+- MX records (`mx1/mx2.improvmx.com`) + SPF TXT record added in Vercel DNS
+- Forwarding confirmed active
+
+**Terms + privacy updated:**
+- `terms.html` SMS section: consent language updated to match in-app button text; "Reply HELP for help" → "Reply HELP for support"; contact → `support@lofoapp.com`
+- `privacy-policy.html` "Your rights": "contacting us" → `support@lofoapp.com`
+- Same changes mirrored in `lofoapp-web/terms/index.html` and `lofoapp-web/privacy/index.html`
+
+**Twilio A2P resubmission (Error 30896 — Opt-in Error):**
+- Root cause: TCR reviewer couldn't verify opt-in without navigating full app flow
+- Fix: 3 opt-in screenshots committed to `lofo-ai` repo:
+  - `optin-screenshot.png` — loser flow (WaitingView phone screen)
+  - `optin-screenshot-finder.png` — finder flow (PhoneVerifyView)
+  - `optin-screenshot-terms.png` — terms SMS section with STOP/HELP
+- New opt-in description written with screenshot URLs + web verification path
+- Privacy URL → `lofoapp.com/privacy`, Terms URL → `lofoapp.com/terms`
+
+**iOS:**
+- `MenuSheet.swift`: `support@lofo.ai` → `support@lofoapp.com` (goes into build 7)
+
+---
 
 ### School Go-Live + UI Redesign — March 20, 2026 (afternoon)
 
