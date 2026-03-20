@@ -605,6 +605,7 @@ _MATCH_SQL = """
     WHERE l.id = %s
       AND f.type = 'finder'
       AND f.status = 'active'
+      AND f.school_id IS NULL
       AND f.embedding IS NOT NULL
       AND l.embedding IS NOT NULL
       AND (
@@ -2823,8 +2824,8 @@ def admin_stats(period: str = "all", admin=Depends(_verify_admin)):
         with conn.cursor() as cur:
             cur.execute(f"""
                 SELECT
-                    (SELECT COUNT(*) FROM items WHERE type='loser'  AND status='active') AS active_lost,
-                    (SELECT COUNT(*) FROM items WHERE type='finder' AND status='active') AS active_found,
+                    (SELECT COUNT(*) FROM items WHERE type='loser'  AND status='active' AND school_id IS NULL) AS active_lost,
+                    (SELECT COUNT(*) FROM items WHERE type='finder' AND status='active' AND school_id IS NULL) AS active_found,
                     (SELECT COUNT(*) FROM reunions WHERE 1=1 {pf}) AS reunions,
                     (SELECT COALESCE(SUM(amount_cents), 0) FROM tips WHERE status='completed' {pf}) AS tips_cents,
                     (SELECT COUNT(*) FROM items
