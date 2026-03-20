@@ -49,7 +49,14 @@ body {
   padding-bottom: 16px;
 }
 
-.sidebar-logo { display: none; }
+.sidebar-logo {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 7px;
+  border: none; background: none; cursor: pointer;
+  margin: 12px 0 6px; padding: 0; flex-shrink: 0;
+  transition: background 0.15s;
+}
+.sidebar-logo:hover { background: rgba(193,122,74,0.12); }
 
 .sidebar-nav { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 14px 5px 0; width: 100%; }
 
@@ -315,7 +322,7 @@ textarea.field { min-height: 110px; resize: vertical; }
 .photo-card-img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--bg); }
 .photo-card-img.no-photo { display: flex; align-items: center; justify-content: center; font-size: 44px; }
 .photo-card-meta { padding: 10px 12px 12px; }
-.item-chip { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; background: var(--navy); color: #fff; padding: 3px 8px; border-radius: 5px; }
+.item-chip { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; background: var(--rust-light); color: var(--rust); padding: 3px 8px; border-radius: 5px; }
 .item-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
 .empty-state { grid-column: 1/-1; text-align: center; padding: 64px 20px; color: var(--muted); font-size: 15px; font-weight: 300; line-height: 1.75; }
 
@@ -355,7 +362,7 @@ textarea.field { min-height: 110px; resize: vertical; }
 ════════════════════════════════════════════════════ */
 .done-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 48px; }
 .done-inner { max-width: 460px; width: 100%; text-align: center; }
-.done-icon { font-size: 56px; margin-bottom: 24px; display: block; }
+.done-icon { font-size: 56px; margin-bottom: 24px; display: flex; align-items: center; justify-content: center; }
 .done-title { font-family: 'DM Serif Display', serif; font-size: 42px; line-height: 1.08; color: var(--navy); margin-bottom: 8px; }
 .done-rule { width: 32px; height: 1.5px; background: var(--border); margin: 20px auto; }
 .done-sub { font-size: 16px; color: var(--muted); font-weight: 300; line-height: 1.70; margin-bottom: 32px; }
@@ -424,12 +431,63 @@ textarea.field { min-height: 110px; resize: vertical; }
 .admin-empty { padding: 64px 48px; text-align: center; color: var(--muted); font-size: 15px; font-weight: 300; line-height: 1.7; }
 
 /* ─── Photo picker ───────────────────────────────── */
-.photo-picker { border: 2px dashed var(--border); border-radius: 12px; background: #fff; padding: 56px 24px; text-align: center; cursor: pointer; position: relative; transition: border-color 0.2s; }
+.photo-picker { border: 2px dashed var(--border); border-radius: 12px; background: #fff; padding: 56px 24px; text-align: center; cursor: pointer; position: relative; transition: border-color 0.2s; overflow: hidden; }
 .photo-picker:hover, .photo-picker.has-file { border-color: var(--navy); }
 .photo-picker input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-.photo-picker-icon { font-size: 40px; margin-bottom: 12px; display: block; }
+.photo-picker-icon { font-size: 40px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; }
 .photo-picker-label { font-size: 15px; color: var(--navy); font-weight: 500; }
 .photo-picker-sub { font-size: 12px; color: var(--muted); margin-top: 5px; font-weight: 300; }
+
+/* ─── Mobile nav drawer ──────────────────────────── */
+.mobile-menu-btn {
+  display: none;
+  align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 7px;
+  border: none; background: none; cursor: pointer;
+  color: var(--navy); flex-shrink: 0;
+}
+.mobile-drawer-backdrop {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.32); z-index: 500;
+}
+.mobile-drawer-backdrop.open { display: block; }
+.mobile-drawer {
+  position: fixed; top: 0; left: -290px; bottom: 0; width: 280px;
+  background: var(--cream); z-index: 501; overflow-y: auto;
+  transition: left 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  display: flex; flex-direction: column;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+}
+.mobile-drawer.open { left: 0; }
+.mobile-drawer-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 20px 16px;
+  padding-top: max(22px, env(safe-area-inset-top));
+  border-bottom: 1px solid var(--border);
+}
+.mobile-drawer-wordmark {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--rust);
+}
+.mobile-drawer-close {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(26,26,46,0.06); border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--navy); padding: 0;
+}
+.mobile-drawer-nav { padding: 16px 12px; flex: 1; }
+.mobile-drawer-item {
+  display: flex; align-items: center; gap: 13px;
+  width: 100%; padding: 12px 14px; border-radius: 10px;
+  border: none; background: none; cursor: pointer;
+  font-family: inherit; font-size: 15px; font-weight: 500;
+  color: var(--navy); text-align: left;
+  transition: background 0.15s; margin-bottom: 2px;
+}
+.mobile-drawer-item:hover { background: rgba(26,26,46,0.06); }
+.mobile-drawer-item svg { color: var(--muted); flex-shrink: 0; }
+.mobile-drawer-item.muted { color: var(--muted); font-weight: 400; }
+.mobile-drawer-sep { height: 1px; background: var(--border); margin: 8px 14px; }
 
 /* ════════════════════════════════════════════════════
    MOBILE  (< 768px) — restore original mobile behavior
@@ -455,6 +513,7 @@ textarea.field { min-height: 110px; resize: vertical; }
 
   /* Show mobile top-bars */
   .top-bar { display: flex !important; align-items: center; justify-content: space-between; padding: 16px 22px 8px; padding-top: max(16px, env(safe-area-inset-top)); flex-shrink: 0; }
+  .mobile-menu-btn { display: flex; }
   .back-btn { font-size: 14px; font-weight: 400; color: var(--muted); }
   .breadcrumb { display: none; }
 
@@ -519,15 +578,15 @@ textarea.field { min-height: 110px; resize: vertical; }
 ══════════════════════════════════════════════ -->
 <aside class="sidebar">
 
-  <!-- Logo mark -->
-  <div class="sidebar-logo">
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-label="LOFO">
+  <!-- Logo mark / home button -->
+  <button class="sidebar-logo" onclick="navigate('screen-landing','back')" data-tooltip="Home" title="Home" aria-label="Home">
+    <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
       <line x1="11" y1="2" x2="11" y2="20" stroke="#C17A4A" stroke-width="1.8" stroke-linecap="round"/>
       <line x1="2" y1="11" x2="20" y2="11" stroke="#C17A4A" stroke-width="1.8" stroke-linecap="round"/>
       <line x1="4.34" y1="4.34" x2="17.66" y2="17.66" stroke="#C17A4A" stroke-width="1.8" stroke-linecap="round"/>
       <line x1="17.66" y1="4.34" x2="4.34" y2="17.66" stroke="#C17A4A" stroke-width="1.8" stroke-linecap="round"/>
     </svg>
-  </div>
+  </button>
 
   <!-- Public nav -->
   <nav class="sidebar-nav" id="sidebar-nav-public">
@@ -593,7 +652,9 @@ textarea.field { min-height: 110px; resize: vertical; }
   ══════════════════════════════════════════════ -->
   <div class="screen active" id="screen-landing">
     <div class="top-bar">
-      <div></div>
+      <button type="button" class="mobile-menu-btn" onclick="openMobileNav()" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+      </button>
       <button type="button" class="back-btn" onclick="goNav('screen-admin-login')">Staff login</button>
     </div>
     <div class="landing-inner">
@@ -661,10 +722,6 @@ textarea.field { min-height: 110px; resize: vertical; }
         <button type="button" class="btn-primary rust" onclick="navigate('screen-claim','forward')">
           <span class="btn-label">This belongs to my child →</span>
         </button>
-        <div class="app-cta">
-          <p>LOFO reunites lost things everywhere — download the app for matches on the go.</p>
-          <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
-        </div>
       </div>
     </div>
   </div>
@@ -705,16 +762,18 @@ textarea.field { min-height: 110px; resize: vertical; }
   <div class="screen" id="screen-claim-done">
     <div class="done-wrap">
       <div class="done-inner">
-        <span class="done-icon s-pop">✓</span>
+        <span class="done-icon s-pop">
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+            <circle cx="28" cy="28" r="26" stroke="var(--navy)" stroke-width="1.5" opacity="0.14"/>
+            <circle cx="28" cy="28" r="26" stroke="var(--navy)" stroke-width="1.5"/>
+            <path d="M18 28.5l7 7 13-14" stroke="var(--navy)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
         <h2 class="done-title s-item" style="animation-delay:0.06s">We've notified<br>the school.</h2>
         <div class="done-rule s-item" style="animation-delay:0.12s"></div>
         <p class="done-sub s-item" style="animation-delay:0.16s" id="claim-done-pickup"></p>
         <div class="done-actions">
-          <div class="app-cta s-item" style="animation-delay:0.22s;text-align:left">
-            <p>LOFO works beyond school too — lost & found, reinvented on your phone.</p>
-            <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
-          </div>
-          <button type="button" class="btn-secondary s-item" style="animation-delay:0.28s" onclick="navigate('screen-landing','back')">Back to home</button>
+          <button type="button" class="btn-secondary s-item" style="animation-delay:0.22s" onclick="navigate('screen-landing','back')">Back to home</button>
         </div>
       </div>
     </div>
@@ -784,10 +843,6 @@ textarea.field { min-height: 110px; resize: vertical; }
           <span class="btn-label">View item details →</span>
         </button>
         <button type="button" class="btn-ghost s-item" style="animation-delay:0.32s;color:rgba(255,255,255,0.38)" onclick="navigate('screen-landing','back')">Not a match — back to home</button>
-        <div class="app-cta s-item" style="animation-delay:0.38s;background:rgba(255,255,255,0.07);border-color:rgba(255,255,255,0.12)">
-          <p style="color:rgba(255,255,255,0.75)">Get the full LOFO app — matches anywhere, not just at school.</p>
-          <a class="app-store-link" href="#" target="_blank" rel="noopener" style="color:#fff">Download LOFO →</a>
-        </div>
       </div>
     </div>
   </div>
@@ -832,11 +887,7 @@ textarea.field { min-height: 110px; resize: vertical; }
         <div class="done-rule s-item" style="animation-delay:0.12s"></div>
         <p class="done-sub s-item" style="animation-delay:0.16s">If something similar shows up in the school's lost &amp; found, we'll email you right away.</p>
         <div class="done-actions">
-          <div class="app-cta s-item" style="animation-delay:0.22s;text-align:left">
-            <p>Want LOFO everywhere you go? Get the app for real-time AI matching.</p>
-            <a class="app-store-link" href="#" target="_blank" rel="noopener">Download LOFO →</a>
-          </div>
-          <button type="button" class="btn-secondary s-item" style="animation-delay:0.28s" onclick="navigate('screen-landing','back')">Back to home</button>
+          <button type="button" class="btn-secondary s-item" style="animation-delay:0.22s" onclick="navigate('screen-landing','back')">Back to home</button>
         </div>
       </div>
     </div>
@@ -879,7 +930,7 @@ textarea.field { min-height: 110px; resize: vertical; }
       <input class="field" id="admin-pass" type="password" placeholder="••••••••" autocomplete="current-password"
              onkeydown="if(event.key==='Enter')adminLogin()">
       <div class="btn-row">
-        <button type="button" class="btn-primary" id="btn-admin-login" onclick="adminLogin()">
+        <button type="button" class="btn-primary rust" id="btn-admin-login" onclick="adminLogin()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Log in</span>
         </button>
@@ -919,7 +970,11 @@ textarea.field { min-height: 110px; resize: vertical; }
       <p class="page-sub" style="margin-bottom:24px">AI reads the image, classifies the item, and publishes it to the gallery instantly.</p>
       <label class="photo-picker" id="photo-picker">
         <input type="file" id="admin-file" accept="image/*" onchange="onFileChosen(this)">
-        <span class="photo-picker-icon" id="picker-icon">📷</span>
+        <span class="photo-picker-icon" id="picker-icon">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--rust)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 8v20M12 16l8-8 8 8"/><path d="M8 30h24"/>
+          </svg>
+        </span>
         <div class="photo-picker-label" id="picker-label">Click to choose a photo</div>
         <div class="photo-picker-sub" id="picker-sub">JPEG, PNG, HEIC accepted</div>
       </label>
@@ -959,6 +1014,36 @@ textarea.field { min-height: 110px; resize: vertical; }
 
 </div><!-- /.main-area -->
 </div><!-- /.layout -->
+
+<!-- Mobile nav drawer -->
+<div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop" onclick="closeMobileNav()"></div>
+<div class="mobile-drawer" id="mobile-drawer">
+  <div class="mobile-drawer-header">
+    <span class="mobile-drawer-wordmark">LOFO</span>
+    <button class="mobile-drawer-close" onclick="closeMobileNav()" aria-label="Close menu">
+      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l12 12M13 1L1 13"/></svg>
+    </button>
+  </div>
+  <nav class="mobile-drawer-nav">
+    <button class="mobile-drawer-item" onclick="closeMobileNav();navigate('screen-browse','forward');loadItems()">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8.5" r="5"/><path d="M13 13l3.5 3.5"/></svg>
+      Browse found items
+    </button>
+    <button class="mobile-drawer-item" onclick="closeMobileNav();navigate('screen-lost','forward')">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2H5a1 1 0 00-1 1v14a1 1 0 001 1h10a1 1 0 001-1V8l-5-6z"/><path d="M11 2v6h6"/><path d="M7 11h6M7 14h4"/></svg>
+      I lost something
+    </button>
+    <button class="mobile-drawer-item" onclick="closeMobileNav();navigate('screen-subscribe','forward')">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a5.5 5.5 0 015.5 5.5c0 2.5.5 4.5 1.5 5.5H3c1-1 1.5-3 1.5-5.5A5.5 5.5 0 0110 2z"/><path d="M8.5 16.5a1.5 1.5 0 003 0"/></svg>
+      Get new-item alerts
+    </button>
+    <div class="mobile-drawer-sep"></div>
+    <button class="mobile-drawer-item muted" onclick="closeMobileNav();navigate('screen-admin-login','forward')">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="12" height="9" rx="2"/><path d="M7 9V7a3 3 0 016 0v2"/></svg>
+      Staff login
+    </button>
+  </nav>
+</div>
 
 <script>
 (function () {
@@ -1063,9 +1148,28 @@ window.navigate = function (targetId, direction) {
 
 window.showScreen = window.navigate;
 
+/* ── Thinking screen copy cycle ─────────────────── */
+let _thinkingTimer = null;
+function startThinkingCycle() {
+  const msgs = ['Reading your description\u2026', 'Comparing to found items\u2026', 'Checking for a match\u2026'];
+  let idx = 0;
+  const el = document.querySelector('.thinking-sub');
+  if (el) el.textContent = msgs[0];
+  return setInterval(() => {
+    idx = (idx + 1) % msgs.length;
+    if (el) el.textContent = msgs[idx];
+  }, 1800);
+}
+
 /* ── Screen-enter hooks ─────────────────────────── */
 function onScreenEnter(id) {
   staggerScreen(id);
+  if (id === 'screen-thinking') {
+    clearInterval(_thinkingTimer);
+    _thinkingTimer = startThinkingCycle();
+  } else {
+    clearInterval(_thinkingTimer);
+  }
   if (id === 'screen-admin-settings') {
     document.getElementById('set-pickup').value = schoolData.pickup_info || '';
     document.getElementById('set-email').value = schoolData.admin_notify_email || '';
@@ -1091,6 +1195,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // If already logged in as admin, show admin sidebar
   if (localStorage.getItem(tokenKey)) setAdminSidebarMode(true);
 });
+
+/* ── Mobile nav drawer ──────────────────────────── */
+window.openMobileNav = function() {
+  document.getElementById('mobile-drawer').classList.add('open');
+  document.getElementById('mobile-drawer-backdrop').classList.add('open');
+};
+window.closeMobileNav = function() {
+  document.getElementById('mobile-drawer').classList.remove('open');
+  document.getElementById('mobile-drawer-backdrop').classList.remove('open');
+};
 
 /* ── Toast ──────────────────────────────────────── */
 let _toastTimer = null;
@@ -1465,12 +1579,14 @@ function makeAdminNoPhoto(type) {
   return div;
 }
 
+const UPLOAD_ICON_SVG = '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--rust)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8v20M12 16l8-8 8 8"/><path d="M8 30h24"/></svg>';
+
 window.onFileChosen = function (input) {
   const f = input.files[0];
   if (!f) return;
   const picker = document.getElementById('photo-picker');
   picker.classList.add('has-file');
-  document.getElementById('picker-icon').textContent = '✅';
+  document.getElementById('picker-icon').innerHTML = '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#3a7a3a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="20" r="12"/><path d="M14 20l4 4 8-8"/></svg>';
   document.getElementById('picker-label').textContent = f.name;
   document.getElementById('picker-sub').textContent = (f.size / 1024 / 1024).toFixed(1) + ' MB';
 };
@@ -1494,7 +1610,7 @@ window.adminUpload = async function () {
     toast('Posted successfully!');
     document.getElementById('admin-file').value = '';
     document.getElementById('photo-picker').classList.remove('has-file');
-    document.getElementById('picker-icon').textContent = '📷';
+    document.getElementById('picker-icon').innerHTML = UPLOAD_ICON_SVG;
     document.getElementById('picker-label').textContent = 'Click to choose a photo';
     document.getElementById('picker-sub').textContent = 'JPEG, PNG, HEIC accepted';
   } catch (e) {
