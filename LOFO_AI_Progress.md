@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 19, 2026 — Matching engine redesigned: 5-stage pipeline (hard gates → pgvector LIMIT 50 → Cohere Rerank → composite score → dynamic threshold). item_type is now a hard gate, embeddings are attribute-only, COHERE_API_KEY + Re-embed All required post-deploy.*
+*Last updated: March 19, 2026 — Matching engine fully live with Cohere reranker (scores 0.80+). Build 1.0.0 (5) uploaded to TestFlight external review. Test Information filled in. Cohere client fix: ClientV2 → Client.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -578,7 +578,7 @@ Then redeploy Railway.
 > - **App Version in MenuSheet**: reads `CFBundleShortVersionString (CFBundleVersion)` from bundle — auto-updates, no manual edits needed.
 > - **Playfair Display VF fonts** bundled: `PlayfairDisplay-VF.ttf` + `PlayfairDisplay-Italic-VF.ttf`. Helpers: `playfairExtraBold/playfairExtraBoldItalic` use CTFont variable axis API (weight 100). To change weight, update the `900.0` → desired value in `LOFOTheme.playfairVF`.
 > - **Backend**: `GET /stats/public` deployed. Fixed RealDictCursor bug (`fetchone()[0]` → `fetchone()['c']`).
-> - **`CURRENT_PROJECT_VERSION` = 4. Build 1.0.0 (4) uploaded to TestFlight March 19, 2026. Next upload = 5.**
+> - **`CURRENT_PROJECT_VERSION` = 5. Build 1.0.0 (5) uploaded to TestFlight March 19, 2026 — in external review. Next upload = 6.**
 >
 > **Admin updates (March 19, 2026):**
 > - **Archive button (✕)** on every item row — sets `status = 'archived'`, instantly removes row from table. Record preserved in DB. Recoverable via Supabase SQL (`UPDATE items SET status = 'active' WHERE id = '...'`). `GET /admin/items` excludes archived items. `PATCH /admin/items/{id}/archive` endpoint.
@@ -607,17 +607,33 @@ Then redeploy Railway.
 > - Unit economics: ~$0.25/reunion in Twilio costs, $10 avg tip, net ~$0.87 per loop (2% Stripe on $10, no fixed fee on Apple Pay).
 >
 > **Next priorities:**
-> 1. ⚠️ **Deploy + complete post-deploy steps** — add `COHERE_API_KEY` to Railway, push to deploy, run Re-embed All in admin.
-> 2. **Test with Near-Miss Analyzer** — "blue glove" test case should show gloves ranking above backpacks. Tune thresholds if needed.
-> 3. Continue real-device TestFlight testing on build 1.0.0 (4) — catalogue any new bugs.
-> 4. App Store listing: screenshots (6.7" 1290×2796), app description, privacy URL, submit for review when ready.
-> 5. `LocationManager` — `CLGeocoder` + `reverseGeocodeLocation` deprecated in iOS 26. Future cleanup: migrate to `MKReverseGeocodingRequest`. Non-blocking warnings only, not urgent.
+> 1. **TestFlight external review** — build 1.0.0 (5) in review. Once approved, enable public link in Settings tab of "testers" group and share with testers.
+> 2. **Matching engine tuning** — pipeline is live and working (gloves score 0.80+ with Cohere). Monitor real-world matches via admin Near-Miss Analyzer. Tune thresholds if needed.
+> 3. **App Store listing** — screenshots (6.7" 1290×2796), app description, privacy URL, submit for review when ready. Marketing URL needed (currently using Railway URL as placeholder).
+> 4. `LocationManager` — `CLGeocoder` + `reverseGeocodeLocation` deprecated in iOS 26. Future cleanup: migrate to `MKReverseGeocodingRequest`. Non-blocking warnings only, not urgent.
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
 ---
 
 ## Session History
+
+### Matching Engine Live + Build 1.0.0 (5) — March 19, 2026
+
+**What shipped:**
+
+**Matching engine fully operational with Cohere reranker:**
+- Full pipeline tested end-to-end: loser "glove, blue" → 3 finder gloves returned, scores 0.823 / 0.817 / 0.803. No backpacks, beanies, AirPods, or landscape photos.
+- Root cause of earlier test failures: stale embeddings (loser item created before Re-embed All was run) caused format mismatch. Resolved by submitting a fresh loser item.
+- Cohere client bug fixed: `cohere.ClientV2` doesn't support `.rerank()` → changed to `cohere.Client`. Pushed as hotfix.
+- Fallback logic fixed: Cohere error previously zeroed reranker scores and continued with composite formula, producing scores below sparse threshold (0.274 < 0.30) → fixed to branch to cosine-only fallback with richness-adjusted thresholds (0.58/0.62/0.68). Added `[LOFO rerank] OK/error` logging.
+- Embedding format settled: `"glove, small, blue, white, wool, knit, souvenir text"` — item_type as first token (once, not repeated). Removes sentence-structure color bias while preserving type recall.
+
+**Build 1.0.0 (5) uploaded to TestFlight:**
+- `CURRENT_PROJECT_VERSION` bumped from 4 → 5 in `project.pbxproj` (both Debug + Release).
+- Uploaded to App Store Connect, added to external "testers" group.
+- Test Information filled in (Beta App Description, What to Test, Feedback Email, Privacy Policy URL, Marketing URL, Review Notes). This unblocks external review — previous build 1.0.0 (4) was stuck "Waiting for Review" for 24h because Test Information was empty.
+- Build 1.0.0 (5) currently "Waiting for Review." Once approved, enable public link in Settings tab of "testers" group.
 
 ### Matching Engine Redesign — March 19, 2026
 
