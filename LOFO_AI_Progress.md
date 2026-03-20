@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 19, 2026 — Twilio A2P resubmitted (Error 30909 fixed). Map pin-drop location added to loser flow (iOS). Distance proximity bonus added to matching composite score. Backend pin coords bug fixed.*
+*Last updated: March 19, 2026 — Build 1.0.0 (6) uploaded to TestFlight. Map pin-drop in loser flow. Proximity bonus in matching. Twilio A2P resubmitted.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -520,7 +520,7 @@ Then redeploy Railway.
 >
 > **What's running (Phases 1–22 deployed):** Live API at `https://lofo-ai-production.up.railway.app`, web frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Admin at `/admin`, map at `/map`. UptimeRobot keep-alive. Lifecycle cron via GitHub Actions.
 >
-> **iOS app — ALL phases A–G complete. Build 1.0.0 (5) in TestFlight external review. Next upload = build 6.**
+> **iOS app — ALL phases A–G complete. Build 1.0.0 (6) uploaded to TestFlight. Build 1.0.0 (5) in external review. Next upload = build 7.**
 > Native SwiftUI at `~/Desktop/LOFO/LOFO.xcodeproj`. **BUILD SUCCEEDED** — iPhone 17 Pro, iOS 26.3.1, Xcode 26.3. Full finder + loser + match + reunion + tip flows. Push notifications (PushManager + APNs). StripePaymentSheet v25.7.1 SPM added. Supabase `device_tokens` migration done.
 >
 > **FinderCameraView** is a full native camera viewfinder (AVFoundation): live preview, centered viewfinder bracket overlay, "Point at what you found." center copy, shutter button, library picker, location pill (shows real city/state/zip on device). Falls back to dark gradient on simulator (no real camera).
@@ -611,14 +611,13 @@ Then redeploy Railway.
 > - **Backend pin coords bug fixed** — pin lat/lng no longer overwritten by Nominatim re-geocoding when coords are already provided.
 > - **Proximity bonus** added to composite score — `proximity_mult` 1.0–1.12× based on distance. No effect when either item lacks coords.
 > - **Twilio A2P resubmitted** — Error 30909 fixed. SMS consent disclosure on all 4 phone screens. New CTA copy + Privacy/Terms URLs filled in. Awaiting TCR review.
-> - **Build 6 checklist**: LocationPickerView + LostPromptView changes + PhoneVerifyView + WaitingView consent text. Bump `CURRENT_PROJECT_VERSION` to 6.
+> - **Build 6 uploaded to TestFlight** — `CURRENT_PROJECT_VERSION` bumped to 6. Contains: map pin-drop (LocationPickerView + LostPromptView), SMS consent disclosures (PhoneVerifyView + WaitingView). Next upload = build 7.
 >
 > **Next priorities:**
-> 1. **TestFlight external review** — build 1.0.0 (5) in review. Once approved, enable public link and share with testers.
-> 2. **Build 6** — archive with iOS changes from this session (map pin-drop + SMS consent disclosures). Bump `CURRENT_PROJECT_VERSION` to 6.
-> 3. **Twilio A2P approval** — awaiting TCR review. Once approved, no code changes needed — SMS will start delivering to all US carriers.
-> 4. **App Store listing** — screenshots (6.7" 1290×2796), app description, submit for review when ready.
-> 5. `LocationManager` + `LocationPickerView` — `CLGeocoder` deprecated in iOS 26. Future cleanup: migrate to `MKReverseGeocodingRequest`. Non-blocking warnings, not urgent.
+> 1. **TestFlight external review** — build 1.0.0 (5) in external review. Once approved, enable public link in "testers" group Settings tab and share with testers. Build 6 can be swapped in once (5) clears.
+> 2. **Twilio A2P approval** — resubmitted tonight with corrected CTA + public URL + Privacy/Terms URLs. Awaiting TCR review (days to a week). No code changes needed when approved.
+> 3. **App Store listing** — screenshots (6.7" 1290×2796), app description, submit for review when ready. Marketing URL needed.
+> 4. `LocationManager` + `LocationPickerView` — `CLGeocoder` deprecated in iOS 26. Future cleanup: migrate to `MKReverseGeocodingRequest`. Non-blocking warnings, not urgent.
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
