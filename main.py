@@ -2062,6 +2062,43 @@ def _create_school_admin_token(school_id: str, slug: str) -> str:
     return jwt.encode(payload, _jwt_secret_for_tokens(), algorithm="HS256")
 
 
+def _school_page_url(slug: str) -> str:
+    return f"https://lofoapp.com/school/{slug}"
+
+
+def _school_email_html(school_name: str, body_html: str, slug: str = "") -> str:
+    """Shared HTML wrapper for all school transactional emails."""
+    school_url = _school_page_url(slug) if slug else "https://lofoapp.com"
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{school_name}</title></head>
+<body style="margin:0;padding:0;background:#F5F2EC;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <div style="max-width:520px;margin:0 auto;padding:32px 16px 56px;">
+    <div style="background:#1A1A2E;border-radius:12px 12px 0 0;padding:24px 28px 20px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.28em;text-transform:uppercase;color:#C17A4A;">LOFO</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.42);margin-top:3px;">{school_name} &middot; Lost &amp; Found</div>
+    </div>
+    <div style="background:#ffffff;border:1px solid #E0DBD1;border-top:none;border-radius:0 0 12px 12px;padding:32px 28px 28px;color:#1A1A2E;line-height:1.65;">
+      {body_html}
+    </div>
+    <p style="text-align:center;margin:20px 0 0;font-size:11px;color:#9A9488;line-height:1.6;">
+      <a href="{school_url}" style="color:#9A9488;text-decoration:none;">{school_name} Lost &amp; Found</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://lofoapp.com" style="color:#9A9488;text-decoration:none;">lofoapp.com</a>
+    </p>
+  </div>
+</body></html>"""
+
+
+def _email_cta_btn(label: str, url: str, color: str = "#C17A4A") -> str:
+    return (
+        f'<a href="{url}" style="display:inline-block;background:{color};color:#ffffff;'
+        f'text-decoration:none;padding:12px 26px;border-radius:8px;font-size:14px;'
+        f'font-weight:600;margin-top:20px;letter-spacing:-0.1px;">{label} &rarr;</a>'
+    )
+
+
 def _resend_send_html(to_list: list[str], subject: str, html: str) -> None:
     to_list = [e.strip() for e in to_list if e and e.strip()]
     if not to_list:
@@ -2142,19 +2179,30 @@ def _school_notify_subscribers_new_item(school: dict, item: dict, extracted: dic
     emails = [r["email"] for r in rows]
     if not emails:
         return
-    label = extracted.get("item_type") or "item"
+    slug = school.get("slug", "")
+    label = (extracted.get("item_type") or "item").capitalize()
+    colors = extracted.get("color") or []
+    color_str = (", ".join(str(c) for c in colors)).capitalize() if colors else ""
     photo = item.get("photo_url") or ""
-    html = f"""
-    <p>New found item at <strong>{school["name"]}</strong> lost &amp; found.</p>
-    <p><strong>{label}</strong></p>
-    <p><a href="{_APP_URL}">Open LOFO</a> or visit the school lost &amp; found page to browse.</p>
+    school_url = _school_page_url(slug)
+
+    photo_block = (
+        f'<p><img src="{photo}" alt="{label}" style="max-width:100%;border-radius:10px;'
+        f'display:block;margin:20px 0 4px;border:1px solid #E0DBD1;"/></p>'
+        if photo else ""
+    )
+    desc_line = f"{label}{' · ' + color_str if color_str else ''}"
+    body = f"""
+      <p style="font-size:15px;margin:0 0 6px;font-weight:600;">{desc_line}</p>
+      <p style="font-size:14px;color:#9A9488;margin:0 0 16px;">Just posted to the {school["name"]} lost &amp; found.</p>
+      {photo_block}
+      <p style="font-size:14px;margin:16px 0 0;">Recognize it? Browse the full gallery and submit a claim.</p>
+      {_email_cta_btn("View found items", school_url)}
     """
-    if photo:
-        html += f'<p><img src="{photo}" alt="" style="max-width:320px;border-radius:8px"/></p>'
     _resend_send_html(
         emails,
         f"New found item — {school['name']}",
-        html,
+        _school_email_html(school["name"], body, slug),
     )
 
 
@@ -2163,16 +2211,32 @@ def _school_notify_claim_admin(school: dict, claim: dict, item: dict) -> None:
     if not to_addr:
         print("[LOFO school] No admin_notify_email — skip claim notification")
         return
-    html = f"""
-    <p>A parent submitted a claim at <strong>{school["name"]}</strong>.</p>
-    <ul>
-      <li>Item: {item.get("item_type", "")} (id {item.get("id")})</li>
-      <li>Child: {claim.get("child_name", "")}</li>
-      <li>Parent: {claim.get("parent_name", "")} &lt;{claim.get("parent_email", "")}&gt;</li>
-      <li>Note: {claim.get("claim_note") or "—"}</li>
-    </ul>
+    slug = school.get("slug", "")
+    item_label = (item.get("item_type") or "item").capitalize()
+    child = claim.get("child_name") or "—"
+    parent_name = claim.get("parent_name") or "—"
+    parent_email = claim.get("parent_email") or "—"
+    note = claim.get("claim_note") or "—"
+    school_url = _school_page_url(slug)
+
+    row_style = "padding:8px 0;border-bottom:1px solid #F0EDE6;font-size:14px;"
+    label_style = "color:#9A9488;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;display:block;margin-bottom:2px;"
+    body = f"""
+      <p style="font-size:15px;font-weight:600;margin:0 0 20px;">A parent submitted a claim on <em>{item_label}</em>.</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="{row_style}"><span style="{label_style}">Child</span>{child}</td></tr>
+        <tr><td style="{row_style}"><span style="{label_style}">Parent</span>{parent_name}</td></tr>
+        <tr><td style="{row_style}"><span style="{label_style}">Parent email</span>
+          <a href="mailto:{parent_email}" style="color:#C17A4A;text-decoration:none;">{parent_email}</a></td></tr>
+        <tr><td style="padding:8px 0;font-size:14px;"><span style="{label_style}">Note</span>{note}</td></tr>
+      </table>
+      {_email_cta_btn("Open admin dashboard", school_url, "#1A1A2E")}
     """
-    _resend_send_html([to_addr], f"LOFO — claim for {school['name']}", html)
+    _resend_send_html(
+        [to_addr],
+        f"Claim submitted — {item_label} · {school['name']}",
+        _school_email_html(school["name"], body, slug),
+    )
 
 
 def _school_notify_parent_possible_match(
@@ -2181,16 +2245,33 @@ def _school_notify_parent_possible_match(
     finder_item: dict,
     score: float,
 ) -> None:
-    html = f"""
-    <p>Good news — something new was posted at <strong>{school["name"]}</strong> that might match
-    what you described for <strong>{pending.get("child_name") or "your child"}</strong>.</p>
-    <p>Open the school lost &amp; found page to take a look.</p>
-    <p>AI match strength: about {int(round(float(score) * 100))}%.</p>
+    slug = school.get("slug", "")
+    child = pending.get("child_name") or "your child"
+    pct = int(round(float(score) * 100))
+    label = (finder_item.get("item_type") or "item").capitalize()
+    photo = finder_item.get("photo_url") or ""
+    school_url = _school_page_url(slug)
+
+    photo_block = (
+        f'<p><img src="{photo}" alt="{label}" style="max-width:100%;border-radius:10px;'
+        f'display:block;margin:20px 0 4px;border:1px solid #E0DBD1;"/></p>'
+        if photo else ""
+    )
+    body = f"""
+      <p style="font-size:15px;font-weight:600;margin:0 0 8px;">We found a possible match for {child}.</p>
+      <p style="font-size:14px;color:#9A9488;margin:0 0 16px;">
+        Something new was just posted at <strong style="color:#1A1A2E;">{school["name"]}</strong>
+        that looks like a <strong style="color:#1A1A2E;">{label}</strong>
+        — AI confidence <strong style="color:#1A1A2E;">{pct}%</strong>.
+      </p>
+      {photo_block}
+      <p style="font-size:14px;margin:16px 0 0;">Open the lost &amp; found page to view the item and submit a claim if it's yours.</p>
+      {_email_cta_btn("Check it out", school_url)}
     """
     _resend_send_html(
         [pending["parent_email"]],
-        f"Possible match — {school['name']} lost & found",
-        html,
+        f"Possible match found — {school['name']}",
+        _school_email_html(school["name"], body, slug),
     )
 
 
@@ -2515,11 +2596,21 @@ def school_lost_match(slug: str, body: SchoolLostRequest):
                     )
                 conn.commit()
             pending_watch = True
+            slug = school.get("slug", "")
+            school_url = _school_page_url(slug)
+            _watch_body = f"""
+              <p style="font-size:15px;font-weight:600;margin:0 0 8px;">We're on the lookout.</p>
+              <p style="font-size:14px;color:#9A9488;margin:0 0 16px;">
+                No close match in the {school["name"]} lost &amp; found right now — but we'll
+                email you the moment something similar is posted.
+              </p>
+              <p style="font-size:14px;margin:0 0 4px;">In the meantime, you can browse everything that's been found so far.</p>
+              {_email_cta_btn("Browse found items", school_url)}
+            """
             _resend_send_html(
                 [email],
                 f"We're watching for a match — {school['name']}",
-                f"<p>We didn't find a close match yet, but we'll email you if something similar "
-                f"is posted at <strong>{school['name']}</strong>.</p>",
+                _school_email_html(school["name"], _watch_body, slug),
             )
     elif not matches_out:
         # No match and no watch email — remove orphan loser row
