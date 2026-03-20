@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 20, 2026 (afternoon) — school.html UI refined. lofoapp.com live with homepage + /privacy + /terms. support@lofoapp.com forwarding via ImprovMX. Twilio A2P resubmitted with opt-in screenshots + updated terms. iOS MenuSheet email updated.*
+*Last updated: March 20, 2026 (evening) — lofoapp.com fully live (homepage + /privacy + /terms + /school/* proxy). support@lofoapp.com active. Twilio A2P resubmitted (3rd attempt). TestFlight 1.0.0 (6) in review with updated test notes. Staff URL: lofoapp.com/school/sfws.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -656,19 +656,50 @@ Then redeploy Railway.
 > - **Twilio A2P resubmitted** (Error 30896): Added 3 opt-in screenshots to repo (`optin-screenshot.png`, `optin-screenshot-finder.png`, `optin-screenshot-terms.png`). Updated opt-in description with screenshot URLs + web verification link. New Privacy/Terms URLs: `lofoapp.com/privacy` + `lofoapp.com/terms`.
 > - **iOS MenuSheet**: `support@lofo.ai` → `support@lofoapp.com` (goes into next build).
 >
+> **lofoapp.com — fully live (March 20, 2026):**
+> - Static site: `~/Desktop/lofoapp-web` → GitHub `md-gityup/lofoapp-web` → Vercel → `lofoapp.com`
+> - Pages: `/` (homepage), `/privacy`, `/terms`
+> - `/school/*` proxies to Railway via `vercel.json` rewrite — so `lofoapp.com/school/sfws` is the clean staff URL
+> - `support@lofoapp.com` active via ImprovMX → marcdaniels@gmail.com
+>
+> **Twilio A2P — 3rd submission (March 20, 2026):**
+> - Error 30896 (opt-in verification failure) addressed with: 3 opt-in screenshots in repo, updated opt-in description with screenshot URLs + web verification path, Privacy URL `lofoapp.com/privacy`, Terms URL `lofoapp.com/terms`
+> - Awaiting TCR review. No code changes needed when approved.
+>
 > **Next priorities:**
-> 1. **Vercel deploy**: Connect `md-gityup/lofoapp-web` repo in Vercel → assign `lofoapp.com` domain. Then confirm `lofoapp.com/privacy` and `lofoapp.com/terms` are live before next Twilio resubmit.
-> 2. **Twilio A2P** — resubmitted with new opt-in description + screenshots. Awaiting TCR review. Update Privacy/Terms URLs to `lofoapp.com/privacy` + `lofoapp.com/terms` once Vercel deploy is live.
-> 3. **Staff onboarding at SFWS** — share URL `https://lofo-ai-production.up.railway.app/school/sfws` + passcode `steiner`. Have staff: Settings → set pickup info + admin email.
-> 4. **TestFlight external review** — build 1.0.0 (6) "Waiting for Review". Once approved, enable public link in "testers" group Settings tab.
-> 5. **Next iOS build (7)** — includes `support@lofoapp.com` MenuSheet fix. Archive when ready.
-> 6. **App Store listing** — screenshots (6.7" 1290×2796), 6 screens. Copy already drafted.
+> 1. **Staff onboarding at SFWS** — share URL `https://lofoapp.com/school/sfws` + passcode `steiner`. Have staff go to Settings first → set pickup info + admin email.
+> 2. **TestFlight external review** — build 1.0.0 (6) "Waiting for Review" with updated test notes + `support@lofoapp.com` feedback email. Once approved, enable public link in "testers" group Settings tab.
+> 3. **Twilio A2P** — awaiting approval. No code changes needed when approved. Once approved, test full SMS flow end-to-end.
+> 4. **Next iOS build (7)** — `support@lofoapp.com` in MenuSheet already changed in code. Archive when ready.
+> 5. **App Store listing** — screenshots (6.7" 1290×2796), 6 screens. Copy already drafted in progress doc (Phase 26 checklist).
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
 ---
 
 ## Session History
+
+### lofoapp.com School Proxy + Twilio Wrap-Up — March 20, 2026 (evening, cont.)
+
+**What shipped:**
+
+**lofoapp.com/school/* proxy:**
+- Added `vercel.json` to `lofoapp-web` with rewrite: `/school/:path*` → `https://lofo-ai-production.up.railway.app/school/:path*`
+- Staff URL is now `https://lofoapp.com/school/sfws` (clean, trustworthy domain)
+- All relative API calls in school.html proxy correctly through Vercel
+
+**TestFlight review notes updated:**
+- What to Test, Beta App Description, Review Notes filled in
+- Added note about Twilio A2P pending — sets reviewer expectations for SMS
+- Feedback email → `support@lofoapp.com`
+- Privacy Policy URL → `https://lofoapp.com/privacy`
+
+**Twilio A2P — 3rd submission:**
+- Privacy URL → `lofoapp.com/privacy`, Terms URL → `lofoapp.com/terms`
+- Opt-in description updated with 3 screenshot URLs + web verification path
+- Awaiting TCR review
+
+---
 
 ### Staff Onboarding Prep + Twilio A2P + lofoapp.com — March 20, 2026 (evening)
 
