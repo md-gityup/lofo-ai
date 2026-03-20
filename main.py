@@ -735,10 +735,16 @@ def create_item_from_text(body: TextItemCreate):
 
     if body.where_description:
         resolved_location_name = body.where_description
-        coords = _geocode(body.where_description)
-        if coords:
-            stored_lat, stored_lng = coords
-            print(f"[LOFO geocode] explicit '{body.where_description}' → {stored_lat:.4f}, {stored_lng:.4f}")
+        if body.latitude is not None and body.longitude is not None:
+            # Precise coords already provided (e.g. map pin-drop) — use them directly.
+            # Skip Nominatim so the pin's exact coordinates are preserved.
+            stored_lat, stored_lng = body.latitude, body.longitude
+            print(f"[LOFO geocode] pin coords for '{body.where_description}' → {stored_lat:.4f}, {stored_lng:.4f}")
+        else:
+            coords = _geocode(body.where_description)
+            if coords:
+                stored_lat, stored_lng = coords
+                print(f"[LOFO geocode] explicit '{body.where_description}' → {stored_lat:.4f}, {stored_lng:.4f}")
     elif extracted.get("location"):
         resolved_location_name = extracted["location"]
         # Try Claude's own coordinates first — far more precise for specific landmarks
@@ -1005,10 +1011,16 @@ def match_item(body: MatchRequest):
             f_feats  = [f.lower() for f in (c.get("features") or [])]
             c_score  = _color_score(loser_colors, f_colors)
             f_score  = _feature_overlap(loser_features, f_feats)
+
+            # Distance bonus — only when both items have coordinates.
+            # Multiplier: 1.12 at 0 miles → 1.0 at 10 miles → no effect when coords absent.
+            dist = c.get("distance_miles")
+            proximity_mult = (1.0 + 0.12 * max(0.0, 1.0 - float(dist) / 10.0)) if dist is not None else 1.0
+
             final    = (0.55 * reranker
                         + 0.20 * cosine
                         + 0.15 * c_score
-                        + 0.10 * f_score)
+                        + 0.10 * f_score) * proximity_mult
             if final < threshold:
                 continue
             c["similarity_score"] = round(final, 4)
