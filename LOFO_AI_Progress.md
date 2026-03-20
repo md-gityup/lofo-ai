@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 19, 2026 — Twilio A2P campaign rejected (Error 30909: CTA verification). SMS consent disclosure added to all 4 phone entry screens (web + iOS). terms.html STOP/HELP bolded. Web pushed to GitHub. iOS changes ready for next build (build 6).*
+*Last updated: March 19, 2026 — Twilio A2P resubmitted (Error 30909 fixed). Map pin-drop location added to loser flow (iOS). Distance proximity bonus added to matching composite score. Backend pin coords bug fixed.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -520,8 +520,8 @@ Then redeploy Railway.
 >
 > **What's running (Phases 1–22 deployed):** Live API at `https://lofo-ai-production.up.railway.app`, web frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Admin at `/admin`, map at `/map`. UptimeRobot keep-alive. Lifecycle cron via GitHub Actions.
 >
-> **iOS app — ALL phases A–G complete + TestFlight LIVE + build 1.0.0 (4) live:**
-> Native SwiftUI at `~/Desktop/LOFO/LOFO.xcodeproj`. **BUILD SUCCEEDED** — iPhone 17 Pro, iOS 26.3.1, Xcode 26.3. Full finder + loser + match + reunion + tip flows. Push notifications (PushManager + APNs). StripePaymentSheet v25.7.1 SPM added, test key `pk_test_51T7nErBOu...` wired. Supabase `device_tokens` migration done. **TestFlight build 1.0.0 (4) live. Next upload = build 5 (bump CURRENT_PROJECT_VERSION to 5 before archiving).**
+> **iOS app — ALL phases A–G complete. Build 1.0.0 (5) in TestFlight external review. Next upload = build 6.**
+> Native SwiftUI at `~/Desktop/LOFO/LOFO.xcodeproj`. **BUILD SUCCEEDED** — iPhone 17 Pro, iOS 26.3.1, Xcode 26.3. Full finder + loser + match + reunion + tip flows. Push notifications (PushManager + APNs). StripePaymentSheet v25.7.1 SPM added. Supabase `device_tokens` migration done.
 >
 > **FinderCameraView** is a full native camera viewfinder (AVFoundation): live preview, centered viewfinder bracket overlay, "Point at what you found." center copy, shutter button, library picker, location pill (shows real city/state/zip on device). Falls back to dark gradient on simulator (no real camera).
 >
@@ -533,7 +533,7 @@ Then redeploy Railway.
 >
 > **SMS:** Code-complete, pending Twilio A2P carrier approval (Campaign SID `CM50255157...`, ~2–3 weeks from Mar 12).
 >
-> **iOS app — 38 Swift files** (added `ConfirmedOTPView.swift` in Phase 26p):
+> **iOS app — 39 Swift files** (added `LocationPickerView.swift` this session):
 > - `Theme.swift` — colors, DM Sans + DM Serif Display + DM Serif Display Italic, `LOFOPressStyle`, `lofoCardShadow()`, `serifDisplay()`, `serifDisplayItalic()`, `matchZoomNS` EnvironmentKey (Namespace.ID? optional, iOS 18 zoom transition), **`requiredFieldHighlight(_ triggerCount: Binding<Int>, cornerRadius:)`** — pulsing rust border ViewModifier (3 pulses × 0.65s, settles to 0.55 opacity, Int counter trigger, generation-tracked)
 > - `LOFOApp.swift` — `@main`, NavigationStack, `@Namespace matchZoomNS`, AppDelegate adaptor, PushManager, deep link, Stripe key; routes `.loserVerify` → `LoserOTPView`, `.confirmedVerify` → `ConfirmedOTPView`
 > - `AppDelegate.swift` — APNs token callbacks → PushManager
@@ -543,7 +543,7 @@ Then redeploy Railway.
 > - `Views/Home/` — HomeView, MenuSheet
 > - `Views/Finder/` — FinderCameraView, CameraPreviewView, FinderDoneView, PhoneVerifyView, OTPVerifyView, AllSetView
 > - `Views/Loser/` — LostPromptView, WaitingView, LoserOTPView, LoserWaitView, **MatchView** (navy bg, SmileFaceView smile animation, multi-match carousel via `.id(matchIndex)` + `.transition`, `matchIndex` state), OwnershipVerifyView, **ConfirmedView** (centered header, full-width 170pt photo, navy CTA, sends OTP → `.confirmedVerify`), **ConfirmedOTPView** (verifies phone, calls coordinateHandoff, pushes `.tip`)
-> - `Views/Shared/` — ItemCardView, TagChipView, LOFOButton, **ReunionView** (rustLight bg, inward-radiating celebration orb with `figure.2.arms.open` icon, two-tone "You're all / set." heading, next-steps list, plain-text "Back To Home" link), **TipView** (centered layout, LOFO navy logo badge, two-tone "Say / Thank You." heading, rust-outline selected amount tiles, custom amount input field, `effectiveCents` logic), PhotoLightboxView
+> - `Views/Shared/` — ItemCardView, TagChipView, LOFOButton, **ReunionView** (rustLight bg, inward-radiating celebration orb with `figure.2.arms.open` icon, two-tone "You're all / set." heading, next-steps list, plain-text "Back To Home" link), **TipView** (centered layout, LOFO navy logo badge, two-tone "Say / Thank You." heading, rust-outline selected amount tiles, custom amount input field, `effectiveCents` logic), PhotoLightboxView, **LocationPickerView** (full-screen map sheet, Uber-style fixed center pin, address chip, dark gradient bottom bar, CLGeocoder reverse geocode on drag stop)
 > - `Fonts/` — DMSans-Regular/Medium/Bold.ttf, DMSerifDisplay-Regular.ttf, DMSerifDisplay-Italic.ttf
 >
 > **Key arch notes:**
@@ -592,7 +592,7 @@ Then redeploy Railway.
 > - **`_MATCH_SQL`**: LIMIT 5 → LIMIT 50. Retrieval is now a recall step; precision handled downstream.
 > - **Stage A hard filters**: item_type is now a hard categorical gate — `_item_types_compatible()` returns False → candidate excluded entirely (was: raise threshold to 0.88). Color hard gate unchanged. New: sidedness hard gate (`_sides_compatible()`) for gloves/shoes/earbuds/earrings — blocks if both sides explicitly state left vs right.
 > - **Stage C Cohere Rerank**: `rerank-english-v3.0` called with structured `"type=X; colors=Y; material=Z; features=A,B"` format. Requires `COHERE_API_KEY` in Railway env vars. Falls back to cosine-only (0.78 threshold) if key absent.
-> - **Stage D composite score**: `final_score = 0.55·reranker + 0.20·cosine + 0.15·color_score + 0.10·feature_overlap`. `color_score` is 1.0/0.5/0.0 (match/neutral/incompatible). `feature_overlap` is Jaccard over feature tokens.
+> - **Stage D composite score**: `final_score = (0.55·reranker + 0.20·cosine + 0.15·color_score + 0.10·feature_overlap) × proximity_mult`. `proximity_mult = 1.0 + 0.12 × max(0, 1 − distance_miles/10)` — 1.12× at 0 miles, 1.0× at 10 miles, 1.0× when either item lacks coords. `color_score` is 1.0/0.5/0.0 (match/neutral/incompatible). `feature_overlap` is Jaccard over feature tokens.
 > - **Stage E dynamic threshold**: `_query_richness()` classifies loser item as sparse/medium/rich (≤2/3–5/6+ filled fields). Thresholds: 0.30/0.40/0.55 on `final_score`.
 > - **`similarity_score` field**: overwritten with `final_score` in response — backward compatible with iOS/web consumers.
 > - **New helpers added**: `_sides_compatible`, `_color_score`, `_feature_overlap`, `_query_richness`, `_build_rerank_text`, `_extract_side`.
@@ -606,17 +606,51 @@ Then redeploy Railway.
 > - Tip flow redesign: "tip intent" concept (loser picks amount upfront, charged after reunion confirmed). Post-reunion trigger via SMS relay silence heuristic + time-bomb fallback. Detailed design in Session History Phase 26q.
 > - Unit economics: ~$0.25/reunion in Twilio costs, $10 avg tip, net ~$0.87 per loop (2% Stripe on $10, no fixed fee on Apple Pay).
 >
+> **New this session (March 19, 2026):**
+> - **Map pin-drop** added to loser flow (`LostPromptView` + new `LocationPickerView`). Uber-style map, address chip, rust pin, "KNOW EXACTLY WHERE?" section label. Pin confirmed → rust checkmark + gray X to clear. GPS still captured as fallback.
+> - **Backend pin coords bug fixed** — pin lat/lng no longer overwritten by Nominatim re-geocoding when coords are already provided.
+> - **Proximity bonus** added to composite score — `proximity_mult` 1.0–1.12× based on distance. No effect when either item lacks coords.
+> - **Twilio A2P resubmitted** — Error 30909 fixed. SMS consent disclosure on all 4 phone screens. New CTA copy + Privacy/Terms URLs filled in. Awaiting TCR review.
+> - **Build 6 checklist**: LocationPickerView + LostPromptView changes + PhoneVerifyView + WaitingView consent text. Bump `CURRENT_PROJECT_VERSION` to 6.
+>
 > **Next priorities:**
-> 1. **TestFlight external review** — build 1.0.0 (5) in review. Once approved, enable public link in Settings tab of "testers" group and share with testers.
-> 2. **Matching engine tuning** — pipeline is live and working (gloves score 0.80+ with Cohere). Monitor real-world matches via admin Near-Miss Analyzer. Tune thresholds if needed.
-> 3. **App Store listing** — screenshots (6.7" 1290×2796), app description, privacy URL, submit for review when ready. Marketing URL needed (currently using Railway URL as placeholder).
-> 4. `LocationManager` — `CLGeocoder` + `reverseGeocodeLocation` deprecated in iOS 26. Future cleanup: migrate to `MKReverseGeocodingRequest`. Non-blocking warnings only, not urgent.
+> 1. **TestFlight external review** — build 1.0.0 (5) in review. Once approved, enable public link and share with testers.
+> 2. **Build 6** — archive with iOS changes from this session (map pin-drop + SMS consent disclosures). Bump `CURRENT_PROJECT_VERSION` to 6.
+> 3. **Twilio A2P approval** — awaiting TCR review. Once approved, no code changes needed — SMS will start delivering to all US carriers.
+> 4. **App Store listing** — screenshots (6.7" 1290×2796), app description, submit for review when ready.
+> 5. `LocationManager` + `LocationPickerView` — `CLGeocoder` deprecated in iOS 26. Future cleanup: migrate to `MKReverseGeocodingRequest`. Non-blocking warnings, not urgent.
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
 ---
 
 ## Session History
+
+### Map Pin-Drop + Matching Improvements — March 19, 2026
+
+**What shipped:**
+
+**iOS — Map pin-drop location in loser flow:**
+- New `LocationPickerView.swift` (`Views/Shared/`) — full-screen map sheet, Uber-style fixed center pin, address chip floats above pin (reverse geocoded on drag stop), pin lifts/drops animation, dark gradient bottom bar, "Confirm Location" button, X to dismiss.
+- `LostPromptView.swift` — `whereField` text input replaced with tappable location pill. Default state shows GPS name as fallback. After pin confirmed: rust-accented "Location pinned" + address + checkmark + gray X to clear. All-caps "KNOW EXACTLY WHERE?" section label with rust location arrow. Placeholder updated to include vague location hint. `pinCoordinate`/`pinLabel` state added. Submit uses pin coords if confirmed, GPS fallback otherwise.
+- Both files import MapKit + CoreLocation. CLGeocoder deprecation warnings are pre-existing (same as LocationManager) — non-blocking.
+
+**Backend — pin coords bug fix:**
+- `from-text` endpoint: when `where_description` AND `latitude`/`longitude` are both provided (map pin-drop case), pin coords are used directly. Previously, Nominatim geocoded the pin label and overwrote the precise map coordinates with a less accurate result.
+
+**Backend — distance proximity bonus in composite score:**
+- Composite formula now includes a proximity multiplier: `final_score = (0.55·reranker + 0.20·cosine + 0.15·color + 0.10·features) × proximity_mult`
+- `proximity_mult = 1.0 + 0.12 × max(0, 1 - distance_miles/10)` — 1.12× at 0 miles, 1.0× at 10 miles.
+- When either item has no coordinates: `proximity_mult = 1.0` (no change to existing behavior).
+- Pin-drop gives precise loser coordinates, making this bonus meaningful for the first time.
+
+**Twilio A2P campaign resubmission:**
+- Error 30909 (CTA verification failure) root cause: consent description claimed a checkbox existed; no checkbox present. Description missing STOP/HELP/msg-rates disclosures.
+- Fix: SMS consent disclosure added to all 4 phone entry screens (web finder, web loser, iOS `PhoneVerifyView`, iOS `WaitingView`). `terms.html` STOP/HELP bolded, support contact added. Web pushed to GitHub Pages.
+- Resubmitted with rewritten CTA copy (see progress doc Notes section). Privacy Policy URL + Terms URL filled in.
+- Awaiting TCR review (typically a few days to a week).
+
+---
 
 ### Twilio A2P Campaign Fix — March 19, 2026
 
