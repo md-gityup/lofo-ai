@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 19, 2026 — Matching engine fully live with Cohere reranker (scores 0.80+). Build 1.0.0 (5) uploaded to TestFlight external review. Test Information filled in. Cohere client fix: ClientV2 → Client.*
+*Last updated: March 19, 2026 — Twilio A2P campaign rejected (Error 30909: CTA verification). SMS consent disclosure added to all 4 phone entry screens (web + iOS). terms.html STOP/HELP bolded. Web pushed to GitHub. iOS changes ready for next build (build 6).*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -617,6 +617,40 @@ Then redeploy Railway.
 ---
 
 ## Session History
+
+### Twilio A2P Campaign Fix — March 19, 2026
+
+**What happened:** A2P 10DLC campaign rejected with Error 30909 — CTA verification failed. Rejection reason: consent description claimed a checkbox existed in the app; no checkbox was present. Required disclosures (STOP, HELP, msg & data rates) missing from phone entry screens.
+
+**What shipped:**
+
+**Web (`LOFO_MVP.html`):**
+- Finder phone screen (`screen-phone`): Replaced privacy note with full SMS consent disclosure below the Send Code button: *"By tapping 'Send code' you agree to receive SMS notifications from LOFO. Msg & data rates may apply. Reply STOP to opt out. Privacy policy."*
+- Loser waiting screen (notify section): Added consent disclosure below the Notify Me button.
+- Pushed to GitHub — GitHub Pages updated within ~2 min. TCR reviewers can verify live at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`.
+
+**Terms (`terms.html`):** STOP and HELP bolded in SMS section. Message frequency clarified. Support contact line added. Meets Twilio A2P Terms URL requirements.
+
+**iOS:**
+- `PhoneVerifyView.swift`: Privacy note replaced with full SMS consent disclosure (same copy as web).
+- `WaitingView.swift` (loser phoneSection): Consent disclosure added below Confirm Phone Number button.
+- iOS changes go into **build 6** — bump `CURRENT_PROJECT_VERSION` to 6 before archiving.
+
+**Twilio — resubmit using this CTA copy:**
+> Users enter their phone number in the LOFO app and tap a button to send a verification code. Directly below the phone input field, the following disclosure is displayed before the user taps: "By tapping Send Code, you agree to receive SMS notifications from LOFO. Msg & data rates may apply. Reply STOP to opt out." Tapping the button constitutes consent. Consent is not required to use the app.
+>
+> The opt-in flow can be verified live at: https://md-gityup.github.io/lofo-ai/LOFO_MVP.html — select "I found something" or "I lost something", then proceed to the phone number screen.
+>
+> LOFO sends two types of messages: (1) one-time verification codes when users verify their phone number, and (2) alert notifications when a lost/found item match is detected. Message frequency varies based on user activity, typically 1–3 messages per event. Users may reply STOP at any time to opt out, or HELP for support.
+>
+> Terms: https://lofo-ai-production.up.railway.app/terms
+> Privacy Policy: https://lofo-ai-production.up.railway.app/privacy
+
+**Twilio form fields:**
+- Privacy Policy URL: `https://lofo-ai-production.up.railway.app/privacy`
+- Terms and Conditions URL: `https://lofo-ai-production.up.railway.app/terms`
+
+---
 
 ### Matching Engine Live + Build 1.0.0 (5) — March 19, 2026
 
