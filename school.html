@@ -1131,39 +1131,46 @@ window.navigate = function (targetId, direction) {
     history_stack.pop();
   }
 
-  const inAnim  = direction === 'forward' ? 'push-in'  : 'pop-in';
-  const outAnim = direction === 'forward' ? 'push-out' : 'pop-out';
-
   const fadeScreens = ['screen-thinking', 'screen-match'];
-  const actualIn = fadeScreens.includes(targetId) ? 'fade-in' : inAnim;
+  const inAnim = fadeScreens.includes(targetId)
+    ? 'fade-in'
+    : (direction === 'forward' ? 'push-in' : 'pop-in');
 
-  next.style.display = 'flex';
-  next.style.position = 'absolute';
-  next.style.top = '0'; next.style.left = '0'; next.style.right = '0';
-  next.style.zIndex = '10';
-
-  next.classList.remove('push-in','push-out','pop-in','pop-out','fade-in','active');
-  next.classList.add(actualIn);
-
-  // Hide current screen immediately — CSS (.screen without .active = display:none)
-  // handles this; no animationend listener needed (the animation never fires anyway
-  // because display:none is applied, and a stale listener would fire on the next
-  // animationend of this element causing a blank-screen bug).
+  // Hide current screen immediately via CSS (remove .active → .screen { display:none }).
+  // No position manipulation needed — outgoing screen is gone before incoming renders.
   if (current) {
     current.classList.remove('push-in','push-out','pop-in','pop-out','fade-in','active');
     current.style.display = '';
   }
 
-  next.addEventListener('animationend', () => {
-    next.classList.remove(actualIn);
+  // Prepare incoming screen (in normal flow, no absolute positioning).
+  next.style.display = 'flex';
+  next.classList.remove('push-in','push-out','pop-in','pop-out','fade-in','active');
+  next.classList.add(inAnim);
+
+  // Finalize: add .active, clear inline display, run entry hooks.
+  let _done = false;
+  const finalize = () => {
+    if (_done) return;
+    _done = true;
+    clearTimeout(_fallback);
+    next.classList.remove(inAnim);
     next.classList.add('active');
-    next.style.display = '';  // clear inline style; rely on .screen.active { display:flex }
-    next.style.position = '';
-    next.style.top = ''; next.style.left = ''; next.style.right = '';
-    next.style.zIndex = '';
+    next.style.display = '';
     onScreenEnter(targetId);
     updateNav(targetId);
-  }, { once: true });
+  };
+
+  // Fallback in case animationend never fires (safety net, shouldn't be needed).
+  const _fallback = setTimeout(finalize, 500);
+
+  // Listen only on the screen element itself, not bubbled child animations.
+  const onAnimEnd = (e) => {
+    if (e.target !== next) return;
+    next.removeEventListener('animationend', onAnimEnd);
+    finalize();
+  };
+  next.addEventListener('animationend', onAnimEnd);
 };
 
 window.showScreen = window.navigate;
