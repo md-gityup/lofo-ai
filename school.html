@@ -1143,10 +1143,11 @@ window.navigate = function (targetId, direction) {
     current.style.display = '';
   }
 
-  // Prepare incoming screen (in normal flow, no absolute positioning).
-  next.style.display = 'flex';
+  // Prepare incoming screen: set animation class before display so fill-mode:both
+  // applies opacity:0 on the very first paint (prevents one-frame flash).
   next.classList.remove('push-in','push-out','pop-in','pop-out','fade-in','active');
   next.classList.add(inAnim);
+  next.style.display = 'flex';
 
   // Finalize: add .active, clear inline display, run entry hooks.
   let _done = false;
@@ -1217,7 +1218,8 @@ function staggerScreen(id) {
   if (!screen) return;
   const items = screen.querySelectorAll('.s-item, .s-pop');
   items.forEach(el => {
-    el.classList.remove('s-ready');
+    // Skip items already visible — avoids flash when revisiting a screen.
+    if (el.classList.contains('s-ready')) return;
     const delay = parseFloat(el.style.animationDelay) * 1000 || 0;
     setTimeout(() => el.classList.add('s-ready'), 60 + delay);
   });
