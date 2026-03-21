@@ -201,6 +201,14 @@ input.field:focus, textarea.field:focus {
   border-color: var(--navy); box-shadow: 0 0 0 3px rgba(26,26,46,0.06);
 }
 textarea.field { min-height: 110px; resize: vertical; }
+@keyframes fieldPulse {
+  0%, 100% { border-color: var(--rust); box-shadow: 0 0 0 3px rgba(193,122,74,0.18); }
+  50%       { border-color: rgba(193,122,74,0.2); box-shadow: 0 0 0 0 rgba(193,122,74,0); }
+}
+input.field.field-error, textarea.field.field-error {
+  border-color: rgba(193,122,74,0.55);
+  animation: fieldPulse 0.65s ease-in-out 3;
+}
 
 /* ─── Centered content wrapper ───────────────────── */
 .cx      { max-width: 540px; margin: 0 auto; padding: 56px 48px 80px; width: 100%; }
@@ -1033,7 +1041,10 @@ textarea.field { min-height: 110px; resize: vertical; }
 <div class="mobile-drawer" id="mobile-drawer">
   <div class="mobile-drawer-header">
     <div class="mobile-drawer-wordmark">
-      <span class="mobile-drawer-wordmark-title">LOFO</span>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--rust)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin-bottom:4px;">
+        <path d="M3 10.5L12 2l9 8.5"/>
+        <path d="M5 9.5V21a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V9.5"/>
+      </svg>
       <span class="mobile-drawer-wordmark-sub" id="mobile-drawer-school-name"></span>
     </div>
     <button class="mobile-drawer-close" onclick="closeMobileNav()" aria-label="Close menu">
@@ -1411,15 +1422,32 @@ window.openLb = function (src) {
 };
 
 /* ── Claim ──────────────────────────────────────── */
+/* ── Required-field validation (matches iOS requiredFieldHighlight) ─ */
+function markFieldError(el) {
+  el.classList.remove('field-error');
+  void el.offsetWidth; // force reflow so animation restarts
+  el.classList.add('field-error');
+  el.addEventListener('input', function() { el.classList.remove('field-error'); }, { once: true });
+}
+function validateRequired(ids) {
+  let ok = true;
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const val = el.value.trim();
+    if (!val || (el.type === 'email' && !val.includes('@'))) {
+      markFieldError(el); ok = false;
+    }
+  }
+  return ok;
+}
+
 window.submitClaim = async function () {
+  if (!validateRequired(['claim-child', 'claim-parent', 'claim-email'])) return;
   const child  = document.getElementById('claim-child').value.trim();
   const parent = document.getElementById('claim-parent').value.trim();
   const email  = document.getElementById('claim-email').value.trim();
   const note   = document.getElementById('claim-note').value.trim();
-  if (!child || !parent || !email) {
-    toast('Please fill in child name, your name and email');
-    return;
-  }
   btnLoading('btn-claim', true);
   try {
     await API('/school/' + encodeURIComponent(SLUG) + '/claim', {
@@ -1437,9 +1465,10 @@ window.submitClaim = async function () {
 
 /* ── Lost ───────────────────────────────────────── */
 window.submitLost = async function () {
-  const desc  = document.getElementById('lost-desc').value.trim();
+  const descEl = document.getElementById('lost-desc');
+  if (descEl.value.trim().length < 5) { markFieldError(descEl); return; }
+  const desc  = descEl.value.trim();
   const email = document.getElementById('lost-email').value.trim();
-  if (desc.length < 5) { toast('Please describe the item'); return; }
 
   lastLostPayload = {
     description:  desc,
@@ -1474,8 +1503,8 @@ window.submitLost = async function () {
 };
 
 window.submitLostRetry = async function () {
+  if (!validateRequired(['nm-email'])) return;
   const email = document.getElementById('nm-email').value.trim();
-  if (!email || !email.includes('@')) { toast('Valid email required'); return; }
 
   lastLostPayload = Object.assign({}, lastLostPayload, {
     parent_email: email,
@@ -1551,9 +1580,9 @@ window.fromMatchToDetail = function () { openDetail(selectedItem); };
 
 /* ── Subscribe ──────────────────────────────────── */
 window.doSubscribe = async function () {
+  if (!validateRequired(['sub-email'])) return;
   const email = document.getElementById('sub-email').value.trim();
   const name  = document.getElementById('sub-name').value.trim() || null;
-  if (!email || !email.includes('@')) { toast('Valid email required'); return; }
   btnLoading('btn-sub', true);
   try {
     await API('/school/' + encodeURIComponent(SLUG) + '/subscribe', {
@@ -1570,6 +1599,7 @@ window.doSubscribe = async function () {
 
 /* ── Admin ──────────────────────────────────────── */
 window.adminLogin = async function () {
+  if (!validateRequired(['admin-pass'])) return;
   const pass = document.getElementById('admin-pass').value;
   btnLoading('btn-admin-login', true);
   try {
