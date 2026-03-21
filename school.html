@@ -1220,6 +1220,11 @@ document.addEventListener('DOMContentLoaded', () => {
   staggerScreen('screen-landing');
   // If already logged in as admin, show admin sidebar
   if (localStorage.getItem(tokenKey)) setAdminSidebarMode(true);
+  // Deep-link: ?browse=1 from email CTAs → go straight to browse view
+  if (new URLSearchParams(window.location.search).get('browse') === '1') {
+    loadItems();
+    navigate('screen-browse', 'forward');
+  }
 });
 
 /* ── Mobile nav drawer ──────────────────────────── */

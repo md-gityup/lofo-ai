@@ -2066,6 +2066,11 @@ def _school_page_url(slug: str) -> str:
     return f"https://lofoapp.com/school/{slug}"
 
 
+def _school_browse_url(slug: str) -> str:
+    """Deep-link directly to the browse (found items) screen."""
+    return f"https://lofoapp.com/school/{slug}?browse=1"
+
+
 def _school_email_html(school_name: str, body_html: str, slug: str = "") -> str:
     """Shared HTML wrapper for all school transactional emails."""
     school_url = _school_page_url(slug) if slug else "https://lofoapp.com"
@@ -2197,7 +2202,7 @@ def _school_notify_subscribers_new_item(school: dict, item: dict, extracted: dic
       <p style="font-size:14px;color:#9A9488;margin:0 0 16px;">Just posted to the {school["name"]} lost &amp; found.</p>
       {photo_block}
       <p style="font-size:14px;margin:16px 0 0;">Recognize it? Browse the full gallery and submit a claim.</p>
-      {_email_cta_btn("View found items", school_url)}
+      {_email_cta_btn("View found items", _school_browse_url(slug))}
     """
     _resend_send_html(
         emails,
@@ -2266,7 +2271,7 @@ def _school_notify_parent_possible_match(
       </p>
       {photo_block}
       <p style="font-size:14px;margin:16px 0 0;">Open the lost &amp; found page to view the item and submit a claim if it's yours.</p>
-      {_email_cta_btn("Check it out", school_url)}
+      {_email_cta_btn("Check it out", _school_browse_url(slug))}
     """
     _resend_send_html(
         [pending["parent_email"]],
@@ -2606,7 +2611,7 @@ def school_lost_match(slug: str, body: SchoolLostRequest):
                 email you the moment something similar is posted.
               </p>
               <p style="font-size:14px;margin:0 0 4px;">In the meantime, you can browse everything that's been found so far.</p>
-              {_email_cta_btn("Browse found items", school_url)}
+              {_email_cta_btn("Browse found items", _school_browse_url(slug))}
             """
             _resend_send_html(
                 [email],
