@@ -447,16 +447,12 @@ textarea.field { min-height: 110px; resize: vertical; }
   color: var(--navy); flex-shrink: 0;
 }
 .mobile-drawer-backdrop {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.45);
-  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
-  z-index: 500; opacity: 0; pointer-events: none;
-  transition: opacity 0.22s ease;
+  display: none;
 }
-.mobile-drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.mobile-drawer-backdrop.open { display: none; }
 .mobile-drawer {
   position: fixed; top: 0; left: -320px; bottom: 0; width: min(300px, 88vw);
-  background: #fff; z-index: 501; overflow-y: auto;
+  background: var(--cream); z-index: 501; overflow-y: auto;
   transition: left 0.28s cubic-bezier(0.32, 0.72, 0, 1);
   display: flex; flex-direction: column;
   box-shadow: 0 8px 40px rgba(0,0,0,0.18);
@@ -480,31 +476,31 @@ textarea.field { min-height: 110px; resize: vertical; }
 }
 .mobile-drawer-close {
   width: 30px; height: 30px; border-radius: 50%;
-  background: #f2f2f2; border: none;
+  background: rgba(26,26,46,0.08); border: none;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: #555; padding: 0;
+  cursor: pointer; color: var(--navy); padding: 0;
   transition: background 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
-.mobile-drawer-close:active { background: #e5e5e5; }
+.mobile-drawer-close:active { background: rgba(26,26,46,0.14); }
 .mobile-drawer-nav { padding: 8px 10px; flex: 1; }
 .mobile-drawer-item {
   display: flex; align-items: center; gap: 13px;
   width: 100%; padding: 13px 12px; border-radius: 9px;
   border: none; background: none; cursor: pointer;
   font-family: inherit; font-size: 15px; font-weight: 500;
-  color: #111; text-align: left;
+  color: var(--navy); text-align: left;
   transition: background 0.12s; margin-bottom: 1px;
   -webkit-tap-highlight-color: transparent;
 }
-.mobile-drawer-item:active { background: #f2f2f2; }
-.mobile-drawer-item svg { color: #888; flex-shrink: 0; }
-.mobile-drawer-item.muted { color: #999; font-weight: 400; }
-.mobile-drawer-sep { height: 1px; background: #f0f0f0; margin: 6px 12px; }
+.mobile-drawer-item:active { background: rgba(26,26,46,0.06); }
+.mobile-drawer-item svg { color: var(--muted); flex-shrink: 0; }
+.mobile-drawer-item.muted { color: var(--muted); font-weight: 400; }
+.mobile-drawer-sep { height: 1px; background: var(--border); margin: 6px 12px; }
 .mobile-drawer-footer {
   padding: 12px 10px;
   padding-bottom: max(20px, env(safe-area-inset-bottom));
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border);
 }
 
 /* ════════════════════════════════════════════════════
@@ -673,7 +669,6 @@ textarea.field { min-height: 110px; resize: vertical; }
       <button type="button" class="mobile-menu-btn" onclick="openMobileNav()" aria-label="Menu">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
       </button>
-      <button type="button" class="back-btn" onclick="goNav('screen-admin-login')">Staff login</button>
     </div>
     <div class="landing-inner">
       <div class="landing-wordmark">LOFO</div>
