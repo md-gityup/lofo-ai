@@ -447,47 +447,65 @@ textarea.field { min-height: 110px; resize: vertical; }
   color: var(--navy); flex-shrink: 0;
 }
 .mobile-drawer-backdrop {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.32); z-index: 500;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  z-index: 500; opacity: 0; pointer-events: none;
+  transition: opacity 0.22s ease;
 }
-.mobile-drawer-backdrop.open { display: block; }
+.mobile-drawer-backdrop.open { opacity: 1; pointer-events: auto; }
 .mobile-drawer {
-  position: fixed; top: 0; left: -290px; bottom: 0; width: 280px;
-  background: var(--cream); z-index: 501; overflow-y: auto;
-  transition: left 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  position: fixed; top: 0; left: -320px; bottom: 0; width: min(300px, 88vw);
+  background: #fff; z-index: 501; overflow-y: auto;
+  transition: left 0.28s cubic-bezier(0.32, 0.72, 0, 1);
   display: flex; flex-direction: column;
-  box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
 }
 .mobile-drawer.open { left: 0; }
 .mobile-drawer-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 22px 20px 16px;
-  padding-top: max(22px, env(safe-area-inset-top));
-  border-bottom: 1px solid var(--border);
+  padding: 20px 18px 16px;
+  padding-top: max(20px, env(safe-area-inset-top));
 }
 .mobile-drawer-wordmark {
-  font-size: 10px; font-weight: 600; letter-spacing: 0.28em;
-  text-transform: uppercase; color: var(--rust);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.mobile-drawer-wordmark-title {
+  font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--navy); line-height: 1;
+}
+.mobile-drawer-wordmark-sub {
+  font-size: 11.5px; font-weight: 400; color: var(--muted);
+  line-height: 1;
 }
 .mobile-drawer-close {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: rgba(26,26,46,0.06); border: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: #f2f2f2; border: none;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: var(--navy); padding: 0;
+  cursor: pointer; color: #555; padding: 0;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
-.mobile-drawer-nav { padding: 16px 12px; flex: 1; }
+.mobile-drawer-close:active { background: #e5e5e5; }
+.mobile-drawer-nav { padding: 8px 10px; flex: 1; }
 .mobile-drawer-item {
   display: flex; align-items: center; gap: 13px;
-  width: 100%; padding: 12px 14px; border-radius: 10px;
+  width: 100%; padding: 13px 12px; border-radius: 9px;
   border: none; background: none; cursor: pointer;
   font-family: inherit; font-size: 15px; font-weight: 500;
-  color: var(--navy); text-align: left;
-  transition: background 0.15s; margin-bottom: 2px;
+  color: #111; text-align: left;
+  transition: background 0.12s; margin-bottom: 1px;
+  -webkit-tap-highlight-color: transparent;
 }
-.mobile-drawer-item:hover { background: rgba(26,26,46,0.06); }
-.mobile-drawer-item svg { color: var(--muted); flex-shrink: 0; }
-.mobile-drawer-item.muted { color: var(--muted); font-weight: 400; }
-.mobile-drawer-sep { height: 1px; background: var(--border); margin: 8px 14px; }
+.mobile-drawer-item:active { background: #f2f2f2; }
+.mobile-drawer-item svg { color: #888; flex-shrink: 0; }
+.mobile-drawer-item.muted { color: #999; font-weight: 400; }
+.mobile-drawer-sep { height: 1px; background: #f0f0f0; margin: 6px 12px; }
+.mobile-drawer-footer {
+  padding: 12px 10px;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  border-top: 1px solid #f0f0f0;
+}
 
 /* ════════════════════════════════════════════════════
    MOBILE  (< 768px) — restore original mobile behavior
@@ -1019,9 +1037,12 @@ textarea.field { min-height: 110px; resize: vertical; }
 <div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop" onclick="closeMobileNav()"></div>
 <div class="mobile-drawer" id="mobile-drawer">
   <div class="mobile-drawer-header">
-    <span class="mobile-drawer-wordmark">LOFO</span>
+    <div class="mobile-drawer-wordmark">
+      <span class="mobile-drawer-wordmark-title">LOFO</span>
+      <span class="mobile-drawer-wordmark-sub" id="mobile-drawer-school-name"></span>
+    </div>
     <button class="mobile-drawer-close" onclick="closeMobileNav()" aria-label="Close menu">
-      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l12 12M13 1L1 13"/></svg>
+      <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1 1l12 12M13 1L1 13"/></svg>
     </button>
   </div>
   <nav class="mobile-drawer-nav">
@@ -1037,12 +1058,8 @@ textarea.field { min-height: 110px; resize: vertical; }
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a5.5 5.5 0 015.5 5.5c0 2.5.5 4.5 1.5 5.5H3c1-1 1.5-3 1.5-5.5A5.5 5.5 0 0110 2z"/><path d="M8.5 16.5a1.5 1.5 0 003 0"/></svg>
       Get new-item alerts
     </button>
-    <div class="mobile-drawer-sep"></div>
-    <button id="mobile-drawer-staff-login" class="mobile-drawer-item muted" onclick="closeMobileNav();navigate('screen-admin-login','forward')">
-      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="12" height="9" rx="2"/><path d="M7 9V7a3 3 0 016 0v2"/></svg>
-      Staff login
-    </button>
     <div id="mobile-drawer-admin-nav" style="display:none">
+      <div class="mobile-drawer-sep"></div>
       <button class="mobile-drawer-item" onclick="closeMobileNav();goNav('screen-admin-dash');window.adminLoadDash()">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>
         Posted items
@@ -1061,6 +1078,12 @@ textarea.field { min-height: 110px; resize: vertical; }
       </button>
     </div>
   </nav>
+  <div class="mobile-drawer-footer">
+    <button id="mobile-drawer-staff-login" class="mobile-drawer-item" onclick="closeMobileNav();navigate('screen-admin-login','forward')" style="color:#666; font-weight:400;">
+      <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="12" height="9" rx="2"/><path d="M7 9V7a3 3 0 016 0v2"/></svg>
+      Staff login
+    </button>
+  </div>
 </div>
 
 <script>
@@ -1278,6 +1301,8 @@ async function loadSchoolData() {
     const name = schoolData.name || 'School';
     document.getElementById('landing-name').textContent = name + ' · Lost & Found';
     document.title = 'LOFO · ' + name;
+    const drawerSub = document.getElementById('mobile-drawer-school-name');
+    if (drawerSub) drawerSub.textContent = name;
     const pu = document.getElementById('landing-pickup');
     if (schoolData.pickup_info) {
       pu.style.display = 'block';
