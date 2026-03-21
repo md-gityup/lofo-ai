@@ -2356,6 +2356,7 @@ def school_public_data(slug: str):
         "slug": school["slug"],
         "name": school["name"],
         "pickup_info": school["pickup_info"] or "",
+        "admin_notify_email": school.get("admin_notify_email") or "",
         "app_store_url": _LOFO_APP_STORE_URL,
     }
 
