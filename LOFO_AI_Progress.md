@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 20, 2026 (evening, session 2) — school.html UI polish + mobile hamburger nav. School email flows fully working: noreply@lofoapp.com verified in Resend, all 4 email templates rewritten with correct links + LOFO-branded HTML. SFWS ready to hand off.*
+*Last updated: March 21, 2026 — Admin Organizations tab added. Organizations tab in admin dashboard surfaces org items + claims with per-org summary cards, sub-tabs, and filter. "school" → "organization" rename at UI level (DB schema unchanged).*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -692,6 +692,13 @@ Then redeploy Railway.
 > - `RESEND_FROM = LOFO <noreply@lofoapp.com>` added to Railway env vars
 > - All school emails now send from `noreply@lofoapp.com` — looks trustworthy, won't go to spam
 >
+> **School bugs fixed (March 20, 2026 evening, session 3):**
+> 1. ✅ `admin_notify_email` missing from `/school/{slug}/data` response → Settings email always blank on page reload. Fixed: added to public data endpoint.
+> 2. ✅ Claim form not cleared between items → stale name/email if parent goes back and claims a different item. Fixed: `onScreenEnter('screen-claim')` now clears all fields.
+> 3. ✅ `submitLostRetry` ignored match response → parent never saw a match even if one was found on second submit. Fixed: `res.matches` now checked; routes to `showMatch()` if found.
+> 4. ✅ Sidebar Browse icon didn't refresh items → `goNav('screen-browse')` missing `loadItems()`. Fixed.
+> 5. ✅ Mobile drawer showed "Staff login" even when logged in → no admin nav on mobile. Fixed: `setAdminSidebarMode` now toggles mobile drawer to show Posted items / Post new item / Settings / Log out when staff is logged in.
+>
 > **Next priorities:**
 > 1. **Staff onboarding at SFWS** — share URL `https://lofoapp.com/school/sfws` + passcode `steiner`. Staff go to Settings first → set pickup info + admin email. Smoke test: post item → confirm subscriber email arrives from `noreply@lofoapp.com`.
 > 2. **TestFlight external review** — build 1.0.0 (6) "Waiting for Review". Once approved, enable public link in "testers" group Settings tab.
@@ -704,6 +711,22 @@ Then redeploy Railway.
 ---
 
 ## Session History
+
+### School Flow Bug Fixes — March 20, 2026 (evening, session 3)
+
+**5 bugs found via code audit and fixed:**
+
+1. **`admin_notify_email` not in `/school/{slug}/data` response** (`main.py`) — The public `/data` endpoint returned `slug, name, pickup_info, app_store_url` but NOT `admin_notify_email`. `schoolData.admin_notify_email` was always `undefined`, so the admin email field in Settings was always blank on every page load. Fix: added `admin_notify_email` field to the response.
+
+2. **Claim form not cleared between items** (`school.html`) — If a parent submitted a claim on item A, went back, opened item B, the claim form still had item A's child name, parent name, and email. Fix: added `screen-claim` entry handler in `onScreenEnter` that clears all four fields.
+
+3. **`submitLostRetry` ignored match response** (`school.html`) — When a parent entered email on the no-match screen and resubmitted, the API response was `await`-ed but not captured (`const res` was missing). Always navigated to `screen-no-match-done` even if matches were found. Fix: capture `res`, check `res.matches.length`, route to `showMatch()` if found.
+
+4. **Sidebar Browse icon didn't refresh gallery** (`school.html`) — `goNav('screen-browse')` only called `navigate()`, not `loadItems()`. Items were pre-loaded at boot but stale after staff posts a new item in a different session. Fix: added `if (screenId === 'screen-browse') { loadItems(); }` to `goNav`.
+
+5. **Mobile drawer showed "Staff login" while logged in** (`school.html`) — The mobile nav drawer always showed the public nav. Staff logging in on mobile had no admin navigation in the drawer. Fix: added admin drawer items (`#mobile-drawer-admin-nav`: Posted items / Post new item / Settings / Log out) hidden by default. `setAdminSidebarMode` now also toggles `#mobile-drawer-staff-login` and `#mobile-drawer-admin-nav`.
+
+---
 
 ### School UI Polish + Email Flows + Resend Domain — March 20, 2026 (evening, session 2)
 

@@ -520,6 +520,65 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
   #admin-map { height: max(400px, calc(100vh - 320px)); }
 }
 
+/* ── Organizations Tab ── */
+.org-summary-row {
+  display: flex; gap: 12px; padding: 20px 24px 16px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+.org-card {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 18px;
+  display: flex; align-items: center; gap: 18px; flex: 1; min-width: 220px;
+}
+.org-card-info { flex: 1; min-width: 0; }
+.org-card-name { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.org-card-slug { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.org-card-stats { display: flex; gap: 18px; flex-shrink: 0; }
+.org-stat-item { text-align: center; }
+.org-stat-val { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; color: #fff; line-height: 1; }
+.org-stat-val.has-pending { color: var(--orange); }
+.org-stat-lbl { font-size: 9px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+.org-portal-link {
+  flex-shrink: 0; font-size: 11px; color: var(--accent); text-decoration: none;
+  padding: 5px 10px; border: 1px solid rgba(96,165,250,0.3); border-radius: 7px;
+  white-space: nowrap; transition: all 0.2s;
+}
+.org-portal-link:hover { background: var(--adim); }
+.org-controls-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px; border-bottom: 1px solid var(--border);
+}
+.org-subtabs { display: flex; gap: 4px; }
+.org-subtab {
+  padding: 6px 16px; border-radius: 20px; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; font-family: inherit;
+  background: rgba(255,255,255,0.06); color: var(--muted); transition: all 0.2s;
+}
+.org-subtab.active { background: var(--odim); color: var(--orange); }
+.org-subtab:hover:not(.active) { background: rgba(255,255,255,0.09); color: var(--text); }
+.org-filter-select {
+  background: rgba(255,255,255,0.07); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); padding: 6px 12px;
+  font-size: 13px; font-family: inherit; cursor: pointer; outline: none;
+}
+.org-badge {
+  display: inline-block; font-size: 9px; font-weight: 700;
+  padding: 2px 7px; border-radius: 20px;
+  background: var(--odim); color: var(--orange);
+  text-transform: uppercase; letter-spacing: 0.8px;
+}
+.claims-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; border-radius: 9px; padding: 0 4px;
+  font-size: 10px; font-weight: 700;
+  background: var(--odim); color: var(--orange);
+}
+@media (max-width: 768px) {
+  .org-card { min-width: 100%; }
+  .org-card-stats { gap: 12px; }
+  .org-controls-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
+
 /* Map popup card */
 .map-popup { padding: 16px 18px 14px; min-width: 210px; max-width: 260px; font-family: 'DM Sans', sans-serif; }
 .popup-badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 9px; }
@@ -665,6 +724,7 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
           <button class="tab-btn"        data-tab="tips"     onclick="setTab('tips')">Tips</button>
           <button class="tab-btn"        data-tab="debug"    onclick="setTab('debug')">Debug Matcher</button>
           <button class="tab-btn"        data-tab="map"      onclick="setTab('map')">🗺 Map</button>
+          <button class="tab-btn"        data-tab="orgs"     onclick="setTab('orgs')">Organizations</button>
         </div>
       </div>
       <div class="tab-divider"></div>
@@ -754,6 +814,34 @@ tbody tr.row-expanded > td { background: rgba(96,165,250,0.06) !important; borde
         <!-- Refresh (top-right) -->
         <button class="atab-float" id="atab-refresh" onclick="refreshAdminMap()">↻ Refresh</button>
       </div>
+
+      <!-- Organizations -->
+      <div id="orgs-container" style="display:none">
+        <div class="org-summary-row" id="org-summary-row">
+          <div style="padding:4px 0;color:var(--muted);font-size:13px">Loading…</div>
+        </div>
+        <div class="org-controls-row">
+          <div class="org-subtabs">
+            <button class="org-subtab active" data-subtab="items" onclick="setOrgSubtab('items')">Items</button>
+            <button class="org-subtab" data-subtab="claims" onclick="setOrgSubtab('claims')">Claims</button>
+          </div>
+          <select id="org-filter" class="org-filter-select" onchange="applyOrgFilter(this.value)">
+            <option value="">All Organizations</option>
+          </select>
+        </div>
+        <div class="table-wrap" id="org-items-wrap">
+          <table>
+            <thead id="org-items-head"></thead>
+            <tbody id="org-items-body"><tr class="loading-row"><td colspan="8">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-wrap" id="org-claims-wrap" style="display:none">
+          <table>
+            <thead id="org-claims-head"></thead>
+            <tbody id="org-claims-body"><tr class="loading-row"><td colspan="7">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </main>
 </div>
@@ -773,6 +861,13 @@ const tableData  = { lost: [], found: [], reunions: [], tips: [] };
 let sortState    = { col: null, dir: 'asc' };
 const rowDataMap = {}; // item.id → full item object for row expansion
 let expandedRowId = null;
+
+// ── Org state ──
+let orgSubtab    = 'items';
+let orgFilterId  = '';
+let orgsData     = [];
+let orgItemsData  = [];
+let orgClaimsData = [];
 
 // ── Map state ──
 let _adminMap         = null;
@@ -881,18 +976,28 @@ async function setTab(tab) {
     document.getElementById('table-container').style.display = 'none';
     document.getElementById('debug-container').style.display = 'none';
     document.getElementById('map-tab-container').style.display = 'block';
+    document.getElementById('orgs-container').style.display = 'none';
     panel.style.overflow = 'visible'; // allow Leaflet popups to extend above panel edge
     await loadMapTab();
   } else if (tab === 'debug') {
     document.getElementById('table-container').style.display = 'none';
     document.getElementById('debug-container').style.display = 'block';
     document.getElementById('map-tab-container').style.display = 'none';
+    document.getElementById('orgs-container').style.display = 'none';
     panel.style.overflow = 'hidden';
     document.getElementById('debug-result').innerHTML = '';
+  } else if (tab === 'orgs') {
+    document.getElementById('table-container').style.display = 'none';
+    document.getElementById('debug-container').style.display = 'none';
+    document.getElementById('map-tab-container').style.display = 'none';
+    document.getElementById('orgs-container').style.display = 'block';
+    panel.style.overflow = 'hidden';
+    await loadOrgTab();
   } else {
     document.getElementById('table-container').style.display = 'block';
     document.getElementById('debug-container').style.display = 'none';
     document.getElementById('map-tab-container').style.display = 'none';
+    document.getElementById('orgs-container').style.display = 'none';
     panel.style.overflow = 'hidden';
     await loadTab(tab);
   }
@@ -903,6 +1008,8 @@ async function setTab(tab) {
 async function loadAll() {
   if (activeTab === 'map') {
     await Promise.all([loadStats(), loadCharts(), loadMapTab()]);
+  } else if (activeTab === 'orgs') {
+    await Promise.all([loadStats(), loadCharts(), loadOrgTab()]);
   } else {
     await Promise.all([loadStats(), loadCharts(), loadTab(activeTab)]);
   }
@@ -978,7 +1085,7 @@ function rerenderCurrentTab() {
 
 // ── Tables ──
 async function loadTab(tab) {
-  if (tab === 'debug' || tab === 'map') return;
+  if (tab === 'debug' || tab === 'map' || tab === 'orgs') return;
   document.getElementById('table-body').innerHTML = `<tr class="loading-row"><td colspan="9">Loading…</td></tr>`;
   if (tab === 'lost')     await loadItems('loser');
   if (tab === 'found')    await loadItems('finder');
@@ -1788,6 +1895,170 @@ window.addEventListener('resize', () => {
   clearTimeout(_chartResizeTimer);
   _chartResizeTimer = setTimeout(() => loadCharts(), 200);
 });
+
+// ── Organizations Tab ──────────────────────────────────────────────────── //
+
+async function loadOrgTab() {
+  await Promise.all([loadOrgSummary(), loadOrgItems()]);
+}
+
+async function loadOrgSummary() {
+  const data = await api('GET', '/admin/orgs');
+  orgsData = data || [];
+  renderOrgSummaryCards(orgsData);
+  // Populate filter dropdown (skip options already present)
+  const sel = document.getElementById('org-filter');
+  const existing = new Set(Array.from(sel.options).map(o => o.value));
+  orgsData.forEach(o => {
+    if (!existing.has(o.id)) {
+      const opt = document.createElement('option');
+      opt.value = o.id;
+      opt.textContent = o.name;
+      sel.appendChild(opt);
+    }
+  });
+}
+
+function renderOrgSummaryCards(data) {
+  const el = document.getElementById('org-summary-row');
+  if (!data || data.length === 0) {
+    el.innerHTML = '<div style="padding:4px 0;color:var(--muted);font-size:13px">No organizations yet. Add a school to get started.</div>';
+    return;
+  }
+  el.innerHTML = data.map(o => `
+    <div class="org-card">
+      <div class="org-card-info">
+        <div class="org-card-name">${esc(o.name)}</div>
+        <div class="org-card-slug">${esc(o.slug)}</div>
+      </div>
+      <div class="org-card-stats">
+        <div class="org-stat-item">
+          <div class="org-stat-val">${o.active_items}</div>
+          <div class="org-stat-lbl">Active</div>
+        </div>
+        <div class="org-stat-item">
+          <div class="org-stat-val${o.pending_claims > 0 ? ' has-pending' : ''}">${o.pending_claims}</div>
+          <div class="org-stat-lbl">Claims</div>
+        </div>
+        <div class="org-stat-item">
+          <div class="org-stat-val">${o.subscribers}</div>
+          <div class="org-stat-lbl">Subs</div>
+        </div>
+      </div>
+      <a class="org-portal-link" href="https://lofoapp.com/school/${esc(o.slug)}" target="_blank">Open Portal ↗</a>
+    </div>
+  `).join('');
+}
+
+async function loadOrgItems() {
+  document.getElementById('org-items-body').innerHTML =
+    `<tr class="loading-row"><td colspan="8">Loading…</td></tr>`;
+  const qs  = orgFilterId ? `?org_id=${encodeURIComponent(orgFilterId)}` : '';
+  const data = await api('GET', `/admin/org-items${qs}`);
+  orgItemsData = data || [];
+  orgItemsData.forEach(item => { rowDataMap[item.id] = item; });
+  renderOrgItemsHead();
+  renderOrgItemsBody(orgItemsData);
+}
+
+function renderOrgItemsHead() {
+  document.getElementById('org-items-head').innerHTML = `<tr>
+    <th>Org</th>
+    <th>Item</th>
+    <th>Description</th>
+    <th>Photo</th>
+    <th>Posted</th>
+    <th>Status</th>
+    <th>Claims</th>
+    <th>Actions</th>
+  </tr>`;
+}
+
+function renderOrgItemsBody(data) {
+  const tbody = document.getElementById('org-items-body');
+  if (!data || data.length === 0) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">No items posted yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map(item => {
+    const desc     = [item.color?.join('/'), item.material, item.size].filter(Boolean).join(' · ');
+    const photoUrl = item.photo_url && item.photo_url.startsWith('https://') ? item.photo_url : '';
+    const photo    = photoUrl
+      ? `<img class="thumb" src="${esc(photoUrl)}" onclick="event.stopPropagation();window.open('${esc(photoUrl).replace(/&amp;/g,'&')}','_blank')" />`
+      : '<span class="muted">—</span>';
+    const isActive   = item.status === 'active';
+    const claimsCell = item.pending_claims > 0
+      ? `<span class="claims-count">${item.pending_claims}</span>`
+      : '<span class="muted">—</span>';
+    return `<tr id="row-${item.id}" class="data-row${isActive ? '' : ' row-inactive'}" onclick="toggleRowDetail(event,'${item.id}')">
+      <td><span class="org-badge">${esc((item.org_slug || '').toUpperCase())}</span></td>
+      <td class="item-type">${esc(item.item_type) || '—'}</td>
+      <td class="muted">${esc(desc) || '—'}</td>
+      <td>${photo}</td>
+      <td class="muted">${timeAgo(item.created_at)}</td>
+      <td><span class="status-pill ${statusCls(item.status)}">${esc(item.status)}</span></td>
+      <td>${claimsCell}</td>
+      <td class="actions-cell">${isActive ? rowActions(item.id) : '<span class="muted">—</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadOrgClaims() {
+  document.getElementById('org-claims-body').innerHTML =
+    `<tr class="loading-row"><td colspan="7">Loading…</td></tr>`;
+  const qs  = orgFilterId ? `?org_id=${encodeURIComponent(orgFilterId)}` : '';
+  const data = await api('GET', `/admin/org-claims${qs}`);
+  orgClaimsData = data || [];
+  renderOrgClaimsHead();
+  renderOrgClaimsBody(orgClaimsData);
+}
+
+function renderOrgClaimsHead() {
+  document.getElementById('org-claims-head').innerHTML = `<tr>
+    <th>Org</th>
+    <th>Item</th>
+    <th>Child</th>
+    <th>Parent</th>
+    <th>Email</th>
+    <th>Note</th>
+    <th>Date</th>
+  </tr>`;
+}
+
+function renderOrgClaimsBody(data) {
+  const tbody = document.getElementById('org-claims-body');
+  if (!data || data.length === 0) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">No claims yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map(c => `<tr>
+    <td><span class="org-badge">${esc((c.org_slug || '').toUpperCase())}</span></td>
+    <td class="item-type">${esc(c.item_type || '—')}</td>
+    <td class="small">${esc(c.child_name || '—')}</td>
+    <td class="small">${esc(c.parent_name || '—')}</td>
+    <td class="muted"><a href="mailto:${esc(c.parent_email)}" style="color:var(--accent);text-decoration:none">${esc(c.parent_email)}</a></td>
+    <td class="small muted">${c.claim_note
+      ? `<span title="${esc(c.claim_note)}">${esc(c.claim_note.slice(0, 42))}${c.claim_note.length > 42 ? '…' : ''}</span>`
+      : '—'}</td>
+    <td class="muted">${timeAgo(c.created_at)}</td>
+  </tr>`).join('');
+}
+
+function setOrgSubtab(tab) {
+  orgSubtab = tab;
+  document.querySelectorAll('.org-subtab').forEach(b => {
+    b.classList.toggle('active', b.dataset.subtab === tab);
+  });
+  document.getElementById('org-items-wrap').style.display  = tab === 'items'  ? 'block' : 'none';
+  document.getElementById('org-claims-wrap').style.display = tab === 'claims' ? 'block' : 'none';
+  if (tab === 'claims' && orgClaimsData.length === 0) loadOrgClaims();
+}
+
+async function applyOrgFilter(id) {
+  orgFilterId = id;
+  if (orgSubtab === 'items') await loadOrgItems();
+  else await loadOrgClaims();
+}
 
 // ── Shared Helpers ──
 function timeAgo(iso) {

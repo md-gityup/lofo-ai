@@ -3064,6 +3064,82 @@ def admin_tips(period: str = "all", admin=Depends(_verify_admin)):
     return [dict(r) for r in rows]
 
 
+@app.get("/admin/orgs", include_in_schema=False)
+def admin_orgs(admin=Depends(_verify_admin)):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    s.id::text, s.slug, s.name,
+                    (SELECT COUNT(*)::int FROM items i
+                     WHERE i.school_id = s.id AND i.type = 'finder' AND i.status = 'active') AS active_items,
+                    (SELECT COUNT(*)::int FROM items i
+                     WHERE i.school_id = s.id AND i.type = 'finder') AS total_items,
+                    (SELECT COUNT(*)::int FROM school_claims sc
+                     WHERE sc.school_id = s.id) AS total_claims,
+                    (SELECT COUNT(*)::int FROM school_claims sc
+                     WHERE sc.school_id = s.id AND sc.status = 'pending') AS pending_claims,
+                    (SELECT COUNT(*)::int FROM school_subscriptions ss
+                     WHERE ss.school_id = s.id) AS subscribers,
+                    s.created_at::text
+                FROM schools s
+                ORDER BY s.created_at ASC
+            """)
+            rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.get("/admin/org-items", include_in_schema=False)
+def admin_org_items(org_id: Optional[str] = None, admin=Depends(_verify_admin)):
+    org_filter = "AND i.school_id = %s::uuid" if org_id else ""
+    params = [org_id] if org_id else []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT
+                    i.id, i.type, i.item_type, i.color, i.material, i.size, i.features,
+                    i.photo_url, i.status, i.created_at::text, i.expires_at::text,
+                    i.latitude, i.longitude, i.phone,
+                    i.finder_payout_app, i.finder_payout_handle,
+                    (i.secret_detail IS NOT NULL) AS has_secret,
+                    (SELECT COUNT(*)::int FROM school_claims sc
+                     WHERE sc.item_id = i.id AND sc.status = 'pending') AS pending_claims,
+                    s.name AS org_name, s.slug AS org_slug, s.id::text AS org_id
+                FROM items i
+                JOIN schools s ON s.id = i.school_id
+                WHERE i.school_id IS NOT NULL AND i.type = 'finder' AND i.status != 'archived'
+                {org_filter}
+                ORDER BY i.created_at DESC
+                LIMIT 200
+            """, params)
+            rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.get("/admin/org-claims", include_in_schema=False)
+def admin_org_claims(org_id: Optional[str] = None, admin=Depends(_verify_admin)):
+    org_filter = "AND sc.school_id = %s::uuid" if org_id else ""
+    params = [org_id] if org_id else []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT
+                    sc.id::text, sc.item_id::text, sc.status,
+                    sc.child_name, sc.parent_name, sc.parent_email, sc.claim_note,
+                    sc.created_at::text,
+                    i.item_type, i.photo_url, i.color,
+                    s.name AS org_name, s.slug AS org_slug
+                FROM school_claims sc
+                JOIN items i ON i.id = sc.item_id
+                JOIN schools s ON s.id = sc.school_id
+                WHERE 1=1 {org_filter}
+                ORDER BY sc.created_at DESC
+                LIMIT 200
+            """, params)
+            rows = cur.fetchall()
+    return [dict(r) for r in rows]
+
+
 @app.patch("/admin/items/{item_id}/archive", include_in_schema=False)
 def admin_archive_item(item_id: uuid.UUID, admin=Depends(_verify_admin)):
     with get_connection() as conn:
