@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 21, 2026 — Admin Organizations tab added. Organizations tab in admin dashboard surfaces org items + claims with per-org summary cards, sub-tabs, and filter. "school" → "organization" rename at UI level (DB schema unchanged).*
+*Last updated: March 21, 2026 — School app navigation fully stabilized: post-item screen layout bug fixed (removed position:absolute from navigate), back-home flash fixed (skip re-stagger on revisit + animation order). Also this session: Admin Organizations tab, admin/map on lofoapp.com, email browse deep-link, Python version pin.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -62,8 +62,8 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 |---|---|
 | **Live API (Railway)** | `https://lofo-ai-production.up.railway.app` |
 | **Live app (GitHub Pages)** | `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html` |
-| **Admin dashboard** | `https://lofo-ai-production.up.railway.app/admin` |
-| **Live map** | `https://lofo-ai-production.up.railway.app/map` |
+| **Admin dashboard** | `https://lofoapp.com/admin` (proxied via Vercel → Railway) |
+| **Live map** | `https://lofoapp.com/map` (proxied via Vercel → Railway) |
 | **API docs** | `https://lofo-ai-production.up.railway.app/docs` |
 | **Local API** | `http://localhost:8000` (only when uvicorn running) |
 | **Database** | Supabase (PostgreSQL + pgvector) |
@@ -711,6 +711,41 @@ Then redeploy Railway.
 ---
 
 ## Session History
+
+### School App Navigation Fixes + Admin Orgs Tab — March 21, 2026
+
+**What shipped:**
+
+**Admin dashboard — Organizations tab:**
+- New "Organizations" tab in `admin.html` (UI-only rename: "school" → "organization"; DB schema unchanged).
+- Three new backend endpoints in `main.py`: `GET /admin/orgs` (per-org summary stats), `GET /admin/org-items` (all org finder items, filterable by org), `GET /admin/org-claims` (all school_claims with org context, filterable).
+- Per-org summary cards show: active items, total items, total claims, pending claims, subscriber count, org link.
+- Items sub-tab and Claims sub-tab with org filter dropdown. All rendered as sortable tables with org badge.
+
+**Admin + map on lofoapp.com:**
+- `vercel.json` in `lofoapp-web` updated with rewrites: `/admin` → Railway `/admin`, `/map` → Railway `/map`.
+- Admin dashboard now accessible at `lofoapp.com/admin`.
+
+**Email browse deep-link:**
+- Added `_school_browse_url(slug)` helper in `main.py` → `https://lofoapp.com/school/{slug}?browse=1`.
+- Three email CTAs updated to use deep-link: subscriber new-item notification ("View found items →"), possible match email ("Check it out →"), watching/no-match email ("Browse found items →").
+- `school.html` `DOMContentLoaded`: checks `?browse=1` param → calls `loadItems()` + navigates directly to `screen-browse`.
+
+**Python version pin:**
+- Created `.python-version` file with `3.12.9` to prevent Railway's `mise` from attempting to install a non-existent Python version (was crashing deploys).
+
+**school.html navigate() — post-item screen layout fix:**
+- Removed `position:absolute; left:0; right:0; top:0; zIndex:10` from the navigate function entirely. These were set on the incoming screen during transitions, but since the outgoing screen hides immediately, there's never two screens visible simultaneously — no layering needed.
+- Root cause of bug: if `animationend` didn't fire (e.g. animation cancelled or rapid navigation), the screen stayed stuck with `position:absolute`, causing the photo-picker to render full-width from the page edge, behind/over the sidebar.
+- Added `e.target !== next` guard on the `animationend` listener to ignore bubbled events from child elements.
+- Added 500ms `setTimeout` fallback that finalizes screen state even if the animation event never fires.
+
+**school.html navigate() — back-home flash fix:**
+- `staggerScreen()` was removing `.s-ready` from ALL `.s-item`/`.s-pop` elements on every screen visit, then re-adding it — causing a full visible flash as items vanished and re-animated on the landing screen.
+- Fix: `staggerScreen` now skips items that already have `.s-ready` class. Items that haven't been shown yet still animate in normally; revisiting a screen keeps existing items visible.
+- Also reordered navigation: animation class is now added before `display: flex`, ensuring `animation-fill-mode: both`'s initial `opacity:0` state is applied on the very first paint frame.
+
+---
 
 ### School Flow Bug Fixes — March 20, 2026 (evening, session 3)
 
