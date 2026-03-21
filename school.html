@@ -1222,10 +1222,10 @@ function onScreenEnter(id) {
     clearInterval(_thinkingTimer);
   }
   if (id === 'screen-claim') {
-    document.getElementById('claim-child').value = '';
-    document.getElementById('claim-parent').value = '';
-    document.getElementById('claim-email').value = '';
-    document.getElementById('claim-note').value = '';
+    document.getElementById('claim-child').value  = document.getElementById('lost-child').value.trim();
+    document.getElementById('claim-parent').value = document.getElementById('lost-parent').value.trim();
+    document.getElementById('claim-email').value  = document.getElementById('lost-email').value.trim();
+    document.getElementById('claim-note').value   = '';
   }
   if (id === 'screen-admin-settings') {
     document.getElementById('set-pickup').value = schoolData.pickup_info || '';
