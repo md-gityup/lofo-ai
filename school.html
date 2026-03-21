@@ -1145,22 +1145,19 @@ window.navigate = function (targetId, direction) {
   next.classList.remove('push-in','push-out','pop-in','pop-out','fade-in','active');
   next.classList.add(actualIn);
 
+  // Hide current screen immediately — CSS (.screen without .active = display:none)
+  // handles this; no animationend listener needed (the animation never fires anyway
+  // because display:none is applied, and a stale listener would fire on the next
+  // animationend of this element causing a blank-screen bug).
   if (current) {
-    current.classList.remove('push-in','push-out','pop-in','pop-out','fade-in');
-    current.classList.add(outAnim);
-    current.classList.remove('active');
-    current.addEventListener('animationend', () => {
-      current.classList.remove(outAnim, 'active');
-      current.style.display = 'none';
-      current.style.position = '';
-      current.style.top = ''; current.style.left = ''; current.style.right = '';
-      current.style.zIndex = '';
-    }, { once: true });
+    current.classList.remove('push-in','push-out','pop-in','pop-out','fade-in','active');
+    current.style.display = '';
   }
 
   next.addEventListener('animationend', () => {
     next.classList.remove(actualIn);
     next.classList.add('active');
+    next.style.display = '';  // clear inline style; rely on .screen.active { display:flex }
     next.style.position = '';
     next.style.top = ''; next.style.left = ''; next.style.right = '';
     next.style.zIndex = '';
