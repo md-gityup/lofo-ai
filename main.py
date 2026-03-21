@@ -1988,6 +1988,7 @@ def validate_handoff_token(body: HandoffValidateRequest):
 # --------------------------------------------------------------------------- #
 
 _SCHOOL_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
+_SCHOOL_TOKEN_RE = re.compile(r"^[a-f0-9]{12,24}$")
 
 
 def _jwt_secret_for_tokens() -> str:
@@ -1999,17 +2000,22 @@ def _require_valid_school_slug(slug: str) -> None:
         raise HTTPException(status_code=404, detail="Not found")
 
 
-def _get_school_public(slug: str) -> dict:
-    """id, slug, name, pickup_info, admin_notify_email (email ok for admin use only)."""
-    _require_valid_school_slug(slug)
+def _require_valid_school_token(token: str) -> None:
+    if not token or not _SCHOOL_TOKEN_RE.match(token):
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+def _get_school_public(token: str) -> dict:
+    """Look up school by url_token. Returns id, slug, url_token, name, pickup_info, admin_notify_email."""
+    _require_valid_school_token(token)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, slug, name, pickup_info, admin_notify_email
-                FROM schools WHERE slug = %s
+                SELECT id, slug, url_token, name, pickup_info, admin_notify_email
+                FROM schools WHERE url_token = %s
                 """,
-                (slug,),
+                (token,),
             )
             row = cur.fetchone()
     if row is None:
@@ -2017,16 +2023,16 @@ def _get_school_public(slug: str) -> dict:
     return dict(row)
 
 
-def _get_school_with_hash(slug: str) -> dict:
-    _require_valid_school_slug(slug)
+def _get_school_with_hash(token: str) -> dict:
+    _require_valid_school_token(token)
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, slug, name, pickup_info, admin_notify_email, admin_passcode_hash
-                FROM schools WHERE slug = %s
+                SELECT id, slug, url_token, name, pickup_info, admin_notify_email, admin_passcode_hash
+                FROM schools WHERE url_token = %s
                 """,
-                (slug,),
+                (token,),
             )
             row = cur.fetchone()
     if row is None:
@@ -2034,15 +2040,16 @@ def _get_school_with_hash(slug: str) -> dict:
     return dict(row)
 
 
-def _require_school_admin(slug: str, authorization: Optional[str]) -> dict:
+def _require_school_admin(url_token: str, authorization: Optional[str]) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="School admin authentication required")
-    token = authorization[7:].strip()
+    bearer = authorization[7:].strip()
     try:
-        payload = jwt.decode(token, _jwt_secret_for_tokens(), algorithms=["HS256"])
+        payload = jwt.decode(bearer, _jwt_secret_for_tokens(), algorithms=["HS256"])
         if payload.get("role") != "school_admin":
             raise HTTPException(status_code=403, detail="Not a school admin token")
-        if payload.get("slug") != slug:
+        school = _get_school_public(url_token)
+        if payload.get("school_id") != str(school["id"]):
             raise HTTPException(status_code=403, detail="Token not valid for this school")
         return payload
     except jwt.ExpiredSignatureError:
@@ -2062,11 +2069,11 @@ def _create_school_admin_token(school_id: str, slug: str) -> str:
     return jwt.encode(payload, _jwt_secret_for_tokens(), algorithm="HS256")
 
 
-def _school_page_url(slug: str) -> str:
-    return f"https://lofoapp.com/school/{slug}"
+def _school_page_url(token: str) -> str:
+    return f"https://lofoapp.com/school/{token}"
 
 
-def _school_browse_url(slug: str) -> str:
+def _school_browse_url(token: str) -> str:
     """Deep-link directly to the browse (found items) screen."""
     return f"https://lofoapp.com/school/{slug}?browse=1"
 
@@ -2184,12 +2191,12 @@ def _school_notify_subscribers_new_item(school: dict, item: dict, extracted: dic
     emails = [r["email"] for r in rows]
     if not emails:
         return
-    slug = school.get("slug", "")
+    token = school.get("url_token", "")
     label = (extracted.get("item_type") or "item").capitalize()
     colors = extracted.get("color") or []
     color_str = (", ".join(str(c) for c in colors)).capitalize() if colors else ""
     photo = item.get("photo_url") or ""
-    school_url = _school_page_url(slug)
+    school_url = _school_page_url(token)
 
     photo_block = (
         f'<p><img src="{photo}" alt="{label}" style="max-width:100%;border-radius:10px;'
@@ -2202,12 +2209,12 @@ def _school_notify_subscribers_new_item(school: dict, item: dict, extracted: dic
       <p style="font-size:14px;color:#9A9488;margin:0 0 16px;">Just posted to the {school["name"]} lost &amp; found.</p>
       {photo_block}
       <p style="font-size:14px;margin:16px 0 0;">Recognize it? Browse the full gallery and submit a claim.</p>
-      {_email_cta_btn("View found items", _school_browse_url(slug))}
+      {_email_cta_btn("View found items", _school_browse_url(token))}
     """
     _resend_send_html(
         emails,
         f"New found item — {school['name']}",
-        _school_email_html(school["name"], body, slug),
+        _school_email_html(school["name"], body, token),
     )
 
 
@@ -2216,13 +2223,13 @@ def _school_notify_claim_admin(school: dict, claim: dict, item: dict) -> None:
     if not to_addr:
         print("[LOFO school] No admin_notify_email — skip claim notification")
         return
-    slug = school.get("slug", "")
+    token = school.get("url_token", "")
     item_label = (item.get("item_type") or "item").capitalize()
     child = claim.get("child_name") or "—"
     parent_name = claim.get("parent_name") or "—"
     parent_email = claim.get("parent_email") or "—"
     note = claim.get("claim_note") or "—"
-    school_url = _school_page_url(slug)
+    school_url = _school_page_url(token)
 
     row_style = "padding:8px 0;border-bottom:1px solid #F0EDE6;font-size:14px;"
     label_style = "color:#9A9488;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;display:block;margin-bottom:2px;"
@@ -2240,7 +2247,7 @@ def _school_notify_claim_admin(school: dict, claim: dict, item: dict) -> None:
     _resend_send_html(
         [to_addr],
         f"Claim submitted — {item_label} · {school['name']}",
-        _school_email_html(school["name"], body, slug),
+        _school_email_html(school["name"], body, token),
     )
 
 
@@ -2250,12 +2257,12 @@ def _school_notify_parent_possible_match(
     finder_item: dict,
     score: float,
 ) -> None:
-    slug = school.get("slug", "")
+    token = school.get("url_token", "")
     child = pending.get("child_name") or "your child"
     pct = int(round(float(score) * 100))
     label = (finder_item.get("item_type") or "item").capitalize()
     photo = finder_item.get("photo_url") or ""
-    school_url = _school_page_url(slug)
+    school_url = _school_page_url(token)
 
     photo_block = (
         f'<p><img src="{photo}" alt="{label}" style="max-width:100%;border-radius:10px;'
@@ -2271,12 +2278,12 @@ def _school_notify_parent_possible_match(
       </p>
       {photo_block}
       <p style="font-size:14px;margin:16px 0 0;">Open the lost &amp; found page to view the item and submit a claim if it's yours.</p>
-      {_email_cta_btn("Check it out", _school_browse_url(slug))}
+      {_email_cta_btn("Check it out", _school_browse_url(token))}
     """
     _resend_send_html(
         [pending["parent_email"]],
         f"Possible match found — {school['name']}",
-        _school_email_html(school["name"], body, slug),
+        _school_email_html(school["name"], body, token),
     )
 
 
@@ -2358,7 +2365,6 @@ def serve_school_page(slug: str):
 def school_public_data(slug: str):
     school = _get_school_public(slug)
     return {
-        "slug": school["slug"],
         "name": school["name"],
         "pickup_info": school["pickup_info"] or "",
         "admin_notify_email": school.get("admin_notify_email") or "",
@@ -2602,8 +2608,8 @@ def school_lost_match(slug: str, body: SchoolLostRequest):
                     )
                 conn.commit()
             pending_watch = True
-            slug = school.get("slug", "")
-            school_url = _school_page_url(slug)
+            token = school.get("url_token", "")
+            school_url = _school_page_url(token)
             _watch_body = f"""
               <p style="font-size:15px;font-weight:600;margin:0 0 8px;">We're on the lookout.</p>
               <p style="font-size:14px;color:#9A9488;margin:0 0 16px;">
@@ -2611,12 +2617,12 @@ def school_lost_match(slug: str, body: SchoolLostRequest):
                 email you the moment something similar is posted.
               </p>
               <p style="font-size:14px;margin:0 0 4px;">In the meantime, you can browse everything that's been found so far.</p>
-              {_email_cta_btn("Browse found items", _school_browse_url(slug))}
+              {_email_cta_btn("Browse found items", _school_browse_url(token))}
             """
             _resend_send_html(
                 [email],
                 f"We're watching for a match — {school['name']}",
-                _school_email_html(school["name"], _watch_body, slug),
+                _school_email_html(school["name"], _watch_body, token),
             )
     elif not matches_out:
         # No match and no watch email — remove orphan loser row
