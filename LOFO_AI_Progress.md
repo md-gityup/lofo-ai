@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 21, 2026 — School app navigation fully stabilized: post-item screen layout bug fixed (removed position:absolute from navigate), back-home flash fixed (skip re-stagger on revisit + animation order). Also this session: Admin Organizations tab, admin/map on lofoapp.com, email browse deep-link, Python version pin.*
+*Last updated: March 22, 2026 — School app polish + security: URL token security (unguessable hex token replaces /school/sfws), iOS-style required field pulse validation, mobile nav redesign (cream bg, house icon, staff login in footer), claim form pre-population from lost form, photo picker fix. lofoapp.com homepage: Playfair Display Black, App Store badge, "Found" capitalized. TestFlight build 1.0.0 (6) approved + public link live.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -520,7 +520,7 @@ Then redeploy Railway.
 >
 > **What's running (Phases 1–22 deployed):** Live API at `https://lofo-ai-production.up.railway.app`, web frontend at `https://md-gityup.github.io/lofo-ai/LOFO_MVP.html`. Admin at `/admin`, map at `/map`. UptimeRobot keep-alive. Lifecycle cron via GitHub Actions.
 >
-> **iOS app — ALL phases A–G complete. Build 1.0.0 (6) uploaded to TestFlight. Build 1.0.0 (5) in external review. Next upload = build 7.**
+> **iOS app — ALL phases A–G complete. Build 1.0.0 (6) APPROVED on TestFlight. Public link live: `https://testflight.apple.com/join/PV5qCDKS`. "Friends" external group active (2 testers invited). Next upload = build 7.**
 > Native SwiftUI at `~/Desktop/LOFO/LOFO.xcodeproj`. **BUILD SUCCEEDED** — iPhone 17 Pro, iOS 26.3.1, Xcode 26.3. Full finder + loser + match + reunion + tip flows. Push notifications (PushManager + APNs). StripePaymentSheet v25.7.1 SPM added. Supabase `device_tokens` migration done.
 >
 > **FinderCameraView** is a full native camera viewfinder (AVFoundation): live preview, centered viewfinder bracket overlay, "Point at what you found." center copy, shutter button, library picker, location pill (shows real city/state/zip on device). Falls back to dark gradient on simulator (no real camera).
@@ -529,7 +529,7 @@ Then redeploy Railway.
 >
 > **Backend:** FastAPI (`main.py`), Supabase/pgvector + Supabase Storage, Stripe, Twilio. Railway.
 >
-> **DB schema:** `items`, `tips`, `reunions`, `device_tokens` (migration done). `used_tokens`, `secret_verifications` (legacy). School tables: `schools`, `school_subscriptions`, `school_claims`, `school_lost_pending` — migration file ready but NOT yet run in Supabase. `items.school_id` column not yet added.
+> **DB schema:** `items`, `tips`, `reunions`, `device_tokens` (migration done). `used_tokens`, `secret_verifications` (legacy). School tables: `schools` (has `url_token` column), `school_subscriptions`, `school_claims`, `school_lost_pending`, `items.school_id` — all migrations run. `migration_school_mvp.sql` + `migration_school_url_tokens.sql` both complete.
 >
 > **SMS:** Code-complete, pending Twilio A2P carrier approval (Campaign SID `CM50255157...`, ~2–3 weeks from Mar 12).
 >
@@ -562,9 +562,9 @@ Then redeploy Railway.
 >
 > **⚠️ Critical — file persistence:** All 37 Swift files in `~/Desktop/LOFO/LOFO/` must exist on disk. If a clean build fails with "Cannot find 'LOFOTheme' in scope" across many files, files have dropped off disk. Use the Cursor Read tool to recover them — Cursor's index retains content even when files drop off disk. (Happened March 17, 2026 — 11 files recovered.)
 >
-> **TestFlight status (as of March 17, 2026):**
-> - **Build 1.0.0 (2) uploaded** — real-device bug fixes from first TestFlight session. Live in Internal group.
-> - Build 1.0.0 (1) was the initial upload; superseded by (2).
+> **TestFlight status (as of March 22, 2026):**
+> - **Build 1.0.0 (6) APPROVED** — external review passed. Public link active: `https://testflight.apple.com/join/PV5qCDKS`.
+> - "Friends" external group: 2 testers invited (kendaniels@gmail.com, jon.cronin@gmail.com), status "Invited".
 > - APNs Key ID + `APNS_TEAM_ID` + `APNS_AUTH_KEY` added to Railway env vars.
 > - Merchant ID `merchant.ai.lofo` registered, Apple Pay capability in Xcode.
 > - Export compliance set: No encryption beyond iOS standard.
@@ -606,6 +606,15 @@ Then redeploy Railway.
 > - Tip flow redesign: "tip intent" concept (loser picks amount upfront, charged after reunion confirmed). Post-reunion trigger via SMS relay silence heuristic + time-bomb fallback. Detailed design in Session History Phase 26q.
 > - Unit economics: ~$0.25/reunion in Twilio costs, $10 avg tip, net ~$0.87 per loop (2% Stripe on $10, no fixed fee on Apple Pay).
 >
+> **New this session (March 22, 2026):**
+> - **TestFlight build 1.0.0 (6) approved** — public link live: `https://testflight.apple.com/join/PV5qCDKS`. "Friends" external group, 2 testers invited.
+> - **lofoapp.com homepage polished**: Playfair Display weight 900 on `h1`, "Found" capitalized, `&nbsp;` for "by AI" spacing, official App Store badge.
+> - **School URL token security**: `url_token` column on `schools` table, all routes use unguessable 18-char hex token. Migration run. SFWS URL: `https://lofoapp.com/school/787c046ec2f5124b79`.
+> - **school.html mobile nav redesign**: cream background, house SVG icon, staff login in footer, no backdrop overlay. Desktop sidebar also updated to house icon.
+> - **Claim form pre-population**: child/parent/email copied from lost form when entering claim screen.
+> - **iOS-style field validation**: `fieldPulse` keyframe (3×0.65s rust border), `markFieldError` + `validateRequired` JS utilities, wired into all 5 form submits.
+> - **Photo picker fix**: `display:none` on `input[type="file"]`, `for="admin-file"` on label — eliminates overflow layout bug.
+>
 > **New this session (March 19–20, 2026):**
 > - **Map pin-drop** added to loser flow (`LostPromptView` + new `LocationPickerView`). Uber-style map, address chip, rust pin, "KNOW EXACTLY WHERE?" section label. Pin confirmed → rust checkmark + gray X to clear. GPS still captured as fallback.
 > - **Backend pin coords bug fixed** — pin lat/lng no longer overwritten by Nominatim re-geocoding when coords are already provided.
@@ -640,7 +649,7 @@ Then redeploy Railway.
 > 4. ✅ Passcode rotated (Argon2id hash updated in DB)
 > 5. ✅ Smoke tested — school app loads, staff login works
 >
-> **Live at:** `https://lofo-ai-production.up.railway.app/school/sfws`
+> **Live at:** `https://lofoapp.com/school/787c046ec2f5124b79` (SFWS token — unguessable, do not share publicly)
 >
 > **School isolation hardened (March 20, 2026):**
 > - `_MATCH_SQL` (main app): added `AND f.school_id IS NULL` — consumer losers can never surface school finder items
@@ -659,7 +668,7 @@ Then redeploy Railway.
 > **lofoapp.com — fully live (March 20, 2026):**
 > - Static site: `~/Desktop/lofoapp-web` → GitHub `md-gityup/lofoapp-web` → Vercel → `lofoapp.com`
 > - Pages: `/` (homepage), `/privacy`, `/terms`
-> - `/school/*` proxies to Railway via `vercel.json` rewrite — so `lofoapp.com/school/sfws` is the clean staff URL
+> - `/school/*` proxies to Railway via `vercel.json` rewrite — so `lofoapp.com/school/{token}` is the clean staff URL
 > - `support@lofoapp.com` active via ImprovMX → marcdaniels@gmail.com
 >
 > **Twilio A2P — 3rd submission (March 20, 2026):**
@@ -700,8 +709,8 @@ Then redeploy Railway.
 > 5. ✅ Mobile drawer showed "Staff login" even when logged in → no admin nav on mobile. Fixed: `setAdminSidebarMode` now toggles mobile drawer to show Posted items / Post new item / Settings / Log out when staff is logged in.
 >
 > **Next priorities:**
-> 1. **Staff onboarding at SFWS** — share URL `https://lofoapp.com/school/sfws` + passcode `steiner`. Staff go to Settings first → set pickup info + admin email. Smoke test: post item → confirm subscriber email arrives from `noreply@lofoapp.com`.
-> 2. **TestFlight external review** — build 1.0.0 (6) "Waiting for Review". Once approved, enable public link in "testers" group Settings tab.
+> 1. **Staff onboarding at SFWS** — share URL `https://lofoapp.com/school/787c046ec2f5124b79` + passcode `steiner`. Staff go to Settings first → set pickup info + admin email. Smoke test: post item → confirm subscriber email arrives from `noreply@lofoapp.com`.
+> 2. **TestFlight public link** — build 1.0.0 (6) approved, public link live. Share `https://testflight.apple.com/join/PV5qCDKS` with users. Update lofoapp.com homepage App Store badge to point to this URL.
 > 3. **Twilio A2P** — awaiting TCR approval (3rd submission, Error 30896). No code changes needed when approved. Once approved, test full SMS flow end-to-end, then revisit resolve page tip flow.
 > 4. **Next iOS build (7)** — `support@lofoapp.com` in MenuSheet already in code. Archive when ready.
 > 5. **App Store screenshots** — 6.7" 1290×2796, 6 screens. Copy already drafted in Phase 26 checklist. Needs Xcode simulator + manual capture.
@@ -711,6 +720,52 @@ Then redeploy Railway.
 ---
 
 ## Session History
+
+### School App Security + Polish + TestFlight Approved — March 22, 2026
+
+**What shipped:**
+
+**lofoapp.com homepage (`~/Desktop/lofoapp-web/index.html`):**
+- **Playfair Display Black** — `h1` now uses `Playfair Display` variable font weight 900, `letter-spacing: -0.02em`, `word-spacing: -0.02em`. Matches iOS app heading style.
+- **"Found" capitalized** — headline reads "Lost & Found," (was "Lost & found,").
+- **Word-spacing fix** — `&nbsp;` between "by" and "AI" to prevent line-break and extra visual gap.
+- **Official Apple App Store badge** — replaced custom badge `div` with `<img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us">` linked to `https://testflight.apple.com/join/PV5qCDKS`.
+
+**TestFlight:**
+- Build 1.0.0 (6) approved. Public TestFlight link live: `https://testflight.apple.com/join/PV5qCDKS`.
+- "Friends" external group created with 2 invited testers (kendaniels@gmail.com, jon.cronin@gmail.com).
+
+**School URL token security (`migration_school_url_tokens.sql` + `main.py`):**
+- New `url_token VARCHAR(24) UNIQUE NOT NULL` column on `schools` table. Populated with `encode(gen_random_bytes(9), 'hex')` — 18-char unguessable hex token.
+- `migration_school_url_tokens.sql` run in Supabase.
+- `main.py`: all `/school/{slug}/*` routes renamed to `/school/{token}/*`. Lookup now uses `WHERE url_token = %s`. Validation regex `_SCHOOL_TOKEN_RE = re.compile(r"^[a-f0-9]{12,24}$")`. Admin JWT compare uses token-fetched school ID. Email helpers use `url_token` for all URLs.
+- Public `/school/{token}/data` response no longer exposes `slug`.
+- SFWS live URL: `https://lofoapp.com/school/787c046ec2f5124b79`.
+
+**school.html — mobile nav redesign:**
+- Drawer background changed to `var(--cream)` (matching main screen). Width `min(300px, 88vw)`.
+- Backdrop/overlay disabled (`display: none`).
+- Drawer header replaced: house SVG icon (rust, 28px) + school name subtitle below it (set dynamically from `loadSchoolData`).
+- "Staff login" button moved from top-right of landing to a `mobile-drawer-footer` div in the drawer.
+- "Staff login" button removed from landing top-bar.
+- Close button styled to match cream background (`rgba(26,26,46,0.08)` tint, navy icon).
+
+**school.html — desktop sidebar logo:**
+- Sidebar home button SVG replaced: asterisk/plus → simple rust house icon (24×24, stroke-width 1.7, matching mobile drawer).
+
+**school.html — claim form pre-population:**
+- `onScreenEnter('screen-claim')` now copies `child`, `parent`, `email` values from the lost form into claim form fields. `claim-note` cleared to empty.
+
+**school.html — iOS-style required field validation:**
+- CSS: `@keyframes fieldPulse` — 3 pulses × 0.65s, alternates rust border + box-shadow on/off. `.field-error` class applies animation, settles to `border-color: rgba(193,122,74,0.55)`.
+- JS: `markFieldError(el)` — adds `.field-error` class, removes on `animationend`. `validateRequired(ids)` — marks all empty fields, returns false if any invalid.
+- Wired into: `submitClaim`, `submitLostRetry`, `doSubscribe`, `adminLogin`. `submitLost` description length check uses `markFieldError`.
+
+**school.html — photo picker alignment fix:**
+- `input[type="file"]` inside `.photo-picker` changed from `position: absolute; inset: 0; opacity: 0` to `display: none` — removes intrinsic width from layout entirely.
+- `<label class="photo-picker">` given `for="admin-file"` attribute to maintain click-to-pick behavior.
+
+---
 
 ### School App Navigation Fixes + Admin Orgs Tab — March 21, 2026
 
