@@ -252,8 +252,8 @@ body { background: var(--navy); }
 .done-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 48px; }
 .done-inner { max-width: 460px; width: 100%; text-align: center; }
 .done-icon { font-size: 56px; margin-bottom: 24px; display: flex; align-items: center; justify-content: center; }
-.done-title { font-family: 'DM Serif Display', serif; font-size: 42px; line-height: 1.08; color: var(--navy); margin-bottom: 8px; }
-.done-rule { width: 32px; height: 1.5px; background: var(--border); margin: 20px auto; }
+.done-title { font-family: 'DM Serif Display', serif; font-size: 38px; line-height: 1.08; color: var(--navy); margin-bottom: 0; }
+.done-rule { width: 40px; height: 1.5px; background: rgba(26,26,46,0.15); margin: 16px auto 14px; }
 .done-sub { font-size: 16px; color: var(--muted); font-weight: 300; line-height: 1.70; margin-bottom: 32px; }
 .done-actions { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .done-actions .btn-secondary { min-width: 200px; }
@@ -457,7 +457,7 @@ body { background: var(--navy); }
 
   /* Done */
   .done-wrap { padding: 48px 22px; justify-content: flex-start; }
-  .done-title { font-size: 32px; }
+  .done-title { font-size: 28px; }
   .done-actions .btn-secondary { min-width: auto; width: 100%; }
 
   /* Match */
@@ -601,7 +601,10 @@ body { background: var(--navy); }
       <button type="button" class="back-btn" onclick="navigate('screen-landing','back')">← Back</button>
     </div>
     <div class="browse-header">
-      <h2 class="browse-heading">Found items</h2>
+      <div>
+        <h2 class="browse-heading">Found items</h2>
+        <div class="heading-accent"></div>
+      </div>
       <input type="search" class="search-bar" id="browse-search" placeholder="Search — jacket, backpack, water bottle…" onkeydown="if(event.key==='Enter')loadItems()">
     </div>
     <div class="photo-grid" id="browse-grid"></div>
@@ -623,6 +626,7 @@ body { background: var(--navy); }
       </div>
       <div class="detail-info-col">
         <h2 class="detail-title" id="detail-title"></h2>
+        <div class="heading-accent"></div>
         <div class="tag-row" id="detail-tags"></div>
         <div class="btn-row">
           <button type="button" class="btn-primary" onclick="navigate('screen-claim','forward')">
@@ -645,6 +649,7 @@ body { background: var(--navy); }
         <button type="button" class="back-btn" onclick="navigate('screen-detail','back')">← Item detail</button>
       </div>
       <h2 class="page-title">Claim this item</h2>
+      <div class="heading-accent"></div>
       <p class="page-sub">The school will follow up with you directly to verify.</p>
       <label class="field-label">Child's name</label>
       <input class="field" id="claim-child" type="text" placeholder="First name" autocomplete="given-name">
@@ -695,6 +700,7 @@ body { background: var(--navy); }
     </div>
     <div class="cx">
       <h2 class="page-title">What did your<br>child lose?</h2>
+      <div class="heading-accent"></div>
       <p class="page-sub">Be specific — colors, brand, size, any details help.</p>
       <textarea class="field" id="lost-desc" style="min-height:130px" placeholder="e.g. navy Patagonia fleece jacket, kids size M, small hole on right sleeve, has her name on the tag"></textarea>
       <label class="field-label">Your email <span class="lbl-note">(we'll watch and alert you if no match yet)</span></label>
@@ -766,6 +772,7 @@ body { background: var(--navy); }
         <button type="button" class="back-btn" onclick="navigate('screen-lost','back')">← Try again</button>
       </div>
       <h2 class="page-title">No close match <em style="font-style:italic;color:var(--rust)">yet.</em></h2>
+      <div class="heading-accent"></div>
       <p class="page-sub">Leave your email — we'll notify you the moment something matching is posted.</p>
       <label class="field-label">Email</label>
       <input class="field" id="nm-email" type="email" placeholder="you@example.com">
@@ -809,6 +816,7 @@ body { background: var(--navy); }
     </div>
     <div class="cx">
       <h2 class="page-title">New item alerts</h2>
+      <div class="heading-accent"></div>
       <p class="page-sub">Get an email whenever something new is posted to lost &amp; found.</p>
       <label class="field-label">Email</label>
       <input class="field" id="sub-email" type="email" placeholder="you@example.com" autocomplete="email">
@@ -832,6 +840,7 @@ body { background: var(--navy); }
     </div>
     <div class="cx" style="max-width:420px">
       <h2 class="page-title">Staff login</h2>
+      <div class="heading-accent"></div>
       <p class="page-sub">Enter the school passcode to manage found items.</p>
       <label class="field-label">Passcode</label>
       <input class="field" id="admin-pass" type="password" placeholder="••••••••" autocomplete="current-password"
@@ -878,6 +887,7 @@ body { background: var(--navy); }
         <button type="button" class="back-btn" onclick="navigate('screen-admin-dash','back')">← Cancel</button>
       </div>
       <h2 class="page-title">Post a photo</h2>
+      <div class="heading-accent"></div>
       <p class="page-sub" style="margin-bottom:24px">AI reads the image, classifies the item, and publishes it to the gallery instantly.</p>
       <label class="photo-picker" id="photo-picker" for="admin-file">
         <input type="file" id="admin-file" accept="image/*" onchange="onFileChosen(this)">
@@ -910,6 +920,7 @@ body { background: var(--navy); }
         <button type="button" class="back-btn" onclick="navigate('screen-admin-dash','back')">← Posted items</button>
       </div>
       <h2 class="page-title">Settings</h2>
+      <div class="heading-accent"></div>
       <label class="field-label">Pickup info <span class="lbl-note">(shown to parents)</span></label>
       <textarea class="field" id="set-pickup" style="min-height:90px"></textarea>
       <label class="field-label">Admin email <span class="lbl-note">(receives claim notifications)</span></label>
