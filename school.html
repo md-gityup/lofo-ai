@@ -437,6 +437,14 @@ input.field.field-error, textarea.field.field-error {
 .admin-card-date { font-size: 12px; color: var(--muted); }
 .claim-badge { display: inline-block; margin-top: 6px; background: var(--rust-light); color: var(--rust); padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; }
 .admin-empty { padding: 64px 48px; text-align: center; color: var(--muted); font-size: 15px; font-weight: 300; line-height: 1.7; }
+.admin-card.returned { opacity: 0.5; }
+.admin-card-actions { display: flex; gap: 7px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.btn-card-action { flex: 1; font-size: 11px; font-weight: 500; padding: 5px 0; border-radius: 6px; border: 1.5px solid; cursor: pointer; background: none; transition: background 0.15s, color 0.15s, border-color 0.15s; font-family: 'DM Sans', sans-serif; }
+.btn-card-returned { color: #3a7a3a; border-color: rgba(58,122,58,0.3); }
+.btn-card-returned:hover { background: rgba(58,122,58,0.08); }
+.btn-card-remove { color: var(--muted); border-color: var(--border); }
+.btn-card-remove:hover, .btn-card-remove.confirming { background: rgba(193,122,74,0.08); color: var(--rust); border-color: rgba(193,122,74,0.35); }
+.returned-badge { display: inline-block; margin-top: 6px; background: rgba(58,122,58,0.1); color: #3a7a3a; padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; }
 
 /* ─── Photo picker ───────────────────────────────── */
 .photo-picker { display: block; width: 100%; border: 2px dashed var(--border); border-radius: 12px; background: #fff; padding: 56px 24px; text-align: center; cursor: pointer; position: relative; transition: border-color 0.2s; overflow: hidden; }
@@ -1654,10 +1662,29 @@ window.adminLoadDash = async function () {
 
     const meta = document.createElement('div');
     meta.className = 'admin-card-meta';
+    const isReturned = it.status === 'inactive';
     meta.innerHTML = '<div class="admin-card-name">' + esc(cap(it.item_type || 'Item')) + '</div>' +
-      '<div class="admin-card-date">' + fmtDate(it.created_at || '') + ' · ' + (it.status || 'active') + '</div>';
-    if (it.pending_claims > 0) {
+      '<div class="admin-card-date">' + fmtDate(it.created_at || '') + '</div>';
+    if (it.pending_claims > 0 && !isReturned) {
       meta.innerHTML += '<span class="claim-badge">' + it.pending_claims + ' claim' + (it.pending_claims > 1 ? 's' : '') + '</span>';
+    }
+    if (isReturned) {
+      card.classList.add('returned');
+      meta.innerHTML += '<span class="returned-badge">Returned</span>';
+    } else {
+      const actions = document.createElement('div');
+      actions.className = 'admin-card-actions';
+      const btnR = document.createElement('button');
+      btnR.className = 'btn-card-action btn-card-returned';
+      btnR.textContent = '✓ Returned';
+      btnR.onclick = () => adminSetItemStatus(it.id, 'inactive', card);
+      const btnX = document.createElement('button');
+      btnX.className = 'btn-card-action btn-card-remove';
+      btnX.textContent = 'Remove';
+      btnX.onclick = () => adminConfirmRemove(btnX, it.id, card);
+      actions.appendChild(btnR);
+      actions.appendChild(btnX);
+      meta.appendChild(actions);
     }
     card.appendChild(meta);
     list.appendChild(card);
@@ -1669,6 +1696,53 @@ function makeAdminNoPhoto(type) {
   div.className = 'admin-card-no-photo';
   div.textContent = itemEmoji(type);
   return div;
+}
+
+window.adminSetItemStatus = async function(itemId, status, cardEl) {
+  try {
+    const res = await fetch('/school/' + encodeURIComponent(SLUG) + '/items/' + encodeURIComponent(itemId) + '/status', {
+      method: 'PATCH',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (res.status === 401) { window.adminLogout(); return; }
+    if (!res.ok) { const e = await res.json().catch(() => ({})); toast(e.detail || 'Action failed'); return; }
+    if (status === 'archived') {
+      cardEl.style.transition = 'opacity 0.3s, transform 0.3s';
+      cardEl.style.opacity = '0';
+      cardEl.style.transform = 'scale(0.95)';
+      setTimeout(() => cardEl.remove(), 320);
+    } else {
+      cardEl.classList.add('returned');
+      const actionsEl = cardEl.querySelector('.admin-card-actions');
+      if (actionsEl) actionsEl.remove();
+      const metaEl = cardEl.querySelector('.admin-card-meta');
+      const claimBadge = metaEl.querySelector('.claim-badge');
+      if (claimBadge) claimBadge.remove();
+      const badge = document.createElement('span');
+      badge.className = 'returned-badge';
+      badge.textContent = 'Returned';
+      metaEl.appendChild(badge);
+    }
+  } catch (e) {
+    toast('Action failed');
+  }
+};
+
+function adminConfirmRemove(btn, itemId, cardEl) {
+  if (btn.dataset.confirming) {
+    clearTimeout(btn._confirmTimer);
+    adminSetItemStatus(itemId, 'archived', cardEl);
+    return;
+  }
+  btn.dataset.confirming = '1';
+  btn.classList.add('confirming');
+  btn.textContent = 'Sure?';
+  btn._confirmTimer = setTimeout(() => {
+    delete btn.dataset.confirming;
+    btn.classList.remove('confirming');
+    btn.textContent = 'Remove';
+  }, 3000);
 }
 
 const UPLOAD_ICON_SVG = '<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--rust)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8v20M12 16l8-8 8 8"/><path d="M8 30h24"/></svg>';

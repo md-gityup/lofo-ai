@@ -2355,6 +2355,10 @@ class SchoolLostRequest(BaseModel):
     child_name: Optional[str] = None
 
 
+class SchoolItemStatusPatch(BaseModel):
+    status: str  # "inactive" (returned) or "archived" (remove/duplicate)
+
+
 @app.get("/school/{slug}", include_in_schema=False)
 def serve_school_page(slug: str):
     _get_school_public(slug)
@@ -2420,7 +2424,7 @@ def school_admin_items(slug: str, request: Request):
                        (SELECT COUNT(*)::int FROM school_claims sc
                         WHERE sc.item_id = i.id AND sc.status = 'pending') AS pending_claims
                 FROM items i
-                WHERE i.school_id = %s AND i.type = 'finder'
+                WHERE i.school_id = %s AND i.type = 'finder' AND i.status != 'archived'
                 ORDER BY i.created_at DESC
                 LIMIT 200
                 """,
@@ -2461,6 +2465,29 @@ def school_patch_settings(slug: str, body: SchoolSettingsPatch, request: Request
                 f"UPDATE schools SET {', '.join(updates)} WHERE id = %s",
                 params,
             )
+        conn.commit()
+    return {"ok": True}
+
+
+@app.patch("/school/{slug}/items/{item_id}/status", include_in_schema=False)
+def school_item_set_status(slug: str, item_id: uuid.UUID, body: SchoolItemStatusPatch, request: Request):
+    """Mark a school finder item as returned (inactive) or removed/duplicate (archived)."""
+    _require_school_admin(slug, request.headers.get("Authorization"))
+    if body.status not in ("inactive", "archived"):
+        raise HTTPException(status_code=422, detail="status must be 'inactive' or 'archived'")
+    school = _get_school_public(slug)
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE items SET status = %s
+                WHERE id = %s AND school_id = %s AND type = 'finder'
+                RETURNING id
+                """,
+                (body.status, str(item_id), str(school["id"])),
+            )
+            if cur.fetchone() is None:
+                raise HTTPException(status_code=404, detail="Item not found")
         conn.commit()
     return {"ok": True}
 
