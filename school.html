@@ -263,13 +263,18 @@ body { background: var(--navy); }
 ════════════════════════════════════════════════════ */
 #screen-thinking { background: var(--navy); justify-content: center; align-items: center; }
 .breathe-wrap { width: 160px; height: 160px; position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 48px; }
-.breathe-ring { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.04); animation: breatheRing 4s ease-in-out infinite; }
-.breathe-ring:nth-child(1) { width: 160px; height: 160px; animation-delay: 0s; }
-.breathe-ring:nth-child(2) { width: 118px; height: 118px; animation-delay: -1.33s; }
-.breathe-ring:nth-child(3) { width: 80px;  height: 80px;  animation-delay: -2.66s; }
-@keyframes breatheRing { 0%,100% { transform: scale(0.72); opacity: 0; } 35% { opacity: 1; } 65% { opacity: 0.5; } 100% { transform: scale(1.28); opacity: 0; } }
-.breathe-center { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); z-index: 2; animation: breatheCenter 4s ease-in-out infinite; }
-@keyframes breatheCenter { 0%,100% { transform: scale(0.88); } 50% { transform: scale(1.12); box-shadow: 0 0 32px 8px rgba(255,255,255,0.05); } }
+.breathe-ring { position: absolute; border-radius: 50%; background: transparent; border: 1px solid rgba(255,255,255,0.07); animation: expandRing 2.2s ease-out infinite; }
+.breathe-ring:nth-child(1) { width: 52px;  height: 52px;  animation-delay: 0s; }
+.breathe-ring:nth-child(2) { width: 82px;  height: 82px;  animation-delay: 0.65s; }
+.breathe-ring:nth-child(3) { width: 112px; height: 112px; animation-delay: 1.3s; }
+@keyframes expandRing { 0% { transform: scale(0.75); opacity: 0.5; } 100% { transform: scale(1.35); opacity: 0; } }
+.ai-glow { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.05); position: absolute; z-index: 1; animation: aiGlow 1.8s ease-in-out infinite; }
+@keyframes aiGlow { 0%,100% { background: rgba(255,255,255,0.05); } 50% { background: rgba(255,255,255,0.13); } }
+.ai-orb-dot { width: 5px; height: 5px; border-radius: 50%; background: white; position: absolute; z-index: 3; animation: dotTwinkle 1.1s ease-in-out infinite; }
+@keyframes dotTwinkle { 0%,100% { opacity: 0.04; transform: scale(0.2); } 50% { opacity: 0.75; transform: scale(1.0); } }
+.ai-sparkle { font-size: 18px; color: white; position: absolute; z-index: 2; line-height: 1; user-select: none; animation: sparkleRotate 9s linear infinite, sparkleGlow 1.8s ease-in-out infinite; }
+@keyframes sparkleRotate { to { transform: rotate(360deg); } }
+@keyframes sparkleGlow { 0%,100% { opacity: 0.5; } 50% { opacity: 1.0; } }
 .thinking-title { font-family: 'DM Serif Display', serif; font-size: 32px; color: #fff; text-align: center; line-height: 1.1; padding: 0 40px; }
 .thinking-title em { font-style: italic; color: rgba(255,255,255,0.35); }
 .thinking-sub { text-align: center; color: rgba(255,255,255,0.28); font-size: 13px; font-weight: 300; margin-top: 14px; letter-spacing: 0.02em; animation: textPulse 2s ease-in-out infinite; }
@@ -726,10 +731,15 @@ body { background: var(--navy); }
       <div class="breathe-ring"></div>
       <div class="breathe-ring"></div>
       <div class="breathe-ring"></div>
-      <div class="breathe-center"></div>
+      <div class="ai-glow"></div>
+      <div class="ai-orb-dot" style="left:96.6px;top:96.6px;animation-delay:0s"></div>
+      <div class="ai-orb-dot" style="left:58.4px;top:96.6px;animation-delay:0.28s"></div>
+      <div class="ai-orb-dot" style="left:58.4px;top:58.4px;animation-delay:0.56s"></div>
+      <div class="ai-orb-dot" style="left:96.6px;top:58.4px;animation-delay:0.84s"></div>
+      <div class="ai-sparkle">✦</div>
     </div>
-    <div class="thinking-title">Searching<br><em>found items…</em></div>
-    <div class="thinking-sub">Reading your description…</div>
+    <div class="thinking-title" id="thinking-title">Reviewing<br><em>photo…</em></div>
+    <div class="thinking-sub" id="thinking-sub">AI VISION</div>
   </div>
 
   <!-- ══════════════════════════════════════════════
@@ -1116,14 +1126,24 @@ window.showScreen = window.navigate;
 
 /* ── Thinking screen copy cycle ─────────────────── */
 let _thinkingTimer = null;
+let _thinkingMode = 'search'; // 'post' (admin uploading found item) | 'search' (parent searching for match)
 function startThinkingCycle() {
+  const titleEl = document.getElementById('thinking-title');
+  const subEl   = document.getElementById('thinking-sub');
+  if (_thinkingMode === 'post') {
+    if (titleEl) titleEl.innerHTML = 'Reviewing<br><em>photo\u2026</em>';
+    if (subEl) { subEl.textContent = 'AI VISION'; subEl.style.letterSpacing = '0.28em'; subEl.style.fontSize = '11px'; }
+    return null; // no cycling — static copy
+  }
+  // search mode: parent submitting lost item
+  if (titleEl) titleEl.innerHTML = 'Searching<br><em>found items\u2026</em>';
+  if (subEl) { subEl.style.letterSpacing = '0.02em'; subEl.style.fontSize = '13px'; }
   const msgs = ['Reading your description\u2026', 'Comparing to found items\u2026', 'Checking for a match\u2026'];
   let idx = 0;
-  const el = document.querySelector('.thinking-sub');
-  if (el) el.textContent = msgs[0];
+  if (subEl) subEl.textContent = msgs[0];
   return setInterval(() => {
     idx = (idx + 1) % msgs.length;
-    if (el) el.textContent = msgs[idx];
+    if (subEl) subEl.textContent = msgs[idx];
   }, 1800);
 }
 
@@ -1391,6 +1411,7 @@ window.submitLost = async function () {
     child_name:   document.getElementById('lost-child').value.trim()  || null,
   };
 
+  _thinkingMode = 'search';
   btnLoading('btn-lost', true);
   navigate('screen-thinking', 'forward');
 
@@ -1426,6 +1447,7 @@ window.submitLostRetry = async function () {
     child_name:   document.getElementById('nm-child').value.trim()  || null,
   });
 
+  _thinkingMode = 'search';
   btnLoading('btn-nm', true);
   navigate('screen-thinking', 'forward');
 
@@ -1686,6 +1708,7 @@ window.onFileChosen = function (input) {
 window.adminUpload = async function () {
   const f = document.getElementById('admin-file').files[0];
   if (!f) { toast('Choose a photo first'); return; }
+  _thinkingMode = 'post';
   btnLoading('btn-upload', true);
   navigate('screen-thinking', 'forward');
   try {
