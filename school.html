@@ -242,7 +242,7 @@ body { background: var(--navy); }
 .detail-info-col { flex: 1; padding: 40px 48px 80px 36px; overflow-y: auto; }
 .detail-title { font-family: 'DM Serif Display', serif; font-size: 34px; line-height: 1.1; margin-bottom: 16px; color: var(--navy); }
 .tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
-.tag { background: var(--rust-light); color: var(--navy); padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; }
+.tag { background: var(--tag-bg); color: rgba(26,26,46,0.7); padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
 .pickup-row { padding: 14px 16px; border-radius: 11px; background: var(--navy); color: var(--cream); font-size: 13px; line-height: 1.55; margin-bottom: 28px; }
 .pickup-row-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.38); margin-bottom: 4px; font-weight: 600; }
 
@@ -624,10 +624,6 @@ body { background: var(--navy); }
       <div class="detail-info-col">
         <h2 class="detail-title" id="detail-title"></h2>
         <div class="tag-row" id="detail-tags"></div>
-        <div class="pickup-row" id="detail-pickup">
-          <div class="pickup-row-label">Pickup</div>
-          <div id="detail-pickup-text"></div>
-        </div>
         <div class="btn-row">
           <button type="button" class="btn-primary" onclick="navigate('screen-claim','forward')">
             <span class="btn-label">This belongs to my child →</span>
@@ -1290,7 +1286,6 @@ window.openDetail = function (it) {
   if (it.size) tags.appendChild(makeTag(cap(it.size)));
   (it.features || []).slice(0, 4).forEach(f => tags.appendChild(makeTag(f)));
 
-  document.getElementById('detail-pickup-text').textContent = schoolData.pickup_info || 'Ask the school office for pickup information.';
 
   navigate('screen-detail', 'forward');
 };
@@ -1305,7 +1300,7 @@ function makeDetailPlaceholder(type) {
 function makeTag(text) {
   const span = document.createElement('span');
   span.className = 'tag';
-  span.textContent = text;
+  span.textContent = (text || '').toLowerCase();
   return span;
 }
 
