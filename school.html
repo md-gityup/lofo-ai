@@ -308,10 +308,8 @@ body { background: var(--navy); }
   position: sticky; top: 0; z-index: 10;
 }
 .admin-heading { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--navy); }
-.admin-heading-accent { width: 36px; height: 3px; background: var(--rust); border-radius: 2px; margin-top: 7px; }
 .admin-stats {
   display: flex; padding: 4px 48px 20px;
-  border-bottom: 1px solid var(--border);
 }
 .admin-stat { flex: 1; padding: 14px 0; }
 .admin-stat + .admin-stat { border-left: 1px solid var(--border); padding-left: 28px; }
@@ -862,7 +860,7 @@ body { background: var(--navy); }
     <div class="admin-header">
       <div>
         <h2 class="admin-heading">Posted items</h2>
-        <div class="admin-heading-accent"></div>
+        <div class="heading-accent"></div>
       </div>
       <button type="button" class="btn-primary" onclick="navigate('screen-admin-post','forward')">
         <span class="btn-label">+ Post found item</span>
