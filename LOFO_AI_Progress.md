@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 23, 2026 — School app iOS design alignment: tag chips, heading accents, stats strip, button colors, date fixes.*
+*Last updated: March 23, 2026 — School app: subscriber alert throttle, thinking screen iOS upgrade, admin card fixes.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -605,6 +605,12 @@ Then redeploy Railway.
 > **On ice (do not implement without discussion):**
 > - Tip flow redesign: "tip intent" concept (loser picks amount upfront, charged after reunion confirmed). Post-reunion trigger via SMS relay silence heuristic + time-bomb fallback. Detailed design in Session History Phase 26q.
 > - Unit economics: ~$0.25/reunion in Twilio costs, $10 avg tip, net ~$0.87 per loop (2% Stripe on $10, no fixed fee on Apple Pay).
+>
+> **New this session (March 23, 2026, session 2):**
+> - **Subscriber alert throttle**: `school_subscriptions` gets `last_notified_at` column (migration run + confirmed). `_school_notify_subscribers_new_item` now only emails subscribers not notified in last 24h, sends each their own email (privacy fix — was putting all addresses in one To: field), stamps `last_notified_at` after sending.
+> - **Subscribe confirmation screen**: replaced `toast + navigate back` (invisible during animation) with inline "You're all set." confirmation state. Re-opening screen resets to blank form.
+> - **Thinking screen iOS upgrade**: orb now matches `FinderCameraView.aiOverlay` — outward-expanding stroke rings, center glow, 4 orbiting sparkle dots, rotating ✦ icon. Context-aware copy: admin posting a found item → "Reviewing / *photo…*" + "AI VISION" (static); parent searching → "Searching / *found items…*" + cycling subtitles. `_thinkingMode` variable set before each navigate call.
+> - **Admin card "Returned" button**: renamed from "✓ Returned" (looked like a status badge on every card) to "Mark returned" (clearly imperative action). Data was always correct — `status: 'active'` in DB; the misleading copy was the bug.
 >
 > **New this session (March 23, 2026):**
 > - **School app buttons → navy**: removed `rust` modifier from all 8 form CTA buttons in `school.html`. All buttons now match iOS app navy default.
