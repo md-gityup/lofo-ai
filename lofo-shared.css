@@ -135,8 +135,8 @@ input.field.field-error, textarea.field.field-error {
 .page-title { font-family: 'DM Serif Display', serif; font-size: 38px; line-height: 1.08; color: var(--navy); margin-bottom: 10px; }
 .page-sub   { font-size: 15px; color: var(--muted); font-weight: 300; line-height: 1.65; max-width: 420px; margin-bottom: 28px; }
 
-/* Short rust accent bar — used under serif headings to match iOS app style */
-.heading-accent { width: 28px; height: 2px; background: var(--rust); border-radius: 1px; margin-top: 8px; }
+/* Short rust accent bar — exact match to iOS: Rectangle().fill(LOFOTheme.rust.opacity(0.35)).frame(width:40,height:1.5) */
+.heading-accent { width: 40px; height: 1.5px; background: rgba(193, 122, 74, 0.35); margin-top: 8px; }
 
 /* ─── Back button ─────────────────────────────────── */
 .back-btn {
