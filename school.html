@@ -617,7 +617,7 @@ body { background: var(--navy); }
           <div id="detail-pickup-text"></div>
         </div>
         <div class="btn-row">
-          <button type="button" class="btn-primary rust" onclick="navigate('screen-claim','forward')">
+          <button type="button" class="btn-primary" onclick="navigate('screen-claim','forward')">
             <span class="btn-label">This belongs to my child →</span>
           </button>
         </div>
@@ -647,7 +647,7 @@ body { background: var(--navy); }
       <label class="field-label">Anything that helps identify it? <span class="lbl-note">(optional)</span></label>
       <textarea class="field" id="claim-note" placeholder="e.g. initials inside, tear on strap, keychain attached"></textarea>
       <div class="btn-row">
-        <button type="button" class="btn-primary rust" id="btn-claim" onclick="submitClaim()">
+        <button type="button" class="btn-primary" id="btn-claim" onclick="submitClaim()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Submit claim</span>
         </button>
@@ -696,7 +696,7 @@ body { background: var(--navy); }
       <label class="field-label">Child's name <span class="lbl-note">(optional)</span></label>
       <input class="field" id="lost-child" type="text" placeholder="First name">
       <div class="btn-row">
-        <button type="button" class="btn-primary rust" id="btn-lost" onclick="submitLost()">
+        <button type="button" class="btn-primary" id="btn-lost" onclick="submitLost()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Find it →</span>
         </button>
@@ -766,7 +766,7 @@ body { background: var(--navy); }
       <label class="field-label">Child's name <span class="lbl-note">(optional)</span></label>
       <input class="field" id="nm-child" type="text" placeholder="">
       <div class="btn-row">
-        <button type="button" class="btn-primary rust" id="btn-nm" onclick="submitLostRetry()">
+        <button type="button" class="btn-primary" id="btn-nm" onclick="submitLostRetry()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Notify me when it shows up</span>
         </button>
@@ -807,7 +807,7 @@ body { background: var(--navy); }
       <label class="field-label">Your name <span class="lbl-note">(optional)</span></label>
       <input class="field" id="sub-name" type="text" placeholder="">
       <div class="btn-row">
-        <button type="button" class="btn-primary rust" id="btn-sub" onclick="doSubscribe()">
+        <button type="button" class="btn-primary" id="btn-sub" onclick="doSubscribe()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Subscribe</span>
         </button>
@@ -829,7 +829,7 @@ body { background: var(--navy); }
       <input class="field" id="admin-pass" type="password" placeholder="••••••••" autocomplete="current-password"
              onkeydown="if(event.key==='Enter')adminLogin()">
       <div class="btn-row">
-        <button type="button" class="btn-primary rust" id="btn-admin-login" onclick="adminLogin()">
+        <button type="button" class="btn-primary" id="btn-admin-login" onclick="adminLogin()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Log in</span>
         </button>
@@ -847,7 +847,7 @@ body { background: var(--navy); }
     </div>
     <div class="admin-header">
       <h2 class="admin-heading">Posted items</h2>
-      <button type="button" class="btn-primary rust" onclick="navigate('screen-admin-post','forward')">
+      <button type="button" class="btn-primary" onclick="navigate('screen-admin-post','forward')">
         <span class="btn-label">+ Post found item</span>
       </button>
     </div>
@@ -903,7 +903,7 @@ body { background: var(--navy); }
       <label class="field-label">Admin email <span class="lbl-note">(receives claim notifications)</span></label>
       <input class="field" id="set-email" type="email" placeholder="you@school.edu">
       <div class="btn-row">
-        <button type="button" class="btn-primary rust" id="btn-settings" onclick="saveSettings()">
+        <button type="button" class="btn-primary" id="btn-settings" onclick="saveSettings()">
           <div class="btn-spinner"></div>
           <span class="btn-label">Save changes</span>
         </button>
