@@ -294,6 +294,14 @@ def serve_ui():
     return FileResponse(os.path.join(os.path.dirname(__file__), "LOFO_MVP.html"))
 
 
+@app.get("/lofo-shared.css", include_in_schema=False)
+def serve_shared_css():
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "lofo-shared.css"),
+        media_type="text/css",
+    )
+
+
 @app.get("/stats/public")
 def public_stats():
     """Weekly reunion count — public, no auth required."""
