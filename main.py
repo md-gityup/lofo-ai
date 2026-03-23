@@ -2430,7 +2430,9 @@ def school_admin_items(slug: str, request: Request):
                 SELECT i.id, i.item_type, i.color, i.material, i.size, i.features,
                        i.photo_url, i.created_at::text, i.status,
                        (SELECT COUNT(*)::int FROM school_claims sc
-                        WHERE sc.item_id = i.id AND sc.status = 'pending') AS pending_claims
+                        WHERE sc.item_id = i.id AND sc.status = 'pending') AS pending_claims,
+                       (SELECT MAX(sc.created_at)::text FROM school_claims sc
+                        WHERE sc.item_id = i.id) AS last_claimed_at
                 FROM items i
                 WHERE i.school_id = %s AND i.type = 'finder' AND i.status != 'archived'
                 ORDER BY i.created_at DESC
@@ -2440,6 +2442,31 @@ def school_admin_items(slug: str, request: Request):
             )
             rows = cur.fetchall()
     return {"items": [dict(r) for r in rows]}
+
+
+@app.get("/school/{slug}/admin/stats")
+def school_admin_stats(slug: str, request: Request):
+    _require_school_admin(slug, request.headers.get("Authorization"))
+    school = _get_school_public(slug)
+    sid = str(school["id"])
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    (SELECT COUNT(*)::int FROM items
+                     WHERE school_id = %s AND type = 'finder' AND status = 'active') AS active_items,
+                    (SELECT COUNT(*)::int FROM school_claims sc
+                     JOIN items i ON i.id = sc.item_id
+                     WHERE i.school_id = %s
+                       AND sc.created_at >= NOW() - INTERVAL '30 days') AS claims_30d,
+                    (SELECT COUNT(*)::int FROM items
+                     WHERE school_id = %s AND type = 'finder' AND status = 'inactive') AS items_returned
+                """,
+                (sid, sid, sid),
+            )
+            row = cur.fetchone()
+    return dict(row)
 
 
 @app.post("/school/{slug}/admin/login")

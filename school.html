@@ -304,10 +304,20 @@ body { background: var(--navy); }
 .admin-header {
   padding: 36px 48px 20px;
   display: flex; align-items: center; justify-content: space-between;
-  border-bottom: 1px solid var(--border); background: var(--cream);
+  background: var(--cream);
   position: sticky; top: 0; z-index: 10;
 }
 .admin-heading { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--navy); }
+.admin-heading-accent { width: 36px; height: 3px; background: var(--rust); border-radius: 2px; margin-top: 7px; }
+.admin-stats {
+  display: flex; padding: 4px 48px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.admin-stat { flex: 1; padding: 14px 0; }
+.admin-stat + .admin-stat { border-left: 1px solid var(--border); padding-left: 28px; }
+.admin-stat-num { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); line-height: 1; }
+.admin-stat-label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-top: 5px; }
+.admin-card-claimed { color: var(--rust) !important; margin-top: 2px; }
 .admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; padding: 28px 48px 72px; }
 .admin-card { background: #fff; border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; transition: box-shadow 0.2s, transform 0.2s; }
 .admin-card:hover { box-shadow: 0 4px 16px rgba(26,26,46,0.08); transform: translateY(-1px); }
@@ -460,6 +470,10 @@ body { background: var(--navy); }
   /* Admin */
   .admin-header { padding: 12px 22px 10px; position: relative; }
   .admin-heading { font-size: 20px; }
+  .admin-stats { padding: 0 22px 14px; }
+  .admin-stat { padding: 10px 0; }
+  .admin-stat + .admin-stat { padding-left: 18px; }
+  .admin-stat-num { font-size: 22px; }
   .admin-grid { grid-template-columns: 1fr 1fr; gap: 11px; padding: 14px 22px 48px; }
   .admin-empty { padding: 40px 22px; }
 
@@ -846,11 +860,15 @@ body { background: var(--navy); }
       <button type="button" class="back-btn" onclick="navigate('screen-admin-settings','forward')">Settings</button>
     </div>
     <div class="admin-header">
-      <h2 class="admin-heading">Posted items</h2>
+      <div>
+        <h2 class="admin-heading">Posted items</h2>
+        <div class="admin-heading-accent"></div>
+      </div>
       <button type="button" class="btn-primary" onclick="navigate('screen-admin-post','forward')">
         <span class="btn-label">+ Post found item</span>
       </button>
     </div>
+    <div class="admin-stats" id="admin-stats"></div>
     <div class="admin-grid" id="admin-list"></div>
   </div>
 
@@ -1506,7 +1524,22 @@ window.adminLogout = function () {
   navigate('screen-landing', 'back');
 };
 
+async function loadAdminStats() {
+  try {
+    const res = await fetch('/school/' + encodeURIComponent(SLUG) + '/admin/stats', { headers: authHeaders() });
+    if (!res.ok) return;
+    const s = await res.json();
+    const el = document.getElementById('admin-stats');
+    if (!el) return;
+    el.innerHTML =
+      '<div class="admin-stat"><div class="admin-stat-num">' + (s.active_items || 0) + '</div><div class="admin-stat-label">Active items</div></div>' +
+      '<div class="admin-stat"><div class="admin-stat-num">' + (s.claims_30d || 0) + '</div><div class="admin-stat-label">Claims (30d)</div></div>' +
+      '<div class="admin-stat"><div class="admin-stat-num">' + (s.items_returned || 0) + '</div><div class="admin-stat-label">Returned</div></div>';
+  } catch (e) { /* silent */ }
+}
+
 window.adminLoadDash = async function () {
+  loadAdminStats();
   const res = await fetch('/school/' + encodeURIComponent(SLUG) + '/admin/items', {
     headers: authHeaders()
   });
@@ -1535,8 +1568,11 @@ window.adminLoadDash = async function () {
     const meta = document.createElement('div');
     meta.className = 'admin-card-meta';
     const isReturned = it.status === 'inactive';
-    meta.innerHTML = '<div class="admin-card-name">' + esc(cap(it.item_type || 'Item')) + '</div>' +
-      '<div class="admin-card-date">' + fmtDate(it.created_at || '') + '</div>';
+    const postedDate = fmtDate(it.created_at || '');
+    const claimedDate = fmtDate(it.last_claimed_at || '');
+    let dateHtml = postedDate ? '<div class="admin-card-date">Posted ' + postedDate + '</div>' : '';
+    if (claimedDate) dateHtml += '<div class="admin-card-date admin-card-claimed">Claimed ' + claimedDate + '</div>';
+    meta.innerHTML = '<div class="admin-card-name">' + esc(cap(it.item_type || 'Item')) + '</div>' + dateHtml;
     if (it.pending_claims > 0 && !isReturned) {
       meta.innerHTML += '<span class="claim-badge">' + it.pending_claims + ' claim' + (it.pending_claims > 1 ? 's' : '') + '</span>';
     }
@@ -1696,7 +1732,10 @@ function cap(s) {
 function fmtDate(iso) {
   if (!iso) return '';
   try {
-    const d = new Date(iso.replace(' ', 'T'));
+    // Postgres timestamps arrive as "2026-03-20 15:32:44.123456+00" — normalize to valid ISO 8601
+    const normalized = iso.replace(' ', 'T').replace(/(\.\d+)?([+-])(\d{2})$/, '$2$3:00');
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return '';
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   } catch { return ''; }
 }
