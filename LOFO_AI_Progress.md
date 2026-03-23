@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 22, 2026 — School app polish + security: URL token security (unguessable hex token replaces /school/sfws), iOS-style required field pulse validation, mobile nav redesign (cream bg, house icon, staff login in footer), claim form pre-population from lost form, photo picker fix. lofoapp.com homepage: Playfair Display Black, App Store badge, "Found" capitalized. TestFlight build 1.0.0 (6) approved + public link live.*
+*Last updated: March 22, 2026 — School admin item actions (mark returned + remove duplicate), shared CSS architecture (lofo-shared.css), iOS-style CTA buttons in school app flow screens.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -708,18 +708,61 @@ Then redeploy Railway.
 > 4. ✅ Sidebar Browse icon didn't refresh items → `goNav('screen-browse')` missing `loadItems()`. Fixed.
 > 5. ✅ Mobile drawer showed "Staff login" even when logged in → no admin nav on mobile. Fixed: `setAdminSidebarMode` now toggles mobile drawer to show Posted items / Post new item / Settings / Log out when staff is logged in.
 >
+> **Shared CSS architecture (`lofo-shared.css`) — March 22, 2026:**
+> - `lofo-shared.css` created in `~/Desktop/lofo-ai/`. Served by Railway at `GET /lofo-shared.css`. Proxied via Vercel at `lofoapp.com/lofo-shared.css` (added to `vercel.json` rewrites).
+> - Contains: CSS tokens, reset, body base, stagger animations, button system, form fields, content wrappers, typography, back-btn, text-link, toast, lightbox, shared mobile overrides.
+> - `school.html` links to it via `<link rel="stylesheet" href="/lofo-shared.css">` — dropped ~140 lines of duplicated CSS.
+> - **Button upgrades in shared**: spring transition `cubic-bezier(0.34, 1.56, 0.64, 1)`, 12px desktop radius, 15px/500wt base. `.btn-row .btn-primary` rule: iOS-exact spec — `padding: 19px 22px`, `border-radius: 18px`, `font-weight: 400`, full-width. Applies to all form CTAs in school app.
+> - `LOFO_MVP.html` still uses its own inline CSS — deliberately deferred (Option B) to avoid breaking the live consumer app. Link it to `lofo-shared.css` in a future pass.
+>
+> **School admin item actions — March 22, 2026:**
+> - `PATCH /school/{token}/items/{item_id}/status` endpoint (admin JWT). Accepts `"inactive"` (returned to owner) or `"archived"` (remove/duplicate).
+> - `school_admin_items` excludes `archived` items.
+> - Admin card UI: "✓ Returned" (green, immediate) + "Remove" (two-tap confirm: turns rust "Sure?" for 3s). Returned cards grey out + show badge; archived cards fade out + remove from DOM.
+>
 > **Next priorities:**
-> 1. **Staff onboarding at SFWS** — share URL `https://lofoapp.com/school/787c046ec2f5124b79` + passcode `steiner`. Staff go to Settings first → set pickup info + admin email. Smoke test: post item → confirm subscriber email arrives from `noreply@lofoapp.com`.
-> 2. **TestFlight public link** — build 1.0.0 (6) approved, public link live. Share `https://testflight.apple.com/join/PV5qCDKS` with users. Update lofoapp.com homepage App Store badge to point to this URL.
-> 3. **Twilio A2P** — awaiting TCR approval (3rd submission, Error 30896). No code changes needed when approved. Once approved, test full SMS flow end-to-end, then revisit resolve page tip flow.
-> 4. **Next iOS build (7)** — `support@lofoapp.com` in MenuSheet already in code. Archive when ready.
-> 5. **App Store screenshots** — 6.7" 1290×2796, 6 screens. Copy already drafted in Phase 26 checklist. Needs Xcode simulator + manual capture.
+> 1. **Staff onboarding at SFWS** — share URL `https://lofoapp.com/school/787c046ec2f5124b79` + passcode `steiner`. Staff → Settings first → set pickup info + admin email. Smoke test: post item → confirm subscriber email arrives from `noreply@lofoapp.com`.
+> 2. **iOS build 7** — `support@lofoapp.com` confirmed in MenuSheet (line 215). No other code changes needed. Open `~/Desktop/LOFO/LOFO.xcodeproj`, bump `CURRENT_PROJECT_VERSION` to 7, select "Any iOS Device (arm64)", Product → Archive → Distribute → App Store Connect → Upload.
+> 3. **Twilio A2P** — awaiting TCR approval (3rd submission, Error 30896 addressed). No code changes needed when approved. Once approved: test full SMS → resolve page flow end-to-end.
+> 4. **App Store screenshots** — 6.7" 1290×2796, 6 screens. Copy drafted in Phase 26 checklist. Needs Xcode simulator + manual capture.
+> 5. **Consumer app (LOFO_MVP.html) CSS migration** — link to `lofo-shared.css` and rename `btn-dark` → `btn-primary` etc. Deferred (Option B). Do in a dedicated session with careful testing.
 >
 > Start by reading `LOFO_AI_Progress.md`, then **describe your plan and wait for approval before making any changes**."
 
 ---
 
 ## Session History
+
+### Shared CSS + School Admin Actions + iOS-style Buttons — March 22, 2026
+
+**What shipped:**
+
+**School admin — item actions (`main.py` + `school.html`):**
+- New `PATCH /school/{token}/items/{item_id}/status` endpoint (admin JWT required). Accepts `"inactive"` (returned to owner) or `"archived"` (remove/duplicate). Validates item belongs to that school.
+- `school_admin_items` now excludes `archived` items (`AND i.status != 'archived'`).
+- Admin card UI: each active item card gets two action buttons in a border-top row:
+  - **"✓ Returned"** (green) — immediate. Card fades to 50% opacity, buttons swap for green "Returned" badge. Disappears from parent gallery (`/school/{token}/items` only returns `status = 'active'`), stays in admin view.
+  - **"Remove"** (muted → rust on confirm) — two-tap: first tap says "Sure?" for 3s, second tap archives. Card fades out and is removed from DOM.
+- Returned (`inactive`) items show in admin view with muted opacity + "Returned" badge, no action buttons.
+- `SchoolItemStatusPatch` Pydantic model added.
+
+**Shared CSS architecture (`lofo-shared.css`):**
+- Created `~/Desktop/lofo-ai/lofo-shared.css` — single source of truth for LOFO design primitives.
+- Served by Railway at `GET /lofo-shared.css` (new route in `main.py`).
+- Proxied by Vercel: added `{ "source": "/lofo-shared.css", "destination": "https://lofo-ai-production.up.railway.app/lofo-shared.css" }` to `~/Desktop/lofoapp-web/vercel.json`.
+- **Contains:** CSS tokens (app-canonical `--bg: #EAE6DE`), reset, body base, stagger animations (`.s-item`, `.s-pop`), button system, loading spinner, form fields + error pulse, `.cx`/`.cx-wide`, `.page-title`/`.page-sub`, `.back-btn`, `.text-link`, toast, lightbox, shared mobile overrides.
+- **`school.html`** updated: Google Fonts `<link>` kept, added `<link rel="stylesheet" href="/lofo-shared.css">`, inline `<style>` dropped ~140 lines of duplicated CSS. Only school-specific layout/screen styles remain.
+- **`LOFO_MVP.html`** deliberately NOT migrated yet (Option B — deferred to avoid risk to live consumer app).
+- **Button upgrades shipped in shared:** spring transition `0.45s cubic-bezier(0.34, 1.56, 0.64, 1)`, 12px desktop radius (was 9px), 15px/500wt base, mobile full-width 52px/18px.
+
+**iOS-style CTA buttons in school app flow screens:**
+- Added `.btn-row .btn-primary` rule to `lofo-shared.css`: `padding: 19px 22px`, `border-radius: 18px`, `font-weight: 400`, `width: 100%`, `height: auto` — exact iOS app `.btn-full` spec.
+- Applies to all form CTA buttons: Submit claim, Find it, Notify me, Subscribe, Log in, Upload & publish, Save changes.
+- Detail screen "This belongs to my child →" button wrapped in `<div class="btn-row">`.
+- Match screen `<div class="match-actions">` given additional `btn-row` class.
+- Admin header "+ Post found item" button intentionally unaffected (not in `.btn-row` — correct for toolbar context).
+
+---
 
 ### School App Security + Polish + TestFlight Approved — March 22, 2026
 
