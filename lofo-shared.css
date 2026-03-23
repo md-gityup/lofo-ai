@@ -78,6 +78,16 @@ body {
 
 .btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 28px; }
 
+/* iOS-style CTA: full-width, tall, 18px radius — matches the iOS app exactly */
+.btn-row .btn-primary {
+  width: 100%;
+  height: auto;
+  padding: 19px 22px;
+  border-radius: 18px;
+  font-weight: 400;
+  justify-content: center;
+}
+
 /* Loading spinner */
 .btn-spinner {
   width: 14px; height: 14px; border-radius: 50%;

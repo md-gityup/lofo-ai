@@ -616,9 +616,11 @@ body { background: var(--navy); }
           <div class="pickup-row-label">Pickup</div>
           <div id="detail-pickup-text"></div>
         </div>
-        <button type="button" class="btn-primary rust" onclick="navigate('screen-claim','forward')">
-          <span class="btn-label">This belongs to my child →</span>
-        </button>
+        <div class="btn-row">
+          <button type="button" class="btn-primary rust" onclick="navigate('screen-claim','forward')">
+            <span class="btn-label">This belongs to my child →</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -735,7 +737,7 @@ body { background: var(--navy); }
         </div>
       </div>
       <div class="match-reasons" id="match-reasons"></div>
-      <div class="match-actions">
+      <div class="match-actions btn-row">
         <button type="button" class="btn-primary white s-item" style="animation-delay:0.26s" onclick="fromMatchToDetail()">
           <span class="btn-label">View item details →</span>
         </button>
