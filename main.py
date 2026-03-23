@@ -2189,22 +2189,26 @@ def _school_match_reasons(m: dict) -> list[str]:
 
 def _school_notify_subscribers_new_item(school: dict, item: dict, extracted: dict) -> None:
     sid = str(school["id"])
+    # Only notify subscribers who haven't received an alert in the last 24 hours.
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT DISTINCT email FROM school_subscriptions WHERE school_id = %s",
+                """
+                SELECT id, email FROM school_subscriptions
+                WHERE school_id = %s
+                  AND (last_notified_at IS NULL
+                       OR last_notified_at < NOW() - INTERVAL '24 hours')
+                """,
                 (sid,),
             )
             rows = cur.fetchall()
-    emails = [r["email"] for r in rows]
-    if not emails:
+    if not rows:
         return
     token = school.get("url_token", "")
     label = (extracted.get("item_type") or "item").capitalize()
     colors = extracted.get("color") or []
     color_str = (", ".join(str(c) for c in colors)).capitalize() if colors else ""
     photo = item.get("photo_url") or ""
-    school_url = _school_page_url(token)
 
     photo_block = (
         f'<p><img src="{photo}" alt="{label}" style="max-width:100%;border-radius:10px;'
@@ -2219,11 +2223,22 @@ def _school_notify_subscribers_new_item(school: dict, item: dict, extracted: dic
       <p style="font-size:14px;margin:16px 0 0;">Recognize it? Browse the full gallery and submit a claim.</p>
       {_email_cta_btn("View found items", _school_browse_url(token))}
     """
-    _resend_send_html(
-        emails,
-        f"New found item — {school['name']}",
-        _school_email_html(school["name"], body, token),
-    )
+    subject = f"New found item — {school['name']}"
+    html = _school_email_html(school["name"], body, token)
+    # Send each subscriber their own email (privacy: no shared To field).
+    notified_ids = []
+    for row in rows:
+        _resend_send_html([row["email"]], subject, html)
+        notified_ids.append(str(row["id"]))
+    # Stamp last_notified_at so they won't receive another alert for 24 hours.
+    if notified_ids:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE school_subscriptions SET last_notified_at = NOW() WHERE id = ANY(%s::uuid[])",
+                    (notified_ids,),
+                )
+            conn.commit()
 
 
 def _school_notify_claim_admin(school: dict, claim: dict, item: dict) -> None:
