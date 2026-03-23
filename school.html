@@ -1624,7 +1624,7 @@ window.adminLoadDash = async function () {
       actions.className = 'admin-card-actions';
       const btnR = document.createElement('button');
       btnR.className = 'btn-card-action btn-card-returned';
-      btnR.textContent = '✓ Returned';
+      btnR.textContent = 'Mark returned';
       btnR.onclick = () => adminSetItemStatus(it.id, 'inactive', card);
       const btnX = document.createElement('button');
       btnX.className = 'btn-card-action btn-card-remove';
