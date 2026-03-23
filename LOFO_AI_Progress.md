@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 22, 2026 — School admin item actions (mark returned + remove duplicate), shared CSS architecture (lofo-shared.css), iOS-style CTA buttons in school app flow screens.*
+*Last updated: March 23, 2026 — School app iOS design alignment: tag chips, heading accents, stats strip, button colors, date fixes.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -606,6 +606,25 @@ Then redeploy Railway.
 > - Tip flow redesign: "tip intent" concept (loser picks amount upfront, charged after reunion confirmed). Post-reunion trigger via SMS relay silence heuristic + time-bomb fallback. Detailed design in Session History Phase 26q.
 > - Unit economics: ~$0.25/reunion in Twilio costs, $10 avg tip, net ~$0.87 per loop (2% Stripe on $10, no fixed fee on Apple Pay).
 >
+> **New this session (March 23, 2026):**
+> - **School app buttons → navy**: removed `rust` modifier from all 8 form CTA buttons in `school.html`. All buttons now match iOS app navy default.
+> - **Admin dash stats strip**: new `GET /school/{token}/admin/stats` endpoint (`active_items`, `claims_30d`, `items_returned`). Three-stat row with DM Serif Display numerals rendered above the item grid.
+> - **Admin dash heading accent**: `.heading-accent` div under "Posted items". `border-bottom` removed from `.admin-header` and `.browse-header`.
+> - **Invalid Date bug fixed**: `fmtDate()` regex normalizes Postgres `+00` timezone offset → `+00:00`. Was failing silently in Safari on all item date displays.
+> - **Smart card dates**: `school_admin_items` query now includes `last_claimed_at` (MAX claim date per item). Cards show "Posted Mar 20" + rust "Claimed Mar 22" if claimed.
+> - **`lofo-shared.css` — iOS design token alignment**:
+>   - Added `--tag-bg: #EAE8F2` (= `LOFOTheme.tagBg` — lavender-tinted chip background)
+>   - `.heading-accent` added: 40×1.5px, `rgba(193,122,74,0.35)`, no border-radius — exact iOS `Rectangle().fill(rust.opacity(0.35)).frame(40,1.5)`
+>   - `.heading-accent` margins: `margin-top: 16px; margin-bottom: 14px` — mirrors iOS `padding(.top, 16).padding(.bottom, 14)` from `FinderDoneView`
+>   - `.page-title`: `margin-bottom: 0` (accent bar now handles spacing)
+> - **Tag pills match iOS `TagChipView` exactly**: `--tag-bg` bg, `rgba(26,26,46,0.7)` text, `10px/5px` padding, 12px medium, Capsule, lowercase text. Old: rust-light bg, wrong sizing, capitalized.
+> - **Pickup info removed from item detail**: was redundant — already correctly shown on claim-done screen after submit.
+> - **`.heading-accent` on all school app headings**: applied to all 9 `.page-title` screens, browse heading (wrapped in column div), and detail title.
+> - **`done-title`**: 42px → 38px (matches iOS `serifDisplay(38)` standard).
+> - **`done-rule`**: `var(--border)` → `rgba(26,26,46,0.15)`, 40×1.5px — matches iOS `ReunionView` `navy.opacity(0.15)` rule.
+>
+> **⚠️ iOS app is the design benchmark — not LOFO_MVP.html.** All web design decisions should trace back to the Swift app. `LOFO_MVP.html` is an early prototype; the iOS app is the source of truth.
+>
 > **New this session (March 22, 2026):**
 > - **TestFlight build 1.0.0 (6) approved** — public link live: `https://testflight.apple.com/join/PV5qCDKS`. "Friends" external group, 2 testers invited.
 > - **lofoapp.com homepage polished**: Playfair Display weight 900 on `h1`, "Found" capitalized, `&nbsp;` for "by AI" spacing, official App Store badge.
@@ -722,7 +741,7 @@ Then redeploy Railway.
 >
 > **Next priorities:**
 > 1. **Staff onboarding at SFWS** — share URL `https://lofoapp.com/school/787c046ec2f5124b79` + passcode `steiner`. Staff → Settings first → set pickup info + admin email. Smoke test: post item → confirm subscriber email arrives from `noreply@lofoapp.com`.
-> 2. **iOS build 7** — `support@lofoapp.com` confirmed in MenuSheet (line 215). No other code changes needed. Open `~/Desktop/LOFO/LOFO.xcodeproj`, bump `CURRENT_PROJECT_VERSION` to 7, select "Any iOS Device (arm64)", Product → Archive → Distribute → App Store Connect → Upload.
+> 2. **iOS build 7** — One code change needed: `support@lofoapp.com` is already confirmed in `MenuSheet.swift`. Cursor change: bump `CURRENT_PROJECT_VERSION` to `7` in `project.pbxproj`. Then archive manually in Xcode: select "Any iOS Device (arm64)" → Product → Archive → Distribute → App Store Connect → Upload.
 > 3. **Twilio A2P** — awaiting TCR approval (3rd submission, Error 30896 addressed). No code changes needed when approved. Once approved: test full SMS → resolve page flow end-to-end.
 > 4. **App Store screenshots** — 6.7" 1290×2796, 6 screens. Copy drafted in Phase 26 checklist. Needs Xcode simulator + manual capture.
 > 5. **Consumer app (LOFO_MVP.html) CSS migration** — link to `lofo-shared.css` and rename `btn-dark` → `btn-primary` etc. Deferred (Option B). Do in a dedicated session with careful testing.
@@ -732,6 +751,37 @@ Then redeploy Railway.
 ---
 
 ## Session History
+
+### School App iOS Design Alignment — March 23, 2026
+
+**What shipped:**
+
+**`lofo-shared.css` — iOS design token alignment:**
+- Added `--tag-bg: #EAE8F2` color token (= `LOFOTheme.tagBg` — lavender-tinted chip background used by iOS `TagChipView`)
+- Added `.heading-accent` class: 40×1.5px, `rgba(193,122,74,0.35)`, no border-radius — exact match to iOS `Rectangle().fill(LOFOTheme.rust.opacity(0.35)).frame(width:40,height:1.5)` used in `FinderDoneView`, `TipView`, `HomeView`, `OwnershipVerifyView`, etc.
+- Updated `.heading-accent` margins: `margin-top: 16px; margin-bottom: 14px` — mirrors iOS `padding(.top, 16).padding(.bottom, 14)`
+- Updated `.page-title`: `margin-bottom: 0` (accent bar now owns the spacing)
+
+**school.html — iOS design consistency pass:**
+- **All form CTA buttons → navy**: removed `rust` modifier class from all 8 buttons (`btn-primary rust` → `btn-primary`). All CTAs now match iOS app navy default. "Upload & publish" was already navy — the only consistent one.
+- **Tag pills match iOS `TagChipView` exactly**: background `var(--tag-bg)` (#EAE8F2), color `rgba(26,26,46,0.7)` (navy 70% opacity), padding `5px 10px`, font-size `12px medium`, border-radius `999px` (Capsule), text `.toLowerCase()`. Previous: rust-light bg, full navy, wrong sizing, capitalized.
+- **Pickup info removed from item detail screen**: was redundant — already correctly shown on claim-done screen. Detail screen shows photo + pills + CTA only.
+- **`.heading-accent` on all school app headings**: Browse ("Found items", wrapped heading in column div), item detail title, Claim, Lost form, No-match, Subscribe, Staff login, Post a photo, Settings. Plus already-existing one on admin "Posted items".
+- **`done-title`**: 42px → 38px to match iOS `serifDisplay(38)` standard. Mobile: 32px → 28px.
+- **`done-rule`**: `var(--border)` → `rgba(26,26,46,0.15)`, width 40px — matches iOS `ReunionView` `Rectangle().fill(navy.opacity(0.15)).frame(width:32,height:1.5)`.
+- **`border-bottom` removed** from `.browse-header` (same treatment as `.admin-header`).
+
+**Admin dash — stats strip + date fixes (`main.py` + `school.html`):**
+- New `GET /school/{token}/admin/stats` endpoint: returns `{active_items, claims_30d, items_returned}`.
+- `school_admin_items` query updated: adds `last_claimed_at` (MAX claim date per item).
+- Stats strip rendered between admin header and item grid: three DM Serif Display numerals (Active items · Claims 30d · Returned), separated by vertical rules.
+- `fmtDate()` bug fixed: Postgres timestamps arrive as `2026-03-20 15:32:44.123456+00`. The `+00` (no colon) is invalid ISO 8601 in Safari → "Invalid Date" on all items. Fixed with regex normalization `([+-])(\d{2})$` → `$1$2:00`.
+- Admin cards now show "Posted Mar 20" (always) + rust "Claimed Mar 22" (if `last_claimed_at` exists).
+
+**Design principle established:**
+> The iOS Swift app is the design benchmark for all LOFO web surfaces. `LOFO_MVP.html` is an early prototype and not the reference. All design decisions should trace back to `Theme.swift` + the SwiftUI views.
+
+---
 
 ### Shared CSS + School Admin Actions + iOS-style Buttons — March 22, 2026
 
