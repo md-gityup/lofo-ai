@@ -959,11 +959,15 @@ async def create_item_from_photo(
         conn.commit()
 
     item = dict(row)
-    # Run sync Voyage embedding in a thread (same reason as Claude above).
-    await asyncio.to_thread(_store_embedding, item["id"], extracted)
+    # Run embedding + photo upload in parallel — they don't depend on each other.
+    embedding_task = asyncio.create_task(
+        asyncio.to_thread(_store_embedding, item["id"], extracted)
+    )
+    photo_task = asyncio.create_task(_upload_photo(item["id"], image_bytes))
 
-    # Upload the photo and persist the public URL
-    photo_url = await _upload_photo(item["id"], image_bytes)
+    await embedding_task
+    photo_url = await photo_task
+
     if photo_url:
         with get_connection() as conn:
             with conn.cursor() as cur:

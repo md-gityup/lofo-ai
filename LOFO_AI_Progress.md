@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 23, 2026 — AI content moderation on photo submissions, iOS error alert for rejected photos.*
+*Last updated: March 23, 2026 — Performance optimizations: backend photo pipeline parallelized, iOS image caching, date parsing, geocode throttling, polling backoff.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -757,6 +757,35 @@ Then redeploy Railway.
 ---
 
 ## Session History
+
+### Performance Optimizations (Backend + iOS) — March 23, 2026 (session 3)
+
+**What shipped:**
+
+**Backend — faster photo submissions (`main.py`):**
+- Parallelized embedding generation + photo upload in `POST /items/from-photo`. Previously ran sequentially (embedding first, then photo upload). Now both run concurrently via `asyncio.create_task()`. Saves 2–5 seconds per photo submission.
+
+**iOS — 7 performance fixes across 8 files:**
+
+1. **Image caching (`CachedAsyncImage.swift` — new file):** Drop-in replacement for `AsyncImage` with in-memory `NSCache` (80-image limit). Same photo URL is never downloaded twice during a session. Replaced all 4 `AsyncImage` call sites: `MatchView`, `PhotoLightboxView`, `ConfirmedView`, `ItemCardView`.
+
+2. **Date parsing cached at decode time (`Match.swift`):** Added `parsedDate: Date?` field to `Match` model, parsed once during JSON decode. Removed duplicate `parseISO()` functions from `MatchView` and `WaitingView` (each tried 14 date formats on every SwiftUI render pass — major frame-drop source). Shared `DateParsing.parseISO()` utility with static formatters.
+
+3. **Geocoding throttled (`LocationManager.swift`):** Added 100-meter distance threshold before triggering reverse geocode. Previously geocoded on every GPS tick (~1Hz), hammering Apple's API.
+
+4. **Image resize off main thread (`FinderCameraView.swift`):** Moved `lofoResized(maxDimension: 1280)` + JPEG compression to `Task.detached(priority: .userInitiated)`. Eliminates visible stutter before upload overlay appears.
+
+5. **Polling exponential backoff (`WaitingView.swift`):** Match polling now backs off: 5s → 8s → 13s → 20s → 30s (max). Previously polled every 5 seconds forever.
+
+6. **Radar animation cleanup (`WaitingView.swift`):** Set `radarPulse = false` in `.onDisappear` so `repeatForever` animations stop when navigating away.
+
+7. **Static DateFormatter (`WaitingView.swift`):** `submittedTime` computed property now uses a shared static `DateFormatter` instance instead of creating one per render.
+
+**Files changed:** `main.py`, `~/Desktop/LOFO/LOFO/Models/Match.swift`, `~/Desktop/LOFO/LOFO/Views/Shared/CachedAsyncImage.swift` (new), `~/Desktop/LOFO/LOFO/Views/Loser/MatchView.swift`, `~/Desktop/LOFO/LOFO/Views/Loser/WaitingView.swift`, `~/Desktop/LOFO/LOFO/Views/Loser/ConfirmedView.swift`, `~/Desktop/LOFO/LOFO/Views/Shared/PhotoLightboxView.swift`, `~/Desktop/LOFO/LOFO/Views/Shared/ItemCardView.swift`, `~/Desktop/LOFO/LOFO/Services/LocationManager.swift`, `~/Desktop/LOFO/LOFO/Views/Finder/FinderCameraView.swift`
+
+**Build status:** Compiles clean on iPhone 17 Pro simulator (only pre-existing CLGeocoder deprecation warnings).
+
+---
 
 ### Content Moderation + iOS Error Display — March 23, 2026
 
