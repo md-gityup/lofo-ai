@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 23, 2026 — School app: subscriber alert throttle, thinking screen iOS upgrade, admin card fixes.*
+*Last updated: March 23, 2026 — AI content moderation on photo submissions, iOS error alert for rejected photos.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -757,6 +757,26 @@ Then redeploy Railway.
 ---
 
 ## Session History
+
+### Content Moderation + iOS Error Display — March 23, 2026
+
+**What shipped:**
+
+**AI content moderation on photo submissions (`main.py`):**
+- Updated `_VISION_SYSTEM_PROMPT` to include a safety check before item classification. Claude now screens every finder photo for: nudity/sexual content, drugs, weapons, gore, hate symbols, screenshots/memes, and photos of people (not items).
+- If flagged, Claude returns `{"rejected": true, "reason": "..."}` — the item is never saved to the database.
+- Rejection check added to both `POST /items/from-photo` and `POST /school/{slug}/items/from-photo` endpoints. Returns 422 with friendly message (e.g., "This photo can't be posted: contains nudity").
+- Zero extra cost — moderation runs inside the existing Claude Vision call, no additional API calls or latency.
+
+**iOS app — error alert on rejected photo (`FinderCameraView.swift`):**
+- Added `.alert("Photo not accepted")` dialog that displays when `errorMessage` is set. Previously `errorMessage` was populated on error but never shown to the user — now they see the rejection reason with a "Try again" button that returns to camera.
+- `APIClient.swift`: 422 errors now show just the server message (no "Error 422:" prefix) for cleaner user-facing copy.
+
+**Web app:** No changes needed — existing error toast in `LOFO_MVP.html` and `school.html` already displays the `detail` field from 422 responses.
+
+**Files changed:** `main.py`, `~/Desktop/LOFO/LOFO/Views/Finder/FinderCameraView.swift`, `~/Desktop/LOFO/LOFO/Services/APIClient.swift`
+
+---
 
 ### School App iOS Design Alignment — March 23, 2026
 

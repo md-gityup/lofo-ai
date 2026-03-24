@@ -259,8 +259,18 @@ def _notify_matched_finder(loser_item_id: uuid.UUID, loser_item_type: str) -> No
         print(f"[LOFO notify-finder error] {exc}")
 
 _VISION_SYSTEM_PROMPT = (
-    'You are an item classifier for a lost and found app. Analyze the image and extract structured information. '
-    'Respond ONLY with valid JSON matching this exact schema, no other text: '
+    'You are an item classifier for a lost and found app. '
+    'First, check if the image is appropriate. If the image contains any of the following, '
+    'respond ONLY with: {"rejected": true, "reason": "brief reason"}\n'
+    '- Nudity, sexual, or sexually suggestive content\n'
+    '- Drugs or drug paraphernalia\n'
+    '- Weapons (guns, knives used as weapons, explosives)\n'
+    '- Gore, graphic violence, or disturbing imagery\n'
+    '- Hate symbols or offensive material\n'
+    '- Screenshots, memes, or clearly non-physical items\n'
+    '- Photos of people as the main subject (not a lost item)\n\n'
+    'If the image shows a legitimate physical item suitable for a lost and found service, '
+    'respond ONLY with valid JSON matching this exact schema, no other text: '
     '{"item_type": "string", "color": ["array of colors"], "material": "string or null", '
     '"size": "small/medium/large or null", "features": ["array of distinguishing features"]}'
 )
@@ -916,6 +926,14 @@ async def create_item_from_photo(
         raise HTTPException(status_code=502, detail=f"Claude API error: {exc}") from exc
 
     extracted = _parse_claude_json(message.content[0].text.strip())
+
+    if extracted.get("rejected"):
+        reason = extracted.get("reason", "Inappropriate content")
+        raise HTTPException(
+            status_code=422,
+            detail=f"This photo can't be posted: {reason}",
+        )
+
     _validate_extracted_profile(extracted)
 
     stored_secret = secret_detail if type == "finder" else None
@@ -2783,6 +2801,14 @@ async def school_create_from_photo(
         raise HTTPException(status_code=502, detail=f"Claude API error: {exc}") from exc
 
     extracted = _parse_claude_json(message.content[0].text.strip())
+
+    if extracted.get("rejected"):
+        reason = extracted.get("reason", "Inappropriate content")
+        raise HTTPException(
+            status_code=422,
+            detail=f"This photo can't be posted: {reason}",
+        )
+
     _validate_extracted_profile(extracted)
 
     with get_connection() as conn:
