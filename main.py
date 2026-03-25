@@ -218,7 +218,8 @@ def _notify_waiting_losers(finder_item_id: uuid.UUID, finder_item_type: str) -> 
             phone = row["phone"]
             sms_body = (
                 f"LOFO: Your {label} may have been found nearby! "
-                f"Open the app to claim it: {_APP_URL}"
+                f"Open the app to claim it: {_APP_URL}\n"
+                f"Reply STOP to opt out, HELP for help."
             )
             _sms(phone, sms_body)
             for token in _get_device_tokens(phone):
@@ -245,7 +246,8 @@ def _notify_matched_finder(loser_item_id: uuid.UUID, loser_item_type: str) -> No
             sms_body = (
                 f"LOFO: Someone is looking for a {label} you found! "
                 f"They'll go through the app to verify ownership. "
-                f"Check it out: {_APP_URL}"
+                f"Check it out: {_APP_URL}\n"
+                f"Reply STOP to opt out, HELP for help."
             )
             _sms(phone, sms_body)
             for token in _get_device_tokens(phone):
@@ -1629,24 +1631,28 @@ def coordinate_handoff(body: CoordinateRequest):
                     loser_phone,
                     f"LOFO: Your {label} is confirmed! "
                     f"The finder has been notified and is expecting your message. "
-                    f"Once you've got it back, close the report (and tip if you'd like): {resolve_link}"
+                    f"Once you've got it back, close the report (and tip if you'd like): {resolve_link}\n"
+                    f"Reply STOP to opt out, HELP for help."
                 )
                 _sms(
                     finder_phone,
                     f"LOFO: The owner of the {label} you found has been verified! "
-                    f"They'll be reaching out directly to arrange pickup."
+                    f"They'll be reaching out directly to arrange pickup.\n"
+                    f"Reply STOP to opt out, HELP for help."
                 )
             else:
                 _sms(
                     loser_phone,
                     f"LOFO: Your {label} is confirmed! "
                     f"Reply here to message the finder — we'll relay it securely. "
-                    f"Once you've got it back, close the report (and tip if you'd like): {resolve_link}"
+                    f"Once you've got it back, close the report (and tip if you'd like): {resolve_link}\n"
+                    f"Reply STOP to opt out, HELP for help."
                 )
                 _sms(
                     finder_phone,
                     f"LOFO: Great news — the owner of the {label} you found has been verified and is ready to connect! "
-                    f"Reply to this number to message them — we'll relay it securely."
+                    f"Reply to this number to message them — we'll relay it securely.\n"
+                    f"Reply STOP to opt out, HELP for help."
                 )
     else:
         # Finder has no phone on file — be honest with the loser
@@ -2922,6 +2928,11 @@ def serve_privacy():
     return FileResponse(os.path.join(os.path.dirname(__file__), "privacy-policy.html"))
 
 
+@app.get("/sms-consent", include_in_schema=False)
+def serve_sms_consent():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "sms-consent.html"))
+
+
 _STATS_BY_ITEMS_MAX_IDS = 100
 
 
@@ -3467,7 +3478,8 @@ def cron_lifecycle(key: str = Query("")):
         _sms(
             phone,
             f"LOFO: Still on it. Your {label} report is active and we're watching. "
-            f"Good things take time — we'll reach out the moment something turns up."
+            f"Good things take time — we'll reach out the moment something turns up.\n"
+            f"Reply STOP to opt out, HELP for help."
         )
 
         with get_connection() as conn:
@@ -3511,7 +3523,8 @@ def cron_lifecycle(key: str = Query("")):
             phone,
             f"LOFO: One month in on your {label} — still no match, but we've extended "
             f"your search automatically. Miracles happen. "
-            f"Got it back another way? Close your report: {resolve_link}"
+            f"Got it back another way? Close your report: {resolve_link}\n"
+            f"Reply STOP to opt out, HELP for help."
         )
 
         with get_connection() as conn:

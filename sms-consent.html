@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMS Consent &amp; Opt-In Disclosure — LOFO.AI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #19192D;
+    --cream: #F8F7F4;
+    --muted: #8A8A9A;
+    --rust: #C17A4A;
+    --border: #E4E3DF;
+  }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--navy);
+    line-height: 1.7;
+  }
+  header {
+    background: var(--navy);
+    padding: 28px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .wordmark {
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    color: #fff;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+  .header-date {
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    font-weight: 300;
+  }
+  .hero {
+    background: var(--navy);
+    padding: 48px 48px 56px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .hero h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 48px;
+    color: #fff;
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .hero h1 em { color: rgba(255,255,255,0.45); font-style: italic; }
+  .hero p {
+    font-size: 15px;
+    color: rgba(255,255,255,0.45);
+    font-weight: 300;
+    max-width: 560px;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 64px 48px 96px;
+  }
+  .rule {
+    width: 32px;
+    height: 1.5px;
+    background: var(--rust);
+    opacity: 0.5;
+    margin-bottom: 40px;
+  }
+  section {
+    margin-bottom: 48px;
+  }
+  h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--navy);
+    margin-bottom: 14px;
+    line-height: 1.2;
+  }
+  p {
+    font-size: 15px;
+    color: #4A4A5A;
+    font-weight: 300;
+    margin-bottom: 14px;
+  }
+  ul {
+    list-style: none;
+    margin-bottom: 14px;
+  }
+  ul li {
+    font-size: 15px;
+    color: #4A4A5A;
+    font-weight: 300;
+    padding: 6px 0 6px 20px;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+  ul li:last-child { border-bottom: none; }
+  ul li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--rust);
+    opacity: 0.6;
+  }
+  .callout {
+    background: var(--navy);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin: 32px 0;
+  }
+  .callout p {
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout strong { color: #fff; font-weight: 500; }
+  .screenshot-note {
+    background: rgba(193,122,74,0.08);
+    border-left: 3px solid var(--rust);
+    border-radius: 0 12px 12px 0;
+    padding: 20px 24px;
+    margin: 24px 0;
+  }
+  .screenshot-note p {
+    font-size: 14px;
+    color: #4A4A5A;
+    margin-bottom: 0;
+  }
+  a { color: var(--rust); }
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 24px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  footer span {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+  footer a {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+    text-decoration: none;
+  }
+  footer a:hover { color: var(--navy); }
+  @media (max-width: 600px) {
+    header, .hero { padding: 24px; }
+    .hero h1 { font-size: 34px; }
+    .container { padding: 40px 24px 64px; }
+    footer { padding: 20px 24px; flex-direction: column; gap: 8px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="LOFO_MVP.html" class="wordmark">LOFO.AI</a>
+  <span class="header-date">Last updated: March 2026</span>
+</header>
+
+<div class="hero">
+  <h1>SMS Consent <em>&amp; Opt-In</em></h1>
+  <p>How LOFO collects consent before sending any SMS messages, what messages we send, and how to opt out.</p>
+</div>
+
+<div class="container">
+  <div class="rule"></div>
+
+  <section>
+    <h2>How users opt in</h2>
+    <p>LOFO is a lost-and-found matching app available on iOS. Users opt in to receive SMS messages through a clear, affirmative action within the app. Consent is collected at the point of phone number entry — there is no pre-checked box and no passive enrollment.</p>
+    <p>There are two screens in the LOFO iOS app where a phone number is collected:</p>
+    <ul>
+      <li><strong>Finder phone verification screen</strong> — After a user photographs a found item, they are asked to enter their phone number. Directly below the phone input field, the following disclosure is displayed: <em>"By tapping Send Code, you agree to receive SMS notifications from LOFO. Msg &amp; data rates may apply. Message frequency varies. Reply STOP to opt out. Reply HELP for help. Privacy policy · Terms"</em></li>
+      <li><strong>Loser phone notification screen</strong> — After a user describes a lost item and no immediate match is found, they can optionally enter their phone number to be notified when a match appears. Directly below the phone input field, the following disclosure is displayed: <em>"By tapping Confirm Phone Number, you agree to receive SMS notifications from LOFO. Msg &amp; data rates may apply. Message frequency varies. Reply STOP to opt out. Reply HELP for help. Privacy policy · Terms"</em></li>
+    </ul>
+    <p>The <strong>only</strong> opt-in method is via the LOFO iOS app. There is no web-based, paper, or verbal opt-in. Opt-in information is not shared with any third parties.</p>
+    <p>In both cases, the user must actively tap a button ("Send Code" or "Confirm Phone Number") to submit their number. The consent disclosure text is visible on-screen <strong>before</strong> the user taps the button. "Privacy policy" and "Terms" are tappable links leading to the full <a href="https://lofo-ai-production.up.railway.app/privacy">Privacy Policy</a> and <a href="https://lofo-ai-production.up.railway.app/terms">Terms of Service</a>.</p>
+    <p>Consent is not a condition of using the app or making a purchase.</p>
+  </section>
+
+  <section>
+    <h2>Screenshots of opt-in screens</h2>
+    <p>Below are screenshots from the LOFO iOS app showing the consent disclosure language displayed alongside the phone number input and submission button on each screen.</p>
+
+    <div style="display:flex; gap:24px; flex-wrap:wrap; margin:24px 0;">
+      <div style="flex:1; min-width:240px; text-align:center;">
+        <div style="background:#E4E3DF; border-radius:16px; overflow:hidden;">
+          <img src="https://bfrpoqobyseugmpljfav.supabase.co/storage/v1/object/public/item-photos/sms-consent-finder.png" alt="Finder phone verification screen showing SMS consent disclosure" style="width:100%; display:block;" />
+        </div>
+        <p style="font-size:13px; margin-top:10px;"><strong>Finder flow</strong> — "Send Code" button with consent text visible above</p>
+      </div>
+      <div style="flex:1; min-width:240px; text-align:center;">
+        <div style="background:#E4E3DF; border-radius:16px; overflow:hidden;">
+          <img src="https://bfrpoqobyseugmpljfav.supabase.co/storage/v1/object/public/item-photos/sms-consent-loser.png" alt="Loser phone notification screen showing SMS consent disclosure" style="width:100%; display:block;" />
+        </div>
+        <p style="font-size:13px; margin-top:10px;"><strong>Owner flow</strong> — "Confirm Phone Number" button with consent text visible above</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What messages we send</h2>
+    <p>LOFO sends only transactional, service-related SMS messages. We never send marketing, promotional, or advertising messages. Message types include:</p>
+    <ul>
+      <li><strong>OTP verification codes</strong> — A one-time 6-digit code to verify the user's phone number (e.g., "Your LOFO verification code is 847291. Valid for 10 minutes.")</li>
+      <li><strong>Match notifications</strong> — An alert when a potential match is found between a lost and found item (e.g., "Good news! Somebody found your lost item. Open the LOFO app to verify ownership and arrange return. Reply STOP to opt out.")</li>
+      <li><strong>Coordination messages</strong> — Relayed messages between the finder and owner during the return process, sent through LOFO's number so neither party sees the other's real phone number</li>
+      <li><strong>Lifecycle reminders</strong> — Occasional reminders about an active listing, such as a weekly encouragement message or an expiration notice at day 28</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Message frequency</h2>
+    <p>Message frequency varies based on user activity. A typical item submission generates 1–5 messages total (1 OTP code + 1 match notification + 1–3 coordination messages). Lifecycle reminders add at most 2 additional messages over a 30-day listing period. LOFO does not send recurring or scheduled marketing messages.</p>
+  </section>
+
+  <div class="callout">
+    <p><strong>Opt-out:</strong> Reply <strong>STOP</strong> to any LOFO message to unsubscribe. You will receive a single confirmation and no further messages.</p>
+    <p><strong>Help:</strong> Reply <strong>HELP</strong> to any LOFO message, or email <strong>support@lofoapp.com</strong>.</p>
+    <p><strong>Costs:</strong> Message and data rates may apply. Contact your carrier for details.</p>
+  </div>
+
+  <section>
+    <h2>Third-party sharing</h2>
+    <p>Phone numbers collected through the LOFO app are not sold, rented, or shared with any third party for marketing purposes. Phone numbers are shared only with Twilio, our SMS delivery provider, solely for the purpose of delivering the messages described above.</p>
+  </section>
+
+  <section>
+    <h2>Privacy and terms</h2>
+    <p>Full details about how LOFO handles user data are available in our <a href="https://lofo-ai-production.up.railway.app/privacy">Privacy Policy</a>. The complete terms governing use of the service are available in our <a href="https://lofo-ai-production.up.railway.app/terms">Terms of Service</a>.</p>
+    <p>Both documents are also accessible within the LOFO iOS app via the Settings menu.</p>
+  </section>
+
+  <section>
+    <h2>Contact</h2>
+    <p>For questions about our SMS practices, contact us at <a href="mailto:support@lofoapp.com">support@lofoapp.com</a>.</p>
+  </section>
+</div>
+
+<footer>
+  <span>&copy; 2026 LOFO</span>
+  <a href="privacy-policy.html">Privacy Policy</a>
+  <a href="terms.html">Terms of Service</a>
+</footer>
+
+</body>
+</html>
