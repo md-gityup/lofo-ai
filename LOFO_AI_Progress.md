@@ -1,5 +1,5 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 23, 2026 — Performance optimizations: backend photo pipeline parallelized, iOS image caching, date parsing, geocode throttling, polling backoff.*
+*Last updated: March 25, 2026 — A2P 10DLC compliance overhaul: SMS consent page, STOP/HELP in all messages, CTIA-compliant privacy/terms, iOS consent text updated, Twilio campaign resubmitted.*
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -113,6 +113,7 @@ A lost and found app built almost entirely by AI. Radically simple. A finder sna
 | `GET /admin/map-pairs?period=` | Reunion pairs where both items have GPS, for drawing match lines on map |
 | `GET /terms` | Serves `terms.html` — Terms of Service |
 | `GET /privacy` | Serves `privacy-policy.html` — Privacy Policy |
+| `GET /sms-consent` | Serves `sms-consent.html` — SMS opt-in disclosure page (for Twilio A2P reviewer verification) |
 | `GET /stats/by-items?ids=` | User-level stats: `{lost_count, found_count, reunited_count}` for comma-separated item UUIDs (no auth) |
 
 ---
@@ -757,6 +758,115 @@ Then redeploy Railway.
 ---
 
 ## Session History
+
+### A2P 10DLC Compliance Overhaul — March 25, 2026 (session 6)
+
+**What changed:**
+
+- **Created dedicated SMS consent page** (`sms-consent.html`, route `GET /sms-consent`) — public page for Twilio A2P reviewer to verify opt-in flow. Includes full description of how consent is collected in the iOS app, what messages are sent, frequency, opt-out/help instructions, and embedded screenshots of both phone input screens from the iOS app.
+- **Added STOP/HELP language to all SMS messages** in `main.py` — every notification (`_sms()` call) now ends with "Reply STOP to opt out, HELP for help." Covers match notifications, coordination handoff messages, and lifecycle reminders (week-1 and week-4).
+- **Expanded Privacy Policy SMS section** (`privacy-policy.html`) — now includes full CTIA-compliant disclosure: message types, frequency, costs, opt-out (STOP), help (HELP), consent not required, no third-party sharing.
+- **Expanded Terms of Service SMS section** (`terms.html`) — matching CTIA-compliant language with message types, frequency, carrier disclaimer, opt-out/help, and privacy cross-link.
+- **Updated iOS consent text on both phone input screens:**
+  - `PhoneVerifyView.swift` (finder flow) — added "Message frequency varies", "Reply HELP for help", and tappable "Terms" link alongside existing Privacy Policy link.
+  - `WaitingView.swift` (loser flow) — added full consent disclosure with Privacy Policy + Terms links (previously had no links at all).
+- **Shortened loser waiting screen phone prompt** — changed "Nothing nearby yet — but we're still watching..." to "Nothing yet. Add your number below, we'll reach out as soon as something is found."
+- **Added Vercel rewrites** for `/privacy`, `/terms`, `/sms-consent` in `lofoapp-web/vercel.json` so all three pages are accessible via `lofoapp.com` domain.
+- **Resubmitted Twilio A2P 10DLC campaign** with updated campaign description, opt-in workflow description, and sample messages including STOP language.
+
+**New files:** `sms-consent.html`
+
+**Files changed:** `main.py`, `privacy-policy.html`, `terms.html`, `PhoneVerifyView.swift`, `WaitingView.swift`, `lofoapp-web/vercel.json`
+
+**Current status:** A2P 10DLC campaign resubmitted — awaiting review. All code changes deployed to Railway. iOS changes need next TestFlight build.
+
+**Up next:** Wait for A2P approval. Once approved, test full SMS flow end-to-end.
+
+---
+
+### iOS Finder Flow UX Improvements — March 24, 2026 (session 5)
+
+**What changed:**
+
+- **Removed "Save Payout Info" button** from the found-item flow (`AllSetView`). The separate save CTA was redundant — the "Done" button now handles validation and saving automatically. If payment info is filled in, Done validates that both handle fields match, saves to the API, then navigates home. Mismatch shows the error inline and keeps the user on screen. Confirm handle field kept to prevent typos.
+- **Redesigned `AllSetView`** to match the `ReunionView` celebration template (the "You're all set." screen the loser sees after a reunion). Changed from a plain cream form screen to a proper completion screen using the `rustLight` background, same heading/italic-rust typography pattern, and entrance animations.
+  - Header: "All set." (serif navy) + "Thank you." (italic rust)
+  - Sub-header: "As soon as someone reports this item as lost, we'll send you a text."
+  - Replaced the three bullet rows (removed per user feedback) — just the Optional reward section below
+- **Replaced ring animation with floating hearts.** The three inward-radiating circle rings were removed. A new `FloatingHeartsView` full-screen particle layer was added: 16 `heart.fill` icons of varied sizes (6–17pt) fan out from the orb position in all directions, traveling 175–390pt, fading gently to zero opacity, staggered delays (0–1.5s) for a continuous stream effect.
+
+**Files changed:** `LOFO/Views/Finder/AllSetView.swift`
+
+**Current status:** Build 1.0.0 (7) on TestFlight. Changes are local — needs archive + TestFlight submit when ready.
+
+**Up next:** A2P 10DLC approval still pending. Once approved, test resolve flow end-to-end.
+
+---
+
+### iOS Launch Screen + App Icon Redesign — March 24, 2026 (session 4)
+
+**What changed:**
+
+- **Diagnosed white screen at launch:** The ~2.5s "white screen" before the splash animation is the system-generated launch screen. It was using the `LOFOCream` asset color (`#F5F2EC`, nearly white) so it looked blank. Confirmed via red debug test — the ZStack background never flashed red, proving the white was pre-SwiftUI (the system layer).
+- **Fixed launch screen color:** Updated `LOFOCream.colorset` from `(0.961, 0.949, 0.925)` to `(0.949, 0.929, 0.894)` — exactly matching the SplashScreenView's `kBG` canvas color. Launch screen now looks warm cream and transitions seamlessly into the splash animation.
+- **Also added** `.background(cream).transition(.opacity)` to NavigationStack in `LOFOApp.swift` to prevent any white bleed-through during the splash → home transition.
+- **Redesigned app icon:** New 1024×1024 icon generated with Python/Pillow. Cream background + scattered LOSTFOUND letter particles (matching the splash animation aesthetic) + "LOFO" centered in rust/brown DM Sans Medium with wide tracking. Replaces the old dark navy icon.
+
+- **Build bumped to 7:** `CURRENT_PROJECT_VERSION` updated from 6 → 7 in `project.pbxproj`. Archived and submitted to TestFlight as build 1.0.0 (7).
+
+**Files changed:** `Assets.xcassets/LOFOCream.colorset/Contents.json`, `LOFOApp.swift`, `Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png`, `LOFO.xcodeproj/project.pbxproj`
+
+**Current status:** Build 1.0.0 (7) submitted to TestFlight ✅
+
+**Up next:** A2P 10DLC approval still pending. Once approved, test resolve flow end-to-end.
+
+---
+
+### iOS Splash Screen Polish — March 24, 2026 (session 3)
+
+**What changed:**
+
+- **Removed converge phase entirely, then added it back better:** Eliminated the broken 3-phase system (drift → converge → fade) that was causing letters to fly to corner. Replaced with drift → converge-to-wordmark-span → wordmark-fade-in.
+- **Letters converge to wordmark span, not a single point:** Each particle gets a random target X within ±65pt of center (the approximate width of "L   O   F   O") with tiny ±4pt vertical jitter. Letters fan in from all directions across the wordmark area.
+- **Gradual fade:** Letters don't start fading until they're 40% of the way to their target, so they travel visibly before disappearing.
+- **Wordmark timing:** Wordmark starts fading in at `kWordmarkStart = 4.5s` (overlapping the tail of letter convergence), fully visible by T3 = 7.0s.
+- **Vertical alignment fix:** Changed particle converge Y target from `p.ty` (pre-calculated from build size, wrong coordinate space) to `H / 2` from render directly — guaranteed to match wordmark placement byte-for-byte.
+
+**Files changed:** `Views/SplashScreenView.swift`
+
+**Up next (next session):** Fix ~3 second white screen that appears between tapping the app icon and the splash animation starting. Likely cause: LaunchScreen.storyboard has white background, or window background is white before SwiftUI renders.
+
+---
+
+### iOS Splash Screen Bug Fix — March 24, 2026 (session 2)
+
+**What changed:**
+
+- **`SplashScreenView.swift` bug fix:** Letters were flying to the bottom-right corner during the particle animation. Root cause: `GeometryReader` was reporting `size = .zero` on its first layout pass, so `build()` spawned all particles at `(0,0)` (top-left). Wrap-around bounds were also zero, so particles clustered at top-left. At T1 (3.2s) they all converged toward canvas center — which looks like "flying to bottom-right corner" from top-left.
+  - **Fix:** Removed outer `GeometryReader`. Now uses `.onGeometryChange(for: CGSize.self)` directly on the Canvas (iOS 17+), which fires with the real non-zero canvas size that `render()` also uses. Particles and render now share the same coordinate system.
+  - **Bonus fix:** `onFinish()` was being called on every tick after `elapsed >= TEND` (~60 calls/sec). Added `didFinish` flag so the transition fires exactly once.
+
+**Files changed:** `Views/SplashScreenView.swift`
+
+**Status:** Fix deployed to Xcode — needs simulator/device verify.
+
+---
+
+### iOS Splash Screen — March 24, 2026
+
+**What shipped:**
+
+- **New `SplashScreenView.swift`:** Particle animation splash screen. Random letters drift across a cream background, then converge toward the center to spell out "LOFO", then the wordmark fades in cleanly before crossfading to the home screen. Total duration ~9.5s.
+- **Updated `LOFOApp.swift`:** App now opens with `SplashScreenView` first (`showSplash = true`). Crossfades to the existing `NavigationStack` / `HomeView` when animation completes. Cream `ZStack` background wraps everything to prevent any white flash between system launch screen and first SwiftUI frame.
+- **`AppDelegate.swift`:** Added `UIWindow.appearance().backgroundColor` set to cream in `didFinishLaunchingWithOptions` as an extra layer against white-flash on cold launch.
+- Animation uses real frame delta time (not fixed 1/60s) so it runs at correct speed on 120Hz ProMotion displays.
+- Background fill drawn inside Canvas `render()` so cream is guaranteed on frame 1, before any SwiftUI modifier pipeline.
+
+**Known:** White flash on very first cold launch from a real device is iOS launch screen cache from before this feature was added — fixed by deleting app once and reinstalling.
+
+**Files changed:** `Views/SplashScreenView.swift` (new), `LOFOApp.swift`, `AppDelegate.swift`
+
+---
 
 ### Performance Optimizations (Backend + iOS) — March 23, 2026 (session 3)
 
