@@ -90,3 +90,31 @@ def decode_handoff_token(token: str) -> dict:
     callers are responsible for mapping these to HTTP responses.
     """
     return jwt.decode(token, _JWT_SECRET, algorithms=[_ALGORITHM])
+
+
+# --------------------------------------------------------------------------- #
+# JWT reject tokens — finder rejects a loser's ownership claim                 #
+# --------------------------------------------------------------------------- #
+
+_REJECT_TOKEN_TTL_HOURS = 72
+
+
+def create_reject_token(reunion_id: str, finder_item_id: str) -> tuple[str, str, datetime]:
+    """
+    Mint a single-use JWT for the finder to reject a loser's ownership claim.
+    72-hour TTL since the finder may not check immediately.
+
+    Returns (token, jti, expires_at).
+    """
+    jti = str(_uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=_REJECT_TOKEN_TTL_HOURS)
+    payload = {
+        "sub": reunion_id,
+        "finder_item_id": finder_item_id,
+        "jti": jti,
+        "iat": now,
+        "exp": expires_at,
+    }
+    token = jwt.encode(payload, _JWT_SECRET, algorithm=_ALGORITHM)
+    return token, jti, expires_at

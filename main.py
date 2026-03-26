@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Form, HTTPException, File, UploadFile, Request, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, field_validator
 import os
 import re
@@ -24,7 +24,7 @@ from PIL import Image
 from database import get_connection, ANTHROPIC_API_KEY, VOYAGE_API_KEY
 import jwt
 
-from security import create_handoff_token, decode_handoff_token, hash_secret, verify_secret
+from security import create_handoff_token, create_reject_token, decode_handoff_token, hash_secret, verify_secret
 
 claude_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 voyage_client = voyageai.Client(api_key=VOYAGE_API_KEY)
@@ -274,7 +274,11 @@ _VISION_SYSTEM_PROMPT = (
     'If the image shows a legitimate physical item suitable for a lost and found service, '
     'respond ONLY with valid JSON matching this exact schema, no other text: '
     '{"item_type": "string", "color": ["array of colors"], "material": "string or null", '
-    '"size": "small/medium/large or null", "features": ["array of distinguishing features"]}'
+    '"size": "small/medium/large or null", "features": ["array of distinguishing features"], '
+    '"high_value": "boolean — true if this item is commonly targeted for fraudulent claims '
+    '(electronics, phones, laptops, tablets, cameras, wallets, purses, designer bags, jewelry, '
+    'watches, keys with car fobs, instruments, gaming devices, headphones, sunglasses with branding). '
+    'false for everyday items (water bottles, umbrellas, clothing, books, toys, food containers)"}'
 )
 
 _TEXT_SYSTEM_PROMPT = (
@@ -340,6 +344,25 @@ def health_check():
     return {"status": "ok"}
 
 
+@app.get("/.well-known/apple-app-site-association", include_in_schema=False)
+def apple_app_site_association():
+    """Serve the AASA file for universal links (iOS deep linking)."""
+    return JSONResponse(
+        {
+            "applinks": {
+                "apps": [],
+                "details": [
+                    {
+                        "appID": "45F4TH223D.ai.lofo.app",
+                        "paths": ["/reject/*"],
+                    }
+                ],
+            }
+        },
+        headers={"Content-Type": "application/json"},
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Schemas                                                                      #
 # --------------------------------------------------------------------------- #
@@ -393,6 +416,7 @@ class ItemResponse(BaseModel):
     created_at: str
     has_secret: bool = False
     photo_url: Optional[str] = None
+    high_value: bool = False
 
 
 class TextItemResponse(ItemResponse):
@@ -417,6 +441,7 @@ class MatchResponse(BaseModel):
     has_secret: bool = False
     created_at: Optional[str] = None
     photo_url: Optional[str] = None
+    high_value: bool = False
 
 
 class VerifyRequest(BaseModel):
@@ -458,6 +483,7 @@ class CoordinateRequest(BaseModel):
     loser_item_id: uuid.UUID
     loser_phone: str
     self_outreach: bool = False  # true = loser will reach out themselves; finder still notified
+    ownership_proof: Optional[str] = None  # loser's ownership claim for high-value items
 
 
 class TipCreateRequest(BaseModel):
@@ -562,8 +588,8 @@ def _validate_extracted_profile(extracted: dict) -> None:
 
 
 _INSERT_SQL = """
-    INSERT INTO items (type, item_type, color, material, size, features, latitude, longitude, secret_detail, school_id)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO items (type, item_type, color, material, size, features, latitude, longitude, secret_detail, school_id, high_value)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING
         id,
         type,
@@ -576,7 +602,8 @@ _INSERT_SQL = """
         expires_at::text,
         created_at::text,
         (secret_detail IS NOT NULL) AS has_secret,
-        photo_url
+        photo_url,
+        high_value
 """
 
 _SELECT_SQL = """
@@ -609,6 +636,7 @@ _MATCH_SQL = """
         (f.secret_detail IS NOT NULL) AS has_secret,
         f.created_at::text,
         f.photo_url,
+        COALESCE(f.high_value, FALSE) AS high_value,
         CASE
             WHEN f.latitude IS NOT NULL AND l.latitude IS NOT NULL THEN
                 ROUND(CAST(
@@ -654,6 +682,7 @@ _MATCH_SQL_SCHOOL = """
         (f.secret_detail IS NOT NULL) AS has_secret,
         f.created_at::text,
         f.photo_url,
+        COALESCE(f.high_value, FALSE) AS high_value,
         CASE
             WHEN f.latitude IS NOT NULL AND l.latitude IS NOT NULL THEN
                 ROUND(CAST(
@@ -759,7 +788,7 @@ def create_item(item: ItemCreate):
             cur.execute(
                 _INSERT_SQL,
                 (item.type, item.item_type, item.color, item.material, item.size, item.features,
-                 item.latitude, item.longitude, item.secret_detail, None),
+                 item.latitude, item.longitude, item.secret_detail, None, False),
             )
             row = cur.fetchone()
         conn.commit()
@@ -855,6 +884,7 @@ def create_item_from_text(body: TextItemCreate):
                     stored_lng,
                     stored_secret,
                     None,
+                    False,
                 ),
             )
             row = cur.fetchone()
@@ -939,6 +969,7 @@ async def create_item_from_photo(
     _validate_extracted_profile(extracted)
 
     stored_secret = secret_detail if type == "finder" else None
+    is_high_value = bool(extracted.get("high_value", False)) if type == "finder" else False
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -955,6 +986,7 @@ async def create_item_from_photo(
                     longitude,
                     stored_secret,
                     None,
+                    is_high_value,
                 ),
             )
             row = cur.fetchone()
@@ -1390,6 +1422,115 @@ def verify_item(body: VerifyRequest):
     return {"verified": matched, "reason": reason}
 
 
+# --------------------------------------------------------------------------- #
+# Reject claim — finder rejects a loser's ownership proof via universal link    #
+# --------------------------------------------------------------------------- #
+
+@app.get("/reject/{token}")
+def get_reject_info(token: str):
+    """Return reunion details so the iOS app can display the claim for the finder to review."""
+    try:
+        payload = decode_handoff_token(token)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="This link has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid link")
+
+    reunion_id = payload["sub"]
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT r.ownership_proof, r.status, i.item_type
+                FROM reunions r
+                JOIN items i ON i.id = r.finder_item_id
+                WHERE r.id = %s::uuid
+                """,
+                (reunion_id,),
+            )
+            row = cur.fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Reunion not found")
+    if row["status"] != "active":
+        raise HTTPException(status_code=409, detail="This match has already been processed")
+
+    return {
+        "reunion_id": reunion_id,
+        "item_type": row["item_type"],
+        "ownership_proof": row["ownership_proof"],
+    }
+
+
+@app.post("/reject")
+def reject_claim(token: str):
+    """Finder rejects a loser's ownership claim. Cancels the reunion and reactivates the finder's item."""
+    try:
+        payload = decode_handoff_token(token)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="This link has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid link")
+
+    jti = payload["jti"]
+    reunion_id = payload["sub"]
+    finder_item_id = payload.get("finder_item_id")
+    expires_at = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+
+    # Replay prevention — mark token as used
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO used_tokens (jti, item_id, used_at, expires_at)
+                VALUES (%s, %s, now(), %s)
+                ON CONFLICT (jti) DO NOTHING
+                RETURNING jti
+                """,
+                (jti, finder_item_id, expires_at),
+            )
+            inserted = cur.fetchone()
+        conn.commit()
+
+    if inserted is None:
+        raise HTTPException(status_code=409, detail="Already processed")
+
+    # Mark reunion as rejected
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE reunions SET status = 'rejected' WHERE id = %s::uuid AND status = 'active' RETURNING loser_phone, loser_item_id",
+                (reunion_id,),
+            )
+            reunion = cur.fetchone()
+        conn.commit()
+
+    if reunion is None:
+        return {"ok": True, "detail": "Reunion already processed"}
+
+    # Reactivate the finder's item so it can match other losers
+    if finder_item_id:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE items SET status = 'active' WHERE id = %s AND type = 'finder'",
+                    (finder_item_id,),
+                )
+            conn.commit()
+
+    # Notify the loser
+    loser_phone = reunion.get("loser_phone")
+    if loser_phone:
+        _sms(
+            loser_phone,
+            "LOFO: The finder couldn't confirm your detail so this match has been canceled. "
+            "We're still looking — you'll hear from us the moment there's a new match.\n"
+            "Reply STOP to opt out, HELP for help."
+        )
+
+    return {"ok": True}
+
+
 @app.patch("/items/{item_id}/finder-info", status_code=200)
 def update_finder_info(item_id: uuid.UUID, body: FinderInfoUpdate):
     updates: dict = {}
@@ -1613,16 +1754,27 @@ def coordinate_handoff(body: CoordinateRequest):
                 existing = cur.fetchone()
 
         if not existing:
+            proof = (body.ownership_proof or "").strip() or None
             with get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
-                        INSERT INTO reunions (finder_item_id, loser_item_id, finder_phone, loser_phone)
-                        VALUES (%s, %s, %s, %s)
+                        INSERT INTO reunions (finder_item_id, loser_item_id, finder_phone, loser_phone, ownership_proof)
+                        VALUES (%s, %s, %s, %s, %s)
+                        RETURNING id
                         """,
-                        (str(body.finder_item_id), str(body.loser_item_id), finder_phone, loser_phone),
+                        (str(body.finder_item_id), str(body.loser_item_id), finder_phone, loser_phone, proof),
                     )
+                    reunion_row = cur.fetchone()
                 conn.commit()
+
+            reunion_id = str(reunion_row["id"]) if reunion_row else None
+
+            # Build reject link for high-value items with ownership proof
+            reject_link = None
+            if proof and reunion_id:
+                reject_tok, _reject_jti, _reject_exp = create_reject_token(reunion_id, str(body.finder_item_id))
+                reject_link = f"https://lofoapp.com/reject/{reject_tok}"
 
             # Notify both parties — no raw numbers shared, relay via LOFO's number
             resolve_link = f"{_RAILWAY_URL}/resolve/{body.loser_item_id}"
@@ -1634,12 +1786,22 @@ def coordinate_handoff(body: CoordinateRequest):
                     f"Once you've got it back, close the report (and tip if you'd like): {resolve_link}\n"
                     f"Reply STOP to opt out, HELP for help."
                 )
-                _sms(
-                    finder_phone,
-                    f"LOFO: The owner of the {label} you found has been verified! "
-                    f"They'll be reaching out directly to arrange pickup.\n"
-                    f"Reply STOP to opt out, HELP for help."
-                )
+                if proof and reject_link:
+                    _sms(
+                        finder_phone,
+                        f'LOFO: The owner of your {label} says: '
+                        f'"{proof}" '
+                        f'If wrong: {reject_link}\n'
+                        f"They'll be reaching out directly to arrange pickup.\n"
+                        f"Reply STOP to opt out, HELP for help."
+                    )
+                else:
+                    _sms(
+                        finder_phone,
+                        f"LOFO: The owner of the {label} you found has been verified! "
+                        f"They'll be reaching out directly to arrange pickup.\n"
+                        f"Reply STOP to opt out, HELP for help."
+                    )
             else:
                 _sms(
                     loser_phone,
@@ -1648,12 +1810,22 @@ def coordinate_handoff(body: CoordinateRequest):
                     f"Once you've got it back, close the report (and tip if you'd like): {resolve_link}\n"
                     f"Reply STOP to opt out, HELP for help."
                 )
-                _sms(
-                    finder_phone,
-                    f"LOFO: Great news — the owner of the {label} you found has been verified and is ready to connect! "
-                    f"Reply to this number to message them — we'll relay it securely.\n"
-                    f"Reply STOP to opt out, HELP for help."
-                )
+                if proof and reject_link:
+                    _sms(
+                        finder_phone,
+                        f'LOFO: The owner of your {label} says: '
+                        f'"{proof}" '
+                        f'If wrong: {reject_link}\n'
+                        f'Reply here to coordinate return.\n'
+                        f'Reply STOP to opt out, HELP for help.'
+                    )
+                else:
+                    _sms(
+                        finder_phone,
+                        f"LOFO: Great news — the owner of the {label} you found has been verified and is ready to connect! "
+                        f"Reply to this number to message them — we'll relay it securely.\n"
+                        f"Reply STOP to opt out, HELP for help."
+                    )
     else:
         # Finder has no phone on file — be honest with the loser
         _sms(
@@ -2674,6 +2846,7 @@ def school_lost_match(slug: str, body: SchoolLostRequest):
                     None,
                     None,
                     str(school["id"]),
+                    False,
                 ),
             )
             row = cur.fetchone()
@@ -2836,6 +3009,7 @@ async def school_create_from_photo(
                     None,
                     None,
                     str(school["id"]),
+                    bool(extracted.get("high_value", False)),
                 ),
             )
             row = cur.fetchone()
