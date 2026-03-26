@@ -1,5 +1,50 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 25, 2026 — A2P 10DLC compliance overhaul: SMS consent page, STOP/HELP in all messages, CTIA-compliant privacy/terms, iOS consent text updated, Twilio campaign resubmitted.*
+*Last updated: March 26, 2026 — Smart ownership verification: AI value detection, loser-side proof, universal link reject. Replaced clunky secret detail field with AI-driven high-value flagging + loser proves ownership + finder can reject via iOS universal link.*
+
+## Session History — March 26, 2026
+
+**What was built:**
+- Redesigned ownership verification from first principles. Removed the secret detail field from the finder flow entirely. Now:
+  1. Claude Vision flags items as `high_value` (electronics, wallets, jewelry, etc.) during photo analysis
+  2. When a loser claims a high-value match, they're asked to describe something not obvious from the photo ("Prove it's yours")
+  3. Their proof is included in the finder's handoff SMS alongside a reject link
+  4. Finder taps `lofoapp.com/reject/{token}` → opens iOS app → can cancel if proof doesn't match
+  5. Low-value items skip proof entirely — same instant flow as before
+
+**Backend changes:**
+- `_VISION_SYSTEM_PROMPT` — added `high_value` boolean to JSON schema
+- `items` table — new `high_value BOOLEAN DEFAULT FALSE` column
+- `reunions` table — new `ownership_proof TEXT` column
+- `_INSERT_SQL`, `_MATCH_SQL`, `_MATCH_SQL_SCHOOL` — updated for `high_value`
+- `ItemResponse`, `MatchResponse`, `CoordinateRequest` — added new fields
+- `GET /reject/{token}` — returns reunion details for iOS RejectClaimView
+- `POST /reject?token=...` — cancels reunion, reactivates finder item, SMS notifies loser
+- `create_reject_token()` in `security.py` — 72h TTL JWT with replay protection
+- `GET /.well-known/apple-app-site-association` — AASA endpoint for universal links
+- Handoff SMS now includes proof + reject link for high-value items
+
+**iOS changes:**
+- `OwnershipProofView.swift` (NEW) — loser proof collection screen
+- `RejectClaimView.swift` (NEW) — finder reject screen via universal link
+- `Item.swift`, `Match.swift` — added `highValue` field
+- `MatchView.swift` — routes to proof screen for high-value, confirmed for low-value
+- `LOFOApp.swift` — `onOpenURL` handler + `handleUniversalLink` for `/reject/{token}`
+- `AppState.swift` — added `.ownershipProof` and `.rejectClaim(token:)` screen cases
+- `LoserFlowState.swift` — added `ownershipProof` property
+- `FinderDoneView.swift` — removed secret detail field entirely
+- `ConfirmedOTPView.swift` — passes ownership proof in handoff request
+- `LOFO.entitlements` — added Associated Domains for `applinks:lofoapp.com`
+- `APIClient.swift` — added `getRejectInfo`, `rejectClaim` methods
+
+**Vercel (lofoapp.com):**
+- Added AASA + `/reject/:token` proxy routes
+
+**What's next:**
+- Build iOS in Xcode → test in simulator → TestFlight
+- Test universal link flow end-to-end (requires AASA live + TestFlight build)
+- A2P 10DLC approval still pending — SMS delivery needed for full testing
+
+---
 
 > **Two numbering systems — here's how they work:**
 > - **Phases 1–26+** = the full project roadmap (backend + web + iOS). Used in the Phase Roadmap table below.
@@ -758,6 +803,32 @@ Then redeploy Railway.
 ---
 
 ## Session History
+
+### iOS UI Cleanup & Code Deduplication — March 26, 2026 (session 7)
+
+**What changed:**
+
+- **Privacy/Terms links now tappable** — `PhoneVerifyView` and `WaitingView` consent text links now open `lofoapp.com/privacy` and `lofoapp.com/terms` in Safari (were styled as links but did nothing).
+- **Locale-based country detection** — `WaitingView` and `ConfirmedView` phone fields now auto-detect device locale for default country code (was hardcoded to US/+1). Matches existing behavior in `PhoneVerifyView`.
+- **Shared phone utilities** — Extracted country list, phone formatting, and locale detection to `LOFOTheme` in `Theme.swift`. Removed ~120 lines of duplication across 3 views.
+- **Shared attribute edit sheet** — Created `AttributeEditSheet.swift` in `Views/Shared/`. Both finder and loser flows now use the same component with different labels and save callbacks. Removed ~160 lines of duplicated code.
+- **Card shadow added to PhoneVerifyView** phone field (was missing, other phone fields had it).
+- **Header line spacing fixed** — WaitingView heading ("Looking for / your {item}.") combined into single concatenated `Text` so line spacing stays consistent when long item names wrap to 3+ lines.
+- **Subtitle shortened** — "Scanning nearby finds..." → "We'll notify you as soon as we find a match." (fits one line).
+- **Copy updates** — "Looking for:" → "Searching for:" in summary line. "Don't like description? Fix it →" / "AI got it wrong? Fix it →" replaced with inline ellipsis `(...)` button next to summary text on both flows.
+- **Secret detail label redesigned** — Replaced 🔒 emoji with `lock.fill` SF Symbol in rust, matching the location pin style from LostPromptView. Fixed spacing.
+- **Tags clipping fixed** — Bumped `tagsMaxHeight` from 112pt to 124pt so 4th row of pills isn't cut off.
+- **"See all →" moved inline** — Now sits inside `FlowLayout` as the last flow item, appearing on the same row as the last visible pills instead of on its own line below.
+
+**New files:** `Views/Shared/AttributeEditSheet.swift`
+
+**Files changed:** `Theme.swift`, `PhoneVerifyView.swift`, `WaitingView.swift`, `ConfirmedView.swift`, `FinderDoneView.swift`
+
+**Current status:** All changes build successfully. Needs new TestFlight build to ship. A2P 10DLC still awaiting approval.
+
+**Up next:** TestFlight build when ready. Once A2P approved, test full SMS flow end-to-end.
+
+---
 
 ### A2P 10DLC Compliance Overhaul — March 25, 2026 (session 6)
 
