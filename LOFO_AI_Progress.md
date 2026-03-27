@@ -1,5 +1,47 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 26, 2026 — Smart ownership verification: AI value detection, loser-side proof, universal link reject. Replaced clunky secret detail field with AI-driven high-value flagging + loser proves ownership + finder can reject via iOS universal link.*
+*Last updated: March 26, 2026 — Performance: background notifications, leaner vision prompt, smaller images, lost pets allowed.*
+
+## Session History — March 26, 2026 (Session 3 — Performance)
+
+**What was built:**
+- Diagnosed slow photo submission flow (~8s). Two root causes: blocking SMS/push notifications in the response path, and an oversized vision prompt.
+- Moved `_notify_waiting_losers` and `_notify_matched_finder` to background threads/executor across all submission endpoints (`/items`, `/items/from-text`, `/items/from-photo`, school photo endpoint). SMS and push notifications no longer block the API response.
+- Trimmed `high_value` description in `_VISION_SYSTEM_PROMPT` from ~50 words of category examples to one concise line. Claude still determines high_value with its own judgment — no hardcoded keyword list.
+- Reduced image resize target from 1280px to 800px in iOS `FinderCameraView`. Tested: identical extraction quality, ~0.6s faster Claude Vision call.
+- Parallelized embedding + photo upload in school photo endpoint (was sequential).
+- Fixed content moderation to allow lost pets — animals (dogs, cats, etc.) are valid found items.
+
+**Files changed:**
+- `main.py` — background notifications, leaner prompt, pet allowance
+- `LOFO/Views/Finder/FinderCameraView.swift` — image resize 1280→800
+
+**What's next:**
+- Rebuild iOS in Xcode to pick up 800px image change
+- Test full found flow on device to confirm speed improvement
+- A2P 10DLC approval still pending
+
+---
+
+## Session History — March 26, 2026 (Session 2)
+
+**What was built:**
+- Cleaned up finder confirmation screen (FinderDoneView): removed standalone "Submitted as: XXX" line, moved the ellipsis edit button inside the white item card underneath the geolocation subtitle
+- Cleaned up loser waiting screen (WaitingView): removed standalone "Searching for: XXX" line, added a third status card with item name + edit button matching the location/time card style
+- Added optional `onEdit` closure to shared `ItemCardView` — renders edit button inside the card when provided
+- Bumped build number to 8 (1.0.0 build 8) for TestFlight
+
+**Files changed:**
+- `Views/Shared/ItemCardView.swift` — added `onEdit` parameter + button rendering
+- `Views/Finder/FinderDoneView.swift` — removed "Submitted as" HStack, passed `onEdit` to ItemCardView
+- `Views/Loser/WaitingView.swift` — replaced "Searching for" line with item status card + edit button
+- `LOFO.xcodeproj/project.pbxproj` — build number 7 → 8
+
+**What's next:**
+- Archive build 8 → TestFlight
+- Test universal link reject flow end-to-end
+- A2P 10DLC approval still pending
+
+---
 
 ## Session History — March 26, 2026
 
