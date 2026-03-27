@@ -11,6 +11,7 @@ import uuid
 import asyncio
 import base64
 import json
+import threading
 
 import io
 
@@ -275,10 +276,7 @@ _VISION_SYSTEM_PROMPT = (
     'respond ONLY with valid JSON matching this exact schema, no other text: '
     '{"item_type": "string", "color": ["array of colors"], "material": "string or null", '
     '"size": "small/medium/large or null", "features": ["array of distinguishing features"], '
-    '"high_value": "boolean — true if this item is commonly targeted for fraudulent claims '
-    '(electronics, phones, laptops, tablets, cameras, wallets, purses, designer bags, jewelry, '
-    'watches, keys with car fobs, instruments, gaming devices, headphones, sunglasses with branding). '
-    'false for everyday items (water bottles, umbrellas, clothing, books, toys, food containers)"}'
+    '"high_value": "boolean — true if commonly targeted for fraudulent claims (e.g. electronics, wallets, jewelry, designer items), false otherwise"}'
 )
 
 _TEXT_SYSTEM_PROMPT = (
@@ -802,10 +800,11 @@ def create_item(item: ItemCreate):
         "features": item.features,
     }
     _store_embedding(result["id"], profile)
+    # Fire-and-forget: notify in background so the response isn't blocked by SMS/push calls
     if item.type == "finder":
-        _notify_waiting_losers(result["id"], item.item_type)
+        threading.Thread(target=_notify_waiting_losers, args=(result["id"], item.item_type), daemon=True).start()
     else:
-        _notify_matched_finder(result["id"], item.item_type)
+        threading.Thread(target=_notify_matched_finder, args=(result["id"], item.item_type), daemon=True).start()
     return result
 
 
@@ -893,10 +892,11 @@ def create_item_from_text(body: TextItemCreate):
     item = dict(row)
     item["location_name"] = resolved_location_name
     _store_embedding(item["id"], extracted)
+    # Fire-and-forget: notify in background so the response isn't blocked by SMS/push calls
     if body.type == "finder":
-        _notify_waiting_losers(item["id"], extracted["item_type"])
+        threading.Thread(target=_notify_waiting_losers, args=(item["id"], extracted["item_type"]), daemon=True).start()
     else:
-        _notify_matched_finder(item["id"], extracted["item_type"])
+        threading.Thread(target=_notify_matched_finder, args=(item["id"], extracted["item_type"]), daemon=True).start()
     return item
 
 
@@ -1012,7 +1012,10 @@ async def create_item_from_photo(
             conn.commit()
         item["photo_url"] = photo_url
 
-    _notify_waiting_losers(item["id"], extracted["item_type"])  # type is always 'finder' here
+    # Fire-and-forget: notify matching losers in background so the response isn't blocked
+    asyncio.get_event_loop().run_in_executor(
+        None, _notify_waiting_losers, item["id"], extracted["item_type"]
+    )
     return item
 
 
@@ -3016,9 +3019,15 @@ async def school_create_from_photo(
         conn.commit()
 
     item = dict(row)
-    await asyncio.to_thread(_store_embedding, item["id"], extracted)
+    # Run embedding + photo upload in parallel — they don't depend on each other.
+    embedding_task = asyncio.create_task(
+        asyncio.to_thread(_store_embedding, item["id"], extracted)
+    )
+    photo_task = asyncio.create_task(_upload_photo(item["id"], image_bytes))
 
-    photo_url = await _upload_photo(item["id"], image_bytes)
+    await embedding_task
+    photo_url = await photo_task
+
     if photo_url:
         with get_connection() as conn:
             with conn.cursor() as cur:
@@ -3029,7 +3038,10 @@ async def school_create_from_photo(
             conn.commit()
         item["photo_url"] = photo_url
 
-    _school_after_new_finder_post(school, item, extracted)
+    # Fire-and-forget: notify in background so the response isn't blocked
+    asyncio.get_event_loop().run_in_executor(
+        None, _school_after_new_finder_post, school, item, extracted
+    )
     return item
 
 
