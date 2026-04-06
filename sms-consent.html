@@ -401,71 +401,82 @@
 
     <div style="max-width:340px; margin:0 auto;">
       <div style="background:#000; border-radius:44px; overflow:hidden; position:relative; min-height:680px; padding:12px; box-shadow:0 12px 48px rgba(0,0,0,0.2);">
-        <div style="background:#F5F2EC; border-radius:36px; overflow:hidden; position:relative; min-height:656px;">
+        <div style="background:#888; border-radius:36px; overflow:hidden; position:relative; min-height:656px;">
 
           <!-- Dynamic island -->
           <div style="width:100px; height:28px; background:#000; border-radius:20px; position:absolute; left:50%; transform:translateX(-50%); top:10px; z-index:10;"></div>
 
           <!-- Status bar -->
           <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 24px 0;">
-            <span style="font-size:13px; font-weight:600; color:#1A1A2E; letter-spacing:-0.3px;">9:41</span>
-            <span style="font-size:11px; font-weight:500; letter-spacing:0.1em; color:#1A1A2E; text-transform:uppercase;">LOFO</span>
+            <span style="font-size:13px; font-weight:600; color:rgba(255,255,255,0.7); letter-spacing:-0.3px;">9:41</span>
+            <span style="font-size:11px; color:rgba(255,255,255,0.7);">●●●</span>
           </div>
 
-          <!-- OWNER STEP 1: Phone + consent -->
-          <div id="owner-step-1" style="padding:4px 22px 24px; transition:opacity 0.35s, transform 0.35s; display:flex; flex-direction:column; align-items:center;">
-            <!-- Searching title -->
-            <div style="font-family:'DM Serif Display',serif; font-size:26px; color:#1A1A2E; text-align:center; line-height:1.05; letter-spacing:-0.3px; margin-top:24px;">Looking for<br><em style="color:#C17A4A; font-style:italic;">your item.</em></div>
-            <div style="width:28px; height:1.5px; background:#C17A4A; opacity:0.35; margin:12px 0;"></div>
-            <div style="font-size:11px; color:#9A9488; font-weight:300; text-align:center; line-height:1.65; margin-bottom:20px; max-width:240px;">Scanning nearby finds. You'll feel your phone the moment we have something.</div>
-            <!-- Notify section -->
-            <div style="width:100%; margin-top:auto; padding-top:8px;">
-              <div style="text-align:center; font-size:10px; color:#9A9488; font-weight:300; line-height:1.65; margin-bottom:14px;">
-                Nothing nearby yet — but we're still watching.<br>Drop your number and we'll text you the moment something turns up.
-              </div>
-              <!-- Phone input -->
-              <div style="display:flex; align-items:center; background:#fff; border:1.5px solid #E0DBD1; border-radius:15px; padding:0 15px; gap:8px; margin-bottom:10px;">
-                <div style="font-size:18px; flex-shrink:0; padding:15px 0; padding-right:10px; border-right:1px solid #E0DBD1;">🇺🇸</div>
-                <input type="tel" id="owner-demo-phone" placeholder="(555) 000-0000" maxlength="14" style="flex:1; background:none; border:none; outline:none; font-family:'DM Sans',sans-serif; font-size:17px; font-weight:400; color:#1A1A2E; padding:15px 0; letter-spacing:0.04em;" />
-              </div>
-              <!-- SMS consent checkbox -->
-              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; padding:0 2px; margin-bottom:6px;">
-                <input type="checkbox" id="owner-sms-cb" style="margin-top:2px; width:14px; height:14px; accent-color:#C17A4A; flex-shrink:0; cursor:pointer;" />
-                <span style="font-size:9.5px; color:#9A9488; font-weight:300; line-height:1.65;">By checking, you are allowing to receive <strong style="color:#1A1A2E;">transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong style="color:#1A1A2E;">LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
-              </label>
-              <!-- ToS checkbox -->
-              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; padding:0 2px; margin-bottom:12px;">
-                <input type="checkbox" id="owner-tos-cb" style="margin-top:2px; width:14px; height:14px; accent-color:#C17A4A; flex-shrink:0; cursor:pointer;" />
-                <span style="font-size:9.5px; color:#9A9488; font-weight:300; line-height:1.65;">By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:#9A9488; text-decoration:underline; text-underline-offset:2px;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:#9A9488; text-decoration:underline; text-underline-offset:2px;">Privacy Policy</a>.</span>
-              </label>
-              <!-- Notify me button -->
-              <button id="owner-notify-btn" style="width:100%; background:#1A1A2E; color:#fff; border:none; border-radius:14px; padding:15px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:400; cursor:pointer; transition:opacity 0.15s, transform 0.1s;">Notify me →</button>
-            </div>
+          <!-- Greyed previous screen hint -->
+          <div style="text-align:center; padding:16px 22px 0; opacity:0.5;">
+            <div style="font-family:'DM Serif Display',serif; font-size:18px; color:#fff; line-height:1.1;">Looking for<br><em style="font-style:italic;">your item.</em></div>
           </div>
 
-          <!-- OWNER STEP 2: Confirmation -->
-          <div id="owner-step-2" style="padding:50px 22px 24px; position:absolute; top:0; left:0; right:0; opacity:0; pointer-events:none; transform:translateX(40px); transition:opacity 0.35s, transform 0.35s; display:flex; flex-direction:column; align-items:center;">
-            <!-- Same searching header -->
-            <div style="font-family:'DM Serif Display',serif; font-size:26px; color:#1A1A2E; text-align:center; line-height:1.05; letter-spacing:-0.3px; margin-top:24px;">Looking for<br><em style="color:#C17A4A; font-style:italic;">your item.</em></div>
-            <div style="width:28px; height:1.5px; background:#C17A4A; opacity:0.35; margin:12px 0;"></div>
-            <div style="font-size:11px; color:#9A9488; font-weight:300; text-align:center; line-height:1.65; margin-bottom:20px; max-width:240px;">Scanning nearby finds. You'll feel your phone the moment we have something.</div>
-            <!-- Confirmed message -->
-            <div style="width:100%; margin-top:auto; padding-top:8px;">
-              <div style="text-align:center; font-size:11px; color:#9A9488; font-weight:300; line-height:1.65; margin-bottom:18px;">
-                ✓ You're on the list. Safe to close — we'll text you.
-              </div>
-              <!-- Consent status callout -->
-              <div style="background:#fff; border:1.5px solid #E0DBD1; border-radius:14px; padding:14px; width:100%;">
-                <div style="font-size:9px; color:#9A9488; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">Consent status</div>
-                <div id="owner-final-consent" style="font-size:12px; font-weight:500; color:#1A1A2E; margin-bottom:8px;">SMS checkbox was not checked — flow completed anyway</div>
-                <div style="font-size:10px; color:#9A9488; font-weight:300; line-height:1.6;">This confirms the SMS consent checkbox is <strong style="color:#1A1A2E;">optional</strong>. Users can complete the entire flow without opting in.</div>
-              </div>
-              <button id="owner-restart-btn" style="width:100%; padding:13px; margin-top:16px; background:none; color:#9A9488; border:1.5px solid #E0DBD1; border-radius:14px; font-size:12px; font-family:'DM Sans',sans-serif; font-weight:400; cursor:pointer;">Restart demo</button>
+          <!-- Drag handle (above sheet) -->
+          <div style="position:absolute; top:100px; left:50%; transform:translateX(-50%); width:36px; height:4px; background:rgba(255,255,255,0.4); border-radius:3px; z-index:6;"></div>
+
+          <!-- OWNER STEP 1: Slide-up sheet -->
+          <div id="owner-step-1" style="position:absolute; bottom:0; left:0; right:0; background:#F5F2EC; border-radius:16px 16px 0 0; padding:0 22px 24px; box-shadow:0 -4px 24px rgba(0,0,0,0.12); transition:opacity 0.35s, transform 0.35s; z-index:5;">
+            <!-- Drag handle -->
+            <div style="width:36px; height:4px; background:#D0CCC4; border-radius:3px; margin:10px auto 20px;"></div>
+            <!-- Bell icon -->
+            <div style="text-align:center; margin-bottom:10px;">
+              <span style="font-size:28px; color:#C17A4A;">&#128276;</span>
             </div>
+            <!-- Title -->
+            <div style="font-family:'DM Serif Display',serif; font-size:22px; color:#1A1A2E; text-align:center; line-height:1.1; margin-bottom:8px;">Get notified</div>
+            <div style="font-size:11px; color:#9A9488; font-weight:300; text-align:center; line-height:1.65; margin-bottom:18px;">Drop your number and we'll text you the moment your item turns up.</div>
+            <!-- Phone input with US +1 -->
+            <div style="display:flex; align-items:center; background:#fff; border:1.5px solid #E0DBD1; border-radius:15px; padding:0 15px; gap:8px; margin-bottom:12px;">
+              <div style="display:flex; align-items:center; gap:4px; flex-shrink:0; padding:13px 10px 13px 0; border-right:1px solid #E0DBD1;">
+                <span style="font-size:11px; font-weight:500; color:#1A1A2E; background:#E0DBD1; padding:2px 5px; border-radius:4px;">US</span>
+                <span style="font-size:13px; color:#1A1A2E; font-weight:400;">+1</span>
+                <span style="font-size:9px; color:#9A9488;">&#9660;</span>
+              </div>
+              <input type="tel" id="owner-demo-phone" placeholder="(555) 000-0000" maxlength="14" style="flex:1; background:none; border:none; outline:none; font-family:'DM Sans',sans-serif; font-size:15px; font-weight:400; color:#1A1A2E; padding:13px 0; letter-spacing:0.04em;" />
+            </div>
+            <!-- SMS consent checkbox -->
+            <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; padding:0 2px; margin-bottom:6px;">
+              <input type="checkbox" id="owner-sms-cb" style="margin-top:2px; width:14px; height:14px; accent-color:#C17A4A; flex-shrink:0; cursor:pointer;" />
+              <span style="font-size:9.5px; color:#9A9488; font-weight:300; line-height:1.65;">By checking, you are allowing to receive <strong style="color:#1A1A2E;">transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong style="color:#1A1A2E;">LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
+            </label>
+            <!-- ToS checkbox -->
+            <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; padding:0 2px; margin-bottom:14px;">
+              <input type="checkbox" id="owner-tos-cb" style="margin-top:2px; width:14px; height:14px; accent-color:#C17A4A; flex-shrink:0; cursor:pointer;" />
+              <span style="font-size:9.5px; color:#9A9488; font-weight:300; line-height:1.65;">By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:#C17A4A; text-decoration:underline; text-underline-offset:2px;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:#C17A4A; text-decoration:underline; text-underline-offset:2px;">Privacy Policy</a>.</span>
+            </label>
+            <!-- Confirm button -->
+            <button id="owner-notify-btn" style="width:100%; background:#1A1A2E; color:#fff; border:none; border-radius:14px; padding:15px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:400; cursor:pointer; display:flex; align-items:center; justify-content:space-between; transition:opacity 0.15s, transform 0.1s;">
+              <span>Confirm Phone Number</span>
+              <span>→</span>
+            </button>
+          </div>
+
+          <!-- OWNER STEP 2: Confirmation (slide-up sheet) -->
+          <div id="owner-step-2" style="position:absolute; bottom:0; left:0; right:0; background:#F5F2EC; border-radius:16px 16px 0 0; padding:0 22px 24px; box-shadow:0 -4px 24px rgba(0,0,0,0.12); opacity:0; pointer-events:none; transform:translateX(40px); transition:opacity 0.35s, transform 0.35s; z-index:5;">
+            <!-- Drag handle -->
+            <div style="width:36px; height:4px; background:#D0CCC4; border-radius:3px; margin:10px auto 24px;"></div>
+            <div style="text-align:center; margin-bottom:18px;">
+              <div style="width:42px; height:42px; background:#E8F5EE; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; margin:0 auto 12px;">✓</div>
+              <div style="font-family:'DM Serif Display',serif; font-size:22px; color:#1A1A2E; margin-bottom:6px;">You're on the list</div>
+              <div style="font-size:11px; color:#9A9488; font-weight:300; line-height:1.65;">Safe to close — we'll text you.</div>
+            </div>
+            <!-- Consent status callout -->
+            <div style="background:#fff; border:1.5px solid #E0DBD1; border-radius:14px; padding:14px; width:100%;">
+              <div style="font-size:9px; color:#9A9488; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">Consent status</div>
+              <div id="owner-final-consent" style="font-size:12px; font-weight:500; color:#1A1A2E; margin-bottom:8px;">SMS checkbox was not checked — flow completed anyway</div>
+              <div style="font-size:10px; color:#9A9488; font-weight:300; line-height:1.6;">This confirms the SMS consent checkbox is <strong style="color:#1A1A2E;">optional</strong>. Users can complete the entire flow without opting in.</div>
+            </div>
+            <button id="owner-restart-btn" style="width:100%; padding:13px; margin-top:16px; background:none; color:#9A9488; border:1.5px solid #E0DBD1; border-radius:14px; font-size:12px; font-family:'DM Sans',sans-serif; font-weight:400; cursor:pointer;">Restart demo</button>
           </div>
 
           <!-- Home indicator -->
-          <div style="position:absolute; bottom:6px; left:50%; transform:translateX(-50%); width:110px; height:4px; background:#1A1A2E; border-radius:3px; opacity:0.2;"></div>
+          <div style="position:absolute; bottom:6px; left:50%; transform:translateX(-50%); width:110px; height:4px; background:#1A1A2E; border-radius:3px; opacity:0.2; z-index:6;"></div>
 
         </div>
       </div>
