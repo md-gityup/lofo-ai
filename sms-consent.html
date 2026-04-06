@@ -204,76 +204,114 @@
     <div id="step-label" style="text-align:center; font-size:12px; color:var(--muted); font-weight:300; margin-bottom:16px;">Step 1 of 3 — Phone &amp; consent</div>
 
     <div style="max-width:375px; margin:0 auto;">
-      <div style="background:#19192D; border-radius:40px; overflow:hidden; position:relative; min-height:700px; padding-top:20px; box-shadow:0 8px 40px rgba(0,0,0,0.15); border:6px solid #333;">
+      <div style="background:#000; border-radius:48px; overflow:hidden; position:relative; min-height:760px; padding:14px; box-shadow:0 12px 48px rgba(0,0,0,0.2);">
+        <!-- Inner screen -->
+        <div style="background:#F5F2EC; border-radius:38px; overflow:hidden; position:relative; min-height:732px;">
 
-        <!-- Notch -->
-        <div style="width:120px; height:28px; background:#000; border-radius:0 0 18px 18px; margin:0 auto 12px;"></div>
-
-        <!-- STEP 1: Phone + consent -->
-        <div id="demo-step-1" style="padding:20px 24px 32px; color:#fff; transition:opacity 0.35s, transform 0.35s;">
-          <div style="font-family:'DM Serif Display',serif; font-size:24px; margin-bottom:4px;">Verify your phone</div>
-          <div style="font-size:13px; color:rgba(255,255,255,0.5); font-weight:300; margin-bottom:24px;">If someone claims this item, we'll text you to coordinate the handoff. No account needed.</div>
-          <div style="display:flex; align-items:center; background:rgba(255,255,255,0.08); border-radius:12px; padding:12px 14px; margin-bottom:16px;">
-            <span style="margin-right:10px;">🇺🇸</span>
-            <input type="tel" id="demo-phone" placeholder="(555) 000-0000" maxlength="14" style="background:none; border:none; outline:none; color:#fff; font-size:16px; font-family:'DM Sans',sans-serif; width:100%;" />
+          <!-- Status bar -->
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 28px 0;">
+            <span style="font-size:15px; font-weight:600; color:#1A1A2E; letter-spacing:-0.3px;">9:41</span>
+            <div style="width:120px; height:32px; background:#000; border-radius:20px; position:absolute; left:50%; transform:translateX(-50%); top:14px;"></div>
+            <span style="font-size:13px; color:#1A1A2E; opacity:0.7;">●●●</span>
           </div>
-          <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:10px;">
-            <input type="checkbox" id="demo-sms-cb" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
-            <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.5;">By checking, you are allowing to receive <strong style="color:#fff;">transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong style="color:#fff;">LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
-          </label>
-          <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:20px;">
-            <input type="checkbox" id="demo-tos-cb" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
-            <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.5;">By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:rgba(255,255,255,0.5); text-decoration:underline;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:rgba(255,255,255,0.5); text-decoration:underline;">Privacy Policy</a>.</span>
-          </label>
-          <button id="demo-send-btn" style="width:100%; padding:14px; background:#C17A4A; color:#fff; border:none; border-radius:12px; font-size:15px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer;">Send code →</button>
-          <div id="demo-consent-status" style="margin-top:14px; text-align:center; font-size:12px; color:rgba(255,255,255,0.4); opacity:0; transition:opacity 0.3s;"></div>
-        </div>
 
-        <!-- STEP 2: OTP verification -->
-        <div id="demo-step-2" style="padding:60px 24px 32px; color:#fff; position:absolute; top:0; left:0; right:0; opacity:0; pointer-events:none; transform:translateX(40px); transition:opacity 0.35s, transform 0.35s;">
-          <div style="font-family:'DM Serif Display',serif; font-size:24px; margin-bottom:4px;">Enter the code</div>
-          <div style="font-size:13px; color:rgba(255,255,255,0.5); font-weight:300; margin-bottom:8px;">We sent a 6-digit code to</div>
-          <div id="demo-phone-echo" style="font-size:15px; font-weight:500; margin-bottom:28px;">(555) 000-0000</div>
-          <div style="display:flex; gap:10px; justify-content:center; margin-bottom:28px;">
-            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
-            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
-            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
-            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
-            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
-            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
-          </div>
-          <button id="demo-verify-btn" style="width:100%; padding:14px; background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.4); border:none; border-radius:12px; font-size:15px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer;">Verify →</button>
-          <div style="text-align:center; margin-top:16px;">
-            <span style="font-size:13px; color:rgba(255,255,255,0.35); font-weight:300; cursor:pointer; text-decoration:underline; text-underline-offset:3px;">Resend code</span>
-          </div>
-        </div>
-
-        <!-- STEP 3: All set -->
-        <div id="demo-step-3" style="padding:60px 24px 32px; color:#fff; position:absolute; top:0; left:0; right:0; opacity:0; pointer-events:none; transform:translateX(40px); transition:opacity 0.35s, transform 0.35s;">
-          <div style="text-align:center; padding-top:24px;">
-            <div style="font-size:56px; margin-bottom:16px;">&#10003;</div>
-            <div style="font-family:'DM Serif Display',serif; font-size:26px; margin-bottom:8px;">You're all set</div>
-            <div style="font-size:14px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.6; margin-bottom:24px;">Your found item has been posted. We'll send a text as soon as there's a verified match.</div>
-            <div style="background:rgba(255,255,255,0.06); border-radius:14px; padding:18px 20px; margin-bottom:20px;">
-              <div style="font-size:11px; color:rgba(255,255,255,0.35); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">Consent status</div>
-              <div id="demo-final-consent" style="font-size:14px; font-weight:500;">SMS checkbox was not checked — flow completed anyway</div>
+          <!-- STEP 1: Phone + consent -->
+          <div id="demo-step-1" style="padding:8px 24px 32px; transition:opacity 0.35s, transform 0.35s;">
+            <!-- Back button -->
+            <div style="padding:12px 0 0;">
+              <span style="font-size:14px; color:#1A1A2E; font-weight:400; opacity:0.5;">← Back</span>
             </div>
-            <div style="background:rgba(193,122,74,0.15); border-radius:14px; padding:18px 20px;">
-              <div style="font-size:13px; color:rgba(255,255,255,0.7); font-weight:300; line-height:1.6;">This confirms the SMS consent checkbox is <strong style="color:#fff;">optional</strong>. Users can complete the entire flow without opting in to SMS notifications.</div>
+            <!-- Icon -->
+            <div style="width:56px; height:56px; background:#F5EDE3; border-radius:18px; display:flex; align-items:center; justify-content:center; font-size:26px; margin:24px 0;">📲</div>
+            <!-- Title -->
+            <div style="font-family:'DM Serif Display',serif; font-size:34px; color:#1A1A2E; line-height:1.1; margin-bottom:10px;">Where should<br>we reach you?</div>
+            <div style="font-size:14px; color:#9A9488; font-weight:300; line-height:1.65; margin-bottom:28px;">If someone claims this item, we'll text you to coordinate the handoff. No account needed.</div>
+            <!-- Phone input -->
+            <div style="display:flex; align-items:center; background:#fff; border:1.5px solid #E0DBD1; border-radius:18px; padding:0 18px; gap:10px; margin-bottom:16px;">
+              <span style="font-size:22px; padding:18px 12px 18px 0; border-right:1px solid #E0DBD1;">🇺🇸</span>
+              <input type="tel" id="demo-phone" placeholder="(555) 000-0000" maxlength="14" style="flex:1; background:none; border:none; outline:none; font-family:'DM Sans',sans-serif; font-size:20px; font-weight:400; color:#1A1A2E; padding:18px 0; letter-spacing:0.04em;" />
+            </div>
+            <!-- SMS consent checkbox -->
+            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; padding:0 4px; margin-bottom:8px;">
+              <input type="checkbox" id="demo-sms-cb" style="margin-top:2px; width:16px; height:16px; accent-color:#C17A4A; flex-shrink:0; cursor:pointer;" />
+              <span style="font-size:11px; color:#9A9488; font-weight:300; line-height:1.65;">By checking, you are allowing to receive <strong style="color:#1A1A2E;">transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong style="color:#1A1A2E;">LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
+            </label>
+            <!-- ToS checkbox -->
+            <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; padding:0 4px; margin-bottom:20px;">
+              <input type="checkbox" id="demo-tos-cb" style="margin-top:2px; width:16px; height:16px; accent-color:#C17A4A; flex-shrink:0; cursor:pointer;" />
+              <span style="font-size:11px; color:#9A9488; font-weight:300; line-height:1.65;">By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:#9A9488; text-decoration:underline; text-underline-offset:2px;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:#9A9488; text-decoration:underline; text-underline-offset:2px;">Privacy Policy</a>.</span>
+            </label>
+            <!-- Send code button -->
+            <button id="demo-send-btn" style="width:100%; background:#1A1A2E; color:#fff; border:none; border-radius:16px; padding:19px; font-family:'DM Sans',sans-serif; font-size:15px; font-weight:400; cursor:pointer; transition:opacity 0.15s, transform 0.1s;">Send code →</button>
+            <div id="demo-consent-status" style="margin-top:12px; text-align:center; font-size:12px; color:#9A9488; opacity:0; transition:opacity 0.3s;"></div>
+          </div>
+
+          <!-- STEP 2: OTP verification -->
+          <div id="demo-step-2" style="padding:56px 24px 32px; position:absolute; top:0; left:0; right:0; opacity:0; pointer-events:none; transform:translateX(40px); transition:opacity 0.35s, transform 0.35s;">
+            <!-- Back button -->
+            <div style="padding:0 0 0;">
+              <span style="font-size:14px; color:#1A1A2E; font-weight:400; opacity:0.5;">← Back</span>
+            </div>
+            <!-- Icon -->
+            <div style="width:56px; height:56px; background:#F5EDE3; border-radius:18px; display:flex; align-items:center; justify-content:center; font-size:26px; margin:24px 0;">💬</div>
+            <!-- Title -->
+            <div style="font-family:'DM Serif Display',serif; font-size:34px; color:#1A1A2E; line-height:1.1; margin-bottom:10px;">Check your<br>messages.</div>
+            <div style="font-size:14px; color:#9A9488; font-weight:300; line-height:1.65; margin-bottom:6px;">We sent a 6-digit code to</div>
+            <div id="demo-phone-echo" style="font-size:14px; font-weight:500; color:#1A1A2E; margin-bottom:32px;">(555) 000-0000</div>
+            <!-- OTP boxes -->
+            <div style="display:flex; gap:10px; justify-content:center; margin-bottom:28px;">
+              <input type="text" inputmode="numeric" maxlength="1" class="demo-otp" style="width:48px; height:58px; background:#fff; border:1.5px solid #E0DBD1; border-radius:14px; font-family:'DM Serif Display',serif; font-size:28px; color:#1A1A2E; text-align:center; outline:none; caret-color:transparent; -webkit-appearance:none;" />
+              <input type="text" inputmode="numeric" maxlength="1" class="demo-otp" style="width:48px; height:58px; background:#fff; border:1.5px solid #E0DBD1; border-radius:14px; font-family:'DM Serif Display',serif; font-size:28px; color:#1A1A2E; text-align:center; outline:none; caret-color:transparent; -webkit-appearance:none;" />
+              <input type="text" inputmode="numeric" maxlength="1" class="demo-otp" style="width:48px; height:58px; background:#fff; border:1.5px solid #E0DBD1; border-radius:14px; font-family:'DM Serif Display',serif; font-size:28px; color:#1A1A2E; text-align:center; outline:none; caret-color:transparent; -webkit-appearance:none;" />
+              <input type="text" inputmode="numeric" maxlength="1" class="demo-otp" style="width:48px; height:58px; background:#fff; border:1.5px solid #E0DBD1; border-radius:14px; font-family:'DM Serif Display',serif; font-size:28px; color:#1A1A2E; text-align:center; outline:none; caret-color:transparent; -webkit-appearance:none;" />
+              <input type="text" inputmode="numeric" maxlength="1" class="demo-otp" style="width:48px; height:58px; background:#fff; border:1.5px solid #E0DBD1; border-radius:14px; font-family:'DM Serif Display',serif; font-size:28px; color:#1A1A2E; text-align:center; outline:none; caret-color:transparent; -webkit-appearance:none;" />
+              <input type="text" inputmode="numeric" maxlength="1" class="demo-otp" style="width:48px; height:58px; background:#fff; border:1.5px solid #E0DBD1; border-radius:14px; font-family:'DM Serif Display',serif; font-size:28px; color:#1A1A2E; text-align:center; outline:none; caret-color:transparent; -webkit-appearance:none;" />
+            </div>
+            <!-- Verify button (disabled until 6 digits) -->
+            <button id="demo-verify-btn" style="width:100%; background:#E0DBD1; color:#9A9488; border:none; border-radius:16px; padding:19px; font-family:'DM Sans',sans-serif; font-size:15px; font-weight:400; cursor:pointer; transition:background 0.2s, color 0.2s;">Verify →</button>
+            <div style="text-align:center; margin-top:16px;">
+              <span style="font-size:13px; color:#9A9488; font-weight:300; cursor:pointer; text-decoration:underline; text-underline-offset:3px;">Resend code</span>
             </div>
           </div>
-          <button id="demo-restart-btn" style="width:100%; padding:14px; margin-top:24px; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:12px; font-size:14px; font-family:'DM Sans',sans-serif; font-weight:400; cursor:pointer;">Restart demo ↺</button>
-        </div>
 
+          <!-- STEP 3: All set -->
+          <div id="demo-step-3" style="padding:56px 24px 32px; position:absolute; top:0; left:0; right:0; opacity:0; pointer-events:none; transform:translateX(40px); transition:opacity 0.35s, transform 0.35s;">
+            <!-- Checkmark -->
+            <div style="width:52px; height:52px; background:#E8F5EE; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; margin-top:24px; margin-bottom:28px;">✓</div>
+            <!-- Title -->
+            <div style="font-family:'DM Serif Display',serif; font-size:44px; line-height:1.0; color:#1A1A2E; letter-spacing:-0.5px; margin-bottom:0;">You're all set.<br><em style="color:#C17A4A; font-style:italic;">Good find.</em></div>
+            <div style="width:32px; height:1.5px; background:#C17A4A; opacity:0.35; margin:18px 0 16px;"></div>
+            <div style="font-size:15px; color:#9A9488; font-weight:300; line-height:1.7; margin-bottom:24px;">We're scanning for a match. The moment someone claims this item is theirs, we'll text you to coordinate the return.</div>
+            <!-- Card -->
+            <div style="background:#fff; border:1.5px solid #E0DBD1; border-radius:18px; padding:18px; display:flex; align-items:center; gap:14px; margin-bottom:20px;">
+              <div style="width:44px; height:44px; background:#F5EDE3; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">📲</div>
+              <div>
+                <div style="font-size:13px; font-weight:500; color:#1A1A2E; margin-bottom:3px;">You'll hear from us</div>
+                <div id="demo-phone-card" style="font-size:12px; color:#9A9488; font-weight:300; line-height:1.5;">A text to (555) 000-0000 as soon as there's a verified match.</div>
+              </div>
+            </div>
+            <!-- Consent status callout -->
+            <div style="background:#fff; border:1.5px solid #E0DBD1; border-radius:18px; padding:18px;">
+              <div style="font-size:11px; color:#9A9488; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">Consent status</div>
+              <div id="demo-final-consent" style="font-size:14px; font-weight:500; color:#1A1A2E; margin-bottom:10px;">SMS checkbox was not checked — flow completed anyway</div>
+              <div style="font-size:12px; color:#9A9488; font-weight:300; line-height:1.6;">This confirms the SMS consent checkbox is <strong style="color:#1A1A2E;">optional</strong>. Users can complete the entire flow without opting in.</div>
+            </div>
+            <button id="demo-restart-btn" style="width:100%; padding:16px; margin-top:20px; background:none; color:#9A9488; border:1.5px solid #E0DBD1; border-radius:16px; font-size:14px; font-family:'DM Sans',sans-serif; font-weight:400; cursor:pointer;">Restart demo</button>
+          </div>
+
+          <!-- Home indicator -->
+          <div style="position:absolute; bottom:8px; left:50%; transform:translateX(-50%); width:134px; height:5px; background:#1A1A2E; border-radius:3px; opacity:0.2;"></div>
+
+        </div>
       </div>
     </div>
 
     <script>
     (function() {
-      const steps = [document.getElementById('demo-step-1'), document.getElementById('demo-step-2'), document.getElementById('demo-step-3')];
-      const dots = [document.getElementById('dot-1'), document.getElementById('dot-2'), document.getElementById('dot-3')];
-      const labels = ['Step 1 of 3 — Phone & consent', 'Step 2 of 3 — OTP verification', 'Step 3 of 3 — Confirmation'];
-      const stepLabel = document.getElementById('step-label');
+      var steps = [document.getElementById('demo-step-1'), document.getElementById('demo-step-2'), document.getElementById('demo-step-3')];
+      var dots = [document.getElementById('dot-1'), document.getElementById('dot-2'), document.getElementById('dot-3')];
+      var labels = ['Step 1 of 3 \u2014 Phone & consent', 'Step 2 of 3 \u2014 OTP verification', 'Step 3 of 3 \u2014 Confirmation'];
+      var stepLabel = document.getElementById('step-label');
 
       function goToStep(n) {
         steps.forEach(function(s, i) {
@@ -294,7 +332,7 @@
         var sms = document.getElementById('demo-sms-cb').checked;
         var tos = document.getElementById('demo-tos-cb').checked;
         var status = document.getElementById('demo-consent-status');
-        if (!sms && !tos) status.textContent = 'Neither checkbox checked — proceeding anyway';
+        if (!sms && !tos) status.textContent = 'Neither checkbox checked \u2014 proceeding anyway';
         else if (sms && tos) status.textContent = 'Both checkboxes checked';
         else if (sms) status.textContent = 'Only SMS checkbox checked';
         else status.textContent = 'Only Terms checkbox checked';
@@ -311,8 +349,8 @@
           var filled = 0;
           otpInputs.forEach(function(o) { if (o.value) filled++; });
           var btn = document.getElementById('demo-verify-btn');
-          if (filled === 6) { btn.style.background = '#C17A4A'; btn.style.color = '#fff'; }
-          else { btn.style.background = 'rgba(255,255,255,0.15)'; btn.style.color = 'rgba(255,255,255,0.4)'; }
+          if (filled === 6) { btn.style.background = '#1A1A2E'; btn.style.color = '#fff'; }
+          else { btn.style.background = '#E0DBD1'; btn.style.color = '#9A9488'; }
         });
         input.addEventListener('keydown', function(e) {
           if (e.key === 'Backspace' && !this.value && i > 0) otpInputs[i - 1].focus();
@@ -324,13 +362,15 @@
         var filled = 0;
         otpInputs.forEach(function(o) { if (o.value) filled++; });
         if (filled < 6) return;
+        var phone = document.getElementById('demo-phone').value || '(555) 000-0000';
+        document.getElementById('demo-phone-card').textContent = 'A text to ' + phone + ' as soon as there\u2019s a verified match.';
         var sms = document.getElementById('demo-sms-cb').checked;
         var tos = document.getElementById('demo-tos-cb').checked;
         var msg = '';
-        if (!sms && !tos) msg = 'Neither checkbox was checked — flow completed without SMS consent';
+        if (!sms && !tos) msg = 'Neither checkbox was checked \u2014 flow completed without SMS consent';
         else if (sms && tos) msg = 'Both checkboxes were checked';
         else if (sms) msg = 'Only SMS checkbox was checked';
-        else msg = 'Only Terms checkbox was checked — SMS consent was not given';
+        else msg = 'Only Terms checkbox was checked \u2014 SMS consent was not given';
         document.getElementById('demo-final-consent').textContent = msg;
         goToStep(2);
       });
@@ -343,7 +383,7 @@
         document.getElementById('demo-consent-status').style.opacity = '0';
         otpInputs.forEach(function(o) { o.value = ''; });
         var btn = document.getElementById('demo-verify-btn');
-        btn.style.background = 'rgba(255,255,255,0.15)'; btn.style.color = 'rgba(255,255,255,0.4)';
+        btn.style.background = '#E0DBD1'; btn.style.color = '#9A9488';
         goToStep(0);
       });
     })();
