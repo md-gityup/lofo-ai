@@ -193,77 +193,157 @@
 
   <section>
     <h2>Live opt-in demo</h2>
-    <p>Below is an <strong>interactive replica</strong> of the opt-in form as it appears in the LOFO app. Try it yourself — you can submit the form <strong>without</strong> checking either checkbox. Neither is pre-selected or required.</p>
+    <p>Walk through the <strong>complete opt-in flow</strong> as it appears in the LOFO app. Both checkboxes are optional and unchecked by default — the flow completes fully without checking either one.</p>
 
-    <div style="display:flex; gap:24px; flex-wrap:wrap; margin:24px 0;">
+    <!-- Step indicator -->
+    <div style="display:flex; justify-content:center; gap:8px; margin:24px 0 8px;">
+      <div id="dot-1" style="width:10px; height:10px; border-radius:50%; background:#C17A4A; transition:background 0.3s;"></div>
+      <div id="dot-2" style="width:10px; height:10px; border-radius:50%; background:#E4E3DF; transition:background 0.3s;"></div>
+      <div id="dot-3" style="width:10px; height:10px; border-radius:50%; background:#E4E3DF; transition:background 0.3s;"></div>
+    </div>
+    <div id="step-label" style="text-align:center; font-size:12px; color:var(--muted); font-weight:300; margin-bottom:16px;">Step 1 of 3 — Phone &amp; consent</div>
 
-      <!-- Finder flow demo -->
-      <div style="flex:1; min-width:280px;">
-        <div style="background:#19192D; border-radius:20px; padding:32px 24px; color:#fff;">
-          <div style="font-family:'DM Serif Display',serif; font-size:22px; margin-bottom:4px;">Verify your phone</div>
+    <div style="max-width:400px; margin:0 auto;">
+      <div style="background:#19192D; border-radius:20px; overflow:hidden; position:relative; min-height:460px;">
+
+        <!-- STEP 1: Phone + consent -->
+        <div id="demo-step-1" style="padding:32px 24px; color:#fff; transition:opacity 0.35s, transform 0.35s;">
+          <div style="font-family:'DM Serif Display',serif; font-size:24px; margin-bottom:4px;">Verify your phone</div>
           <div style="font-size:13px; color:rgba(255,255,255,0.5); font-weight:300; margin-bottom:24px;">If someone claims this item, we'll text you to coordinate the handoff. No account needed.</div>
           <div style="display:flex; align-items:center; background:rgba(255,255,255,0.08); border-radius:12px; padding:12px 14px; margin-bottom:16px;">
             <span style="margin-right:10px;">🇺🇸</span>
-            <input type="tel" placeholder="(555) 000-0000" maxlength="14" style="background:none; border:none; outline:none; color:#fff; font-size:16px; font-family:'DM Sans',sans-serif; width:100%;" />
+            <input type="tel" id="demo-phone" placeholder="(555) 000-0000" maxlength="14" style="background:none; border:none; outline:none; color:#fff; font-size:16px; font-family:'DM Sans',sans-serif; width:100%;" />
           </div>
           <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:10px;">
-            <input type="checkbox" id="demo-sms-finder" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
+            <input type="checkbox" id="demo-sms-cb" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
             <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.5;">By checking, you are allowing to receive <strong style="color:#fff;">transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong style="color:#fff;">LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
           </label>
           <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:20px;">
-            <input type="checkbox" id="demo-tos-finder" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
+            <input type="checkbox" id="demo-tos-cb" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
             <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.5;">By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:rgba(255,255,255,0.5); text-decoration:underline;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:rgba(255,255,255,0.5); text-decoration:underline;">Privacy Policy</a>.</span>
           </label>
-          <button onclick="document.getElementById('demo-result-finder').style.display='block'" style="width:100%; padding:14px; background:#C17A4A; color:#fff; border:none; border-radius:12px; font-size:15px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer;">Send code →</button>
-          <div id="demo-result-finder" style="display:none; margin-top:14px; text-align:center; font-size:13px; color:rgba(255,255,255,0.5);">✓ Form submitted — checkboxes were <strong style="color:#fff;" id="demo-status-finder">not checked</strong>. SMS consent is optional.</div>
+          <button id="demo-send-btn" style="width:100%; padding:14px; background:#C17A4A; color:#fff; border:none; border-radius:12px; font-size:15px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer;">Send code →</button>
+          <div id="demo-consent-status" style="margin-top:14px; text-align:center; font-size:12px; color:rgba(255,255,255,0.4); opacity:0; transition:opacity 0.3s;"></div>
         </div>
-        <p style="font-size:13px; margin-top:10px; text-align:center;"><strong>Finder flow</strong> — "Send code" works regardless of checkbox state.</p>
-      </div>
 
-      <!-- Owner flow demo -->
-      <div style="flex:1; min-width:280px;">
-        <div style="background:#19192D; border-radius:20px; padding:32px 24px; color:#fff;">
-          <div style="font-family:'DM Serif Display',serif; font-size:22px; margin-bottom:4px;">Get notified</div>
-          <div style="font-size:13px; color:rgba(255,255,255,0.5); font-weight:300; margin-bottom:24px;">Nothing nearby yet — but we're still watching. Drop your number and we'll text you the moment something turns up.</div>
-          <div style="display:flex; align-items:center; background:rgba(255,255,255,0.08); border-radius:12px; padding:12px 14px; margin-bottom:16px;">
-            <span style="margin-right:10px;">🇺🇸</span>
-            <input type="tel" placeholder="(555) 000-0000" maxlength="14" style="background:none; border:none; outline:none; color:#fff; font-size:16px; font-family:'DM Sans',sans-serif; width:100%;" />
+        <!-- STEP 2: OTP verification -->
+        <div id="demo-step-2" style="padding:32px 24px; color:#fff; position:absolute; top:0; left:0; right:0; opacity:0; pointer-events:none; transform:translateX(40px); transition:opacity 0.35s, transform 0.35s;">
+          <div style="font-family:'DM Serif Display',serif; font-size:24px; margin-bottom:4px;">Enter the code</div>
+          <div style="font-size:13px; color:rgba(255,255,255,0.5); font-weight:300; margin-bottom:8px;">We sent a 6-digit code to</div>
+          <div id="demo-phone-echo" style="font-size:15px; font-weight:500; margin-bottom:28px;">(555) 000-0000</div>
+          <div style="display:flex; gap:10px; justify-content:center; margin-bottom:28px;">
+            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
+            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
+            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
+            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
+            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
+            <input type="text" maxlength="1" class="demo-otp" style="width:44px; height:52px; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.15); border-radius:12px; color:#fff; font-size:22px; font-family:'DM Sans',sans-serif; text-align:center; outline:none;" />
           </div>
-          <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:10px;">
-            <input type="checkbox" id="demo-sms-loser" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
-            <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.5;">By checking, you are allowing to receive <strong style="color:#fff;">transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong style="color:#fff;">LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
-          </label>
-          <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:20px;">
-            <input type="checkbox" id="demo-sms-tos-loser" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
-            <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.5;">By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:rgba(255,255,255,0.5); text-decoration:underline;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:rgba(255,255,255,0.5); text-decoration:underline;">Privacy Policy</a>.</span>
-          </label>
-          <button onclick="document.getElementById('demo-result-loser').style.display='block'" style="width:100%; padding:14px; background:#C17A4A; color:#fff; border:none; border-radius:12px; font-size:15px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer;">Notify me →</button>
-          <div id="demo-result-loser" style="display:none; margin-top:14px; text-align:center; font-size:13px; color:rgba(255,255,255,0.5);">✓ Form submitted — checkboxes were <strong style="color:#fff;" id="demo-status-loser">not checked</strong>. SMS consent is optional.</div>
+          <button id="demo-verify-btn" style="width:100%; padding:14px; background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.4); border:none; border-radius:12px; font-size:15px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer;">Verify →</button>
+          <div style="text-align:center; margin-top:16px;">
+            <span style="font-size:13px; color:rgba(255,255,255,0.35); font-weight:300; cursor:pointer; text-decoration:underline; text-underline-offset:3px;">Resend code</span>
+          </div>
         </div>
-        <p style="font-size:13px; margin-top:10px; text-align:center;"><strong>Owner flow</strong> — "Notify me" works regardless of checkbox state.</p>
-      </div>
 
+        <!-- STEP 3: All set -->
+        <div id="demo-step-3" style="padding:32px 24px; color:#fff; position:absolute; top:0; left:0; right:0; opacity:0; pointer-events:none; transform:translateX(40px); transition:opacity 0.35s, transform 0.35s;">
+          <div style="text-align:center; padding-top:24px;">
+            <div style="font-size:56px; margin-bottom:16px;">&#10003;</div>
+            <div style="font-family:'DM Serif Display',serif; font-size:26px; margin-bottom:8px;">You're all set</div>
+            <div style="font-size:14px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.6; margin-bottom:24px;">Your found item has been posted. We'll send a text as soon as there's a verified match.</div>
+            <div style="background:rgba(255,255,255,0.06); border-radius:14px; padding:18px 20px; margin-bottom:20px;">
+              <div style="font-size:11px; color:rgba(255,255,255,0.35); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;">Consent status</div>
+              <div id="demo-final-consent" style="font-size:14px; font-weight:500;">SMS checkbox was not checked — flow completed anyway</div>
+            </div>
+            <div style="background:rgba(193,122,74,0.15); border-radius:14px; padding:18px 20px;">
+              <div style="font-size:13px; color:rgba(255,255,255,0.7); font-weight:300; line-height:1.6;">This confirms the SMS consent checkbox is <strong style="color:#fff;">optional</strong>. Users can complete the entire flow without opting in to SMS notifications.</div>
+            </div>
+          </div>
+          <button id="demo-restart-btn" style="width:100%; padding:14px; margin-top:24px; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.1); border-radius:12px; font-size:14px; font-family:'DM Sans',sans-serif; font-weight:400; cursor:pointer;">Restart demo ↺</button>
+        </div>
+
+      </div>
     </div>
 
     <script>
-    document.querySelector('[onclick*="demo-result-finder"]').addEventListener('click', function() {
-      const sms = document.getElementById('demo-sms-finder').checked;
-      const tos = document.getElementById('demo-tos-finder').checked;
-      const el = document.getElementById('demo-status-finder');
-      if (!sms && !tos) el.textContent = 'not checked';
-      else if (sms && tos) el.textContent = 'both checked';
-      else if (sms) el.textContent = 'only SMS checked';
-      else el.textContent = 'only Terms checked';
-    });
-    document.querySelector('[onclick*="demo-result-loser"]').addEventListener('click', function() {
-      const sms = document.getElementById('demo-sms-loser').checked;
-      const tos = document.getElementById('demo-sms-tos-loser').checked;
-      const el = document.getElementById('demo-status-loser');
-      if (!sms && !tos) el.textContent = 'not checked';
-      else if (sms && tos) el.textContent = 'both checked';
-      else if (sms) el.textContent = 'only SMS checked';
-      else el.textContent = 'only Terms checked';
-    });
+    (function() {
+      const steps = [document.getElementById('demo-step-1'), document.getElementById('demo-step-2'), document.getElementById('demo-step-3')];
+      const dots = [document.getElementById('dot-1'), document.getElementById('dot-2'), document.getElementById('dot-3')];
+      const labels = ['Step 1 of 3 — Phone & consent', 'Step 2 of 3 — OTP verification', 'Step 3 of 3 — Confirmation'];
+      const stepLabel = document.getElementById('step-label');
+
+      function goToStep(n) {
+        steps.forEach(function(s, i) {
+          if (i === n) {
+            s.style.opacity = '1'; s.style.pointerEvents = 'auto'; s.style.transform = 'translateX(0)'; s.style.position = i === 0 ? 'relative' : 'absolute';
+          } else {
+            s.style.opacity = '0'; s.style.pointerEvents = 'none'; s.style.transform = i < n ? 'translateX(-40px)' : 'translateX(40px)'; s.style.position = 'absolute';
+          }
+        });
+        dots.forEach(function(d, i) { d.style.background = i <= n ? '#C17A4A' : '#E4E3DF'; });
+        stepLabel.textContent = labels[n];
+      }
+
+      // Step 1 → 2
+      document.getElementById('demo-send-btn').addEventListener('click', function() {
+        var phone = document.getElementById('demo-phone').value || '(555) 000-0000';
+        document.getElementById('demo-phone-echo').textContent = phone;
+        var sms = document.getElementById('demo-sms-cb').checked;
+        var tos = document.getElementById('demo-tos-cb').checked;
+        var status = document.getElementById('demo-consent-status');
+        if (!sms && !tos) status.textContent = 'Neither checkbox checked — proceeding anyway';
+        else if (sms && tos) status.textContent = 'Both checkboxes checked';
+        else if (sms) status.textContent = 'Only SMS checkbox checked';
+        else status.textContent = 'Only Terms checkbox checked';
+        status.style.opacity = '1';
+        setTimeout(function() { goToStep(1); }, 600);
+      });
+
+      // OTP auto-advance + enable verify
+      var otpInputs = document.querySelectorAll('.demo-otp');
+      otpInputs.forEach(function(input, i) {
+        input.addEventListener('input', function() {
+          this.value = this.value.replace(/[^0-9]/g, '');
+          if (this.value && i < otpInputs.length - 1) otpInputs[i + 1].focus();
+          var filled = 0;
+          otpInputs.forEach(function(o) { if (o.value) filled++; });
+          var btn = document.getElementById('demo-verify-btn');
+          if (filled === 6) { btn.style.background = '#C17A4A'; btn.style.color = '#fff'; }
+          else { btn.style.background = 'rgba(255,255,255,0.15)'; btn.style.color = 'rgba(255,255,255,0.4)'; }
+        });
+        input.addEventListener('keydown', function(e) {
+          if (e.key === 'Backspace' && !this.value && i > 0) otpInputs[i - 1].focus();
+        });
+      });
+
+      // Step 2 → 3
+      document.getElementById('demo-verify-btn').addEventListener('click', function() {
+        var filled = 0;
+        otpInputs.forEach(function(o) { if (o.value) filled++; });
+        if (filled < 6) return;
+        var sms = document.getElementById('demo-sms-cb').checked;
+        var tos = document.getElementById('demo-tos-cb').checked;
+        var msg = '';
+        if (!sms && !tos) msg = 'Neither checkbox was checked — flow completed without SMS consent';
+        else if (sms && tos) msg = 'Both checkboxes were checked';
+        else if (sms) msg = 'Only SMS checkbox was checked';
+        else msg = 'Only Terms checkbox was checked — SMS consent was not given';
+        document.getElementById('demo-final-consent').textContent = msg;
+        goToStep(2);
+      });
+
+      // Restart
+      document.getElementById('demo-restart-btn').addEventListener('click', function() {
+        document.getElementById('demo-phone').value = '';
+        document.getElementById('demo-sms-cb').checked = false;
+        document.getElementById('demo-tos-cb').checked = false;
+        document.getElementById('demo-consent-status').style.opacity = '0';
+        otpInputs.forEach(function(o) { o.value = ''; });
+        var btn = document.getElementById('demo-verify-btn');
+        btn.style.background = 'rgba(255,255,255,0.15)'; btn.style.color = 'rgba(255,255,255,0.4)';
+        goToStep(0);
+      });
+    })();
     </script>
   </section>
 
