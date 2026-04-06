@@ -177,40 +177,119 @@
 
   <section>
     <h2>How users opt in</h2>
-    <p>LOFO is a lost-and-found matching app available on iOS. Users opt in to receive SMS messages through a clear, affirmative action within the app. Consent is collected at the point of phone number entry — there is no pre-checked box and no passive enrollment.</p>
-    <p>There are two screens in the LOFO iOS app where a phone number is collected:</p>
+    <p>LOFO is a lost-and-found matching app available on iOS and the web. Users opt in to receive SMS messages through a <strong>clear, optional checkbox</strong> displayed alongside the phone number input. The SMS consent checkbox is <strong>not pre-selected</strong> and is <strong>not required</strong> to submit the form — users can enter a phone number and proceed without checking it.</p>
+    <p>There are two screens where a phone number is collected, each with two separate checkboxes:</p>
     <ul>
-      <li><strong>Finder phone verification screen</strong> — After a user photographs a found item, they are asked to enter their phone number. Directly below the phone input field, the following disclosure is displayed: <em>"By tapping Send Code, you agree to receive SMS notifications from LOFO. Msg &amp; data rates may apply. Message frequency varies. Reply STOP to opt out. Reply HELP for help. Privacy policy · Terms"</em></li>
-      <li><strong>Loser phone notification screen</strong> — After a user describes a lost item and no immediate match is found, they can optionally enter their phone number to be notified when a match appears. Directly below the phone input field, the following disclosure is displayed: <em>"By tapping Confirm Phone Number, you agree to receive SMS notifications from LOFO. Msg &amp; data rates may apply. Message frequency varies. Reply STOP to opt out. Reply HELP for help. Privacy policy · Terms"</em></li>
+      <li><strong>Finder phone verification screen</strong> — After a user photographs a found item, they are asked to enter their phone number. Two opt-in checkboxes are displayed alongside the phone input:
+        <br><br><strong>Checkbox 1 (SMS consent — optional, not pre-checked):</strong> <em>"By checking, you are allowing to receive <strong>transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong>LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out."</em>
+        <br><br><strong>Checkbox 2 (Terms — optional, not pre-checked):</strong> <em>"By checking, I accept Terms of Service &amp; Privacy Policy."</em> (with tappable links to each document)
+      </li>
+      <li><strong>Owner phone notification screen</strong> — After a user describes a lost item and no immediate match is found, they can optionally enter their phone number to be notified when a match appears. The same two checkboxes with identical consent language are displayed alongside the phone input.</li>
     </ul>
-    <p>The <strong>only</strong> opt-in method is via the LOFO iOS app. There is no web-based, paper, or verbal opt-in. Opt-in information is not shared with any third parties.</p>
-    <p>In both cases, the user must actively tap a button ("Send Code" or "Confirm Phone Number") to submit their number. The consent disclosure text is visible on-screen <strong>before</strong> the user taps the button. "Privacy policy" and "Terms" are tappable links leading to the full <a href="https://lofo-ai-production.up.railway.app/privacy">Privacy Policy</a> and <a href="https://lofo-ai-production.up.railway.app/terms">Terms of Service</a>.</p>
+    <p>Opt-in methods include the LOFO iOS app and the LOFO web app (<a href="https://lofoapp.com">lofoapp.com</a>). Both platforms display the same checkbox-based consent flow. Opt-in information is not shared with any third parties.</p>
+    <p>In both cases, the user must actively tap a button ("Send Code" or "Confirm Phone Number") to submit their number. The consent checkboxes and disclosure text are visible on-screen alongside the phone input. <strong>Checking the SMS consent box is not required to submit the form.</strong> "Terms of Service" and "Privacy Policy" are tappable links leading to the full <a href="https://lofoapp.com/privacy">Privacy Policy</a> and <a href="https://lofoapp.com/terms">Terms of Service</a>.</p>
     <p>Consent is not a condition of using the app.</p>
   </section>
 
   <section>
+    <h2>Live opt-in demo</h2>
+    <p>Below is an <strong>interactive replica</strong> of the opt-in form as it appears in the LOFO app. Try it yourself — you can submit the form <strong>without</strong> checking either checkbox. Neither is pre-selected or required.</p>
+
+    <div style="display:flex; gap:24px; flex-wrap:wrap; margin:24px 0;">
+
+      <!-- Finder flow demo -->
+      <div style="flex:1; min-width:280px;">
+        <div style="background:#19192D; border-radius:20px; padding:32px 24px; color:#fff;">
+          <div style="font-family:'DM Serif Display',serif; font-size:22px; margin-bottom:4px;">Verify your phone</div>
+          <div style="font-size:13px; color:rgba(255,255,255,0.5); font-weight:300; margin-bottom:24px;">If someone claims this item, we'll text you to coordinate the handoff. No account needed.</div>
+          <div style="display:flex; align-items:center; background:rgba(255,255,255,0.08); border-radius:12px; padding:12px 14px; margin-bottom:16px;">
+            <span style="margin-right:10px;">🇺🇸</span>
+            <input type="tel" placeholder="(555) 000-0000" maxlength="14" style="background:none; border:none; outline:none; color:#fff; font-size:16px; font-family:'DM Sans',sans-serif; width:100%;" />
+          </div>
+          <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:10px;">
+            <input type="checkbox" id="demo-sms-finder" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
+            <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.5;">By checking, you are allowing to receive <strong style="color:#fff;">transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong style="color:#fff;">LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
+          </label>
+          <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:20px;">
+            <input type="checkbox" id="demo-tos-finder" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
+            <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.5;">By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:rgba(255,255,255,0.5); text-decoration:underline;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:rgba(255,255,255,0.5); text-decoration:underline;">Privacy Policy</a>.</span>
+          </label>
+          <button onclick="document.getElementById('demo-result-finder').style.display='block'" style="width:100%; padding:14px; background:#C17A4A; color:#fff; border:none; border-radius:12px; font-size:15px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer;">Send code →</button>
+          <div id="demo-result-finder" style="display:none; margin-top:14px; text-align:center; font-size:13px; color:rgba(255,255,255,0.5);">✓ Form submitted — checkboxes were <strong style="color:#fff;" id="demo-status-finder">not checked</strong>. SMS consent is optional.</div>
+        </div>
+        <p style="font-size:13px; margin-top:10px; text-align:center;"><strong>Finder flow</strong> — "Send code" works regardless of checkbox state.</p>
+      </div>
+
+      <!-- Owner flow demo -->
+      <div style="flex:1; min-width:280px;">
+        <div style="background:#19192D; border-radius:20px; padding:32px 24px; color:#fff;">
+          <div style="font-family:'DM Serif Display',serif; font-size:22px; margin-bottom:4px;">Get notified</div>
+          <div style="font-size:13px; color:rgba(255,255,255,0.5); font-weight:300; margin-bottom:24px;">Nothing nearby yet — but we're still watching. Drop your number and we'll text you the moment something turns up.</div>
+          <div style="display:flex; align-items:center; background:rgba(255,255,255,0.08); border-radius:12px; padding:12px 14px; margin-bottom:16px;">
+            <span style="margin-right:10px;">🇺🇸</span>
+            <input type="tel" placeholder="(555) 000-0000" maxlength="14" style="background:none; border:none; outline:none; color:#fff; font-size:16px; font-family:'DM Sans',sans-serif; width:100%;" />
+          </div>
+          <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:10px;">
+            <input type="checkbox" id="demo-sms-loser" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
+            <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.5;">By checking, you are allowing to receive <strong style="color:#fff;">transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong style="color:#fff;">LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
+          </label>
+          <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; margin-bottom:20px;">
+            <input type="checkbox" id="demo-sms-tos-loser" style="margin-top:2px; width:16px; height:16px; flex-shrink:0;" />
+            <span style="font-size:11px; color:rgba(255,255,255,0.5); font-weight:300; line-height:1.5;">By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:rgba(255,255,255,0.5); text-decoration:underline;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:rgba(255,255,255,0.5); text-decoration:underline;">Privacy Policy</a>.</span>
+          </label>
+          <button onclick="document.getElementById('demo-result-loser').style.display='block'" style="width:100%; padding:14px; background:#C17A4A; color:#fff; border:none; border-radius:12px; font-size:15px; font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer;">Notify me →</button>
+          <div id="demo-result-loser" style="display:none; margin-top:14px; text-align:center; font-size:13px; color:rgba(255,255,255,0.5);">✓ Form submitted — checkboxes were <strong style="color:#fff;" id="demo-status-loser">not checked</strong>. SMS consent is optional.</div>
+        </div>
+        <p style="font-size:13px; margin-top:10px; text-align:center;"><strong>Owner flow</strong> — "Notify me" works regardless of checkbox state.</p>
+      </div>
+
+    </div>
+
+    <script>
+    document.querySelector('[onclick*="demo-result-finder"]').addEventListener('click', function() {
+      const sms = document.getElementById('demo-sms-finder').checked;
+      const tos = document.getElementById('demo-tos-finder').checked;
+      const el = document.getElementById('demo-status-finder');
+      if (!sms && !tos) el.textContent = 'not checked';
+      else if (sms && tos) el.textContent = 'both checked';
+      else if (sms) el.textContent = 'only SMS checked';
+      else el.textContent = 'only Terms checked';
+    });
+    document.querySelector('[onclick*="demo-result-loser"]').addEventListener('click', function() {
+      const sms = document.getElementById('demo-sms-loser').checked;
+      const tos = document.getElementById('demo-sms-tos-loser').checked;
+      const el = document.getElementById('demo-status-loser');
+      if (!sms && !tos) el.textContent = 'not checked';
+      else if (sms && tos) el.textContent = 'both checked';
+      else if (sms) el.textContent = 'only SMS checked';
+      else el.textContent = 'only Terms checked';
+    });
+    </script>
+  </section>
+
+  <section>
     <h2>Screenshots of opt-in screens</h2>
-    <p>Below are screenshots from the LOFO iOS app showing the consent disclosure language displayed alongside the phone number input and submission button on each screen.</p>
+    <p>Below are screenshots from the LOFO iOS app showing the <strong>optional, un-checked consent checkboxes</strong> displayed alongside the phone number input on each screen. Neither checkbox is pre-selected. Neither is required to submit the form.</p>
 
     <div style="display:flex; gap:24px; flex-wrap:wrap; margin:24px 0;">
       <div style="flex:1; min-width:240px; text-align:center;">
         <div style="background:#E4E3DF; border-radius:16px; overflow:hidden;">
-          <img src="https://titotuvqrgevkrvrdewo.supabase.co/storage/v1/object/public/item-photos/sms-consent-finder.png" alt="Finder phone verification screen showing SMS consent disclosure" style="width:100%; display:block;" />
+          <img src="https://titotuvqrgevkrvrdewo.supabase.co/storage/v1/object/public/item-photos/sms-consent-finder.png" alt="Finder phone verification screen showing optional SMS consent checkbox and Terms checkbox alongside phone input" style="width:100%; display:block;" />
         </div>
-        <p style="font-size:13px; margin-top:10px;"><strong>Finder flow</strong> — "Send Code" button with consent text visible above</p>
+        <p style="font-size:13px; margin-top:10px;"><strong>Finder flow</strong> — Phone input with optional SMS consent checkbox and Terms of Service / Privacy Policy checkbox. "Send Code" button does not require either checkbox.</p>
       </div>
       <div style="flex:1; min-width:240px; text-align:center;">
         <div style="background:#E4E3DF; border-radius:16px; overflow:hidden;">
-          <img src="https://titotuvqrgevkrvrdewo.supabase.co/storage/v1/object/public/item-photos/sms-consent-loser.png" alt="Loser phone notification screen showing SMS consent disclosure" style="width:100%; display:block;" />
+          <img src="https://titotuvqrgevkrvrdewo.supabase.co/storage/v1/object/public/item-photos/sms-consent-loser.png" alt="Owner phone notification screen showing optional SMS consent checkbox and Terms checkbox alongside phone input" style="width:100%; display:block;" />
         </div>
-        <p style="font-size:13px; margin-top:10px;"><strong>Owner flow</strong> — "Confirm Phone Number" button with consent text visible above</p>
+        <p style="font-size:13px; margin-top:10px;"><strong>Owner flow</strong> — Phone input with optional SMS consent checkbox and Terms of Service / Privacy Policy checkbox. "Confirm Phone Number" button does not require either checkbox.</p>
       </div>
     </div>
   </section>
 
   <section>
     <h2>What messages we send</h2>
-    <p>LOFO sends only transactional, service-related SMS messages. We never send marketing, promotional, or advertising messages. Message types include:</p>
+    <p>LOFO sends only <strong>transactional/informational</strong> SMS messages. We never send marketing, promotional, or advertising messages. The consent checkbox explicitly states "transactional/informational SMS." Message types include:</p>
     <ul>
       <li><strong>OTP verification codes</strong> — A one-time 6-digit code to verify the user's phone number (e.g., "Your LOFO verification code is 847291. Valid for 10 minutes.")</li>
       <li><strong>Match notifications</strong> — An alert when a potential match is found between a lost and found item (e.g., "Good news! Somebody found your lost item. Open the LOFO app to verify ownership and arrange return. Reply STOP to opt out.")</li>

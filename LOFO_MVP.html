@@ -1991,6 +1991,28 @@
     text-underline-offset: 2px;
   }
 
+  .sms-consent-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .sms-consent-label input[type="checkbox"] {
+    margin-top: 2px;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--rust);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .sms-consent-label span {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.65;
+  }
+
   /* ─────────────────────────────────────────
      SCREEN 3c: SMS VERIFY
   ───────────────────────────────────────── */
@@ -2724,8 +2746,15 @@
         <div class="phone-flag">🇺🇸</div>
         <input class="phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
       </div>
-      <button class="btn-full s-item" data-delay="260" style="margin-top: 32px" onclick="sendCode()">Send code →</button>
-      <div class="phone-privacy s-item" data-delay="320">By tapping "Send code" you agree to receive SMS notifications from LOFO. Msg &amp; data rates may apply. Reply STOP to opt out. <a href="privacy-policy.html" style="color:inherit;text-decoration:underline;">Privacy policy</a></div>
+      <label class="sms-consent-label s-item" data-delay="260">
+        <input type="checkbox" id="sms-consent-finder" />
+        <span>By checking, you are allowing to receive <strong>transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong>LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
+      </label>
+      <label class="sms-consent-label s-item" data-delay="300">
+        <input type="checkbox" id="tos-consent-finder" />
+        <span>By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:inherit;text-decoration:underline;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:inherit;text-decoration:underline;">Privacy Policy</a>.</span>
+      </label>
+      <button class="btn-full s-item" data-delay="340" style="margin-top: 32px" onclick="sendCode()">Send code →</button>
     </div>
   </div>
 
@@ -2889,8 +2918,15 @@
           <div class="phone-flag">🇺🇸</div>
           <input class="phone-input" id="loser-phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
         </div>
-        <button class="btn-full" id="loser-notify-btn" style="margin-top:0;" onclick="saveLoserPhone()">Notify me →</button>
-        <div style="text-align:center; font-size:11px; color:var(--muted); font-weight:300; line-height:1.65; margin-top:10px;">By submitting, you agree to receive SMS notifications from LOFO. Msg &amp; data rates may apply. Reply STOP to opt out.</div>
+        <label class="sms-consent-label" style="margin-top:10px;">
+          <input type="checkbox" id="sms-consent-loser-waiting" />
+          <span>By checking, you are allowing to receive <strong>transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong>LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
+        </label>
+        <label class="sms-consent-label" style="margin-top:6px;">
+          <input type="checkbox" id="tos-consent-loser-waiting" />
+          <span>By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:inherit;text-decoration:underline;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:inherit;text-decoration:underline;">Privacy Policy</a>.</span>
+        </label>
+        <button class="btn-full" id="loser-notify-btn" style="margin-top:12px;" onclick="saveLoserPhone()">Notify me →</button>
         <div id="loser-notify-confirmed" style="display:none; text-align:center; font-size:13px; color:var(--muted); font-weight:300; margin-top:12px; line-height:1.65;">
           ✓ You're on the list. Safe to close — we'll text you.
         </div>
@@ -3017,6 +3053,14 @@
           <input class="phone-input" id="confirmed-phone-input" type="tel" placeholder="(555) 000-0000" maxlength="14" oninput="formatPhone(this)" />
         </div>
         <div class="confirmed-phone-hint" id="confirmed-phone-hint">Both parties get a text. Reply to LOFO's number to message each other — your real numbers stay private.</div>
+        <label class="sms-consent-label" style="margin-top:10px;">
+          <input type="checkbox" id="sms-consent-confirmed" />
+          <span>By checking, you are allowing to receive <strong>transactional/informational SMS</strong> communications regarding item match notifications, pickup coordination, and account updates from <strong>LOFO</strong>. Messages frequency may vary. Message and data rates may apply. Reply HELP for help or STOP to opt out.</span>
+        </label>
+        <label class="sms-consent-label" style="margin-top:6px;">
+          <input type="checkbox" id="tos-consent-confirmed" />
+          <span>By checking, I accept <a href="https://lofoapp.com/terms" target="_blank" style="color:inherit;text-decoration:underline;">Terms of Service</a> &amp; <a href="https://lofoapp.com/privacy" target="_blank" style="color:inherit;text-decoration:underline;">Privacy Policy</a>.</span>
+        </label>
       </div>
 
       <button class="btn-full s-item" data-delay="360" style="margin-top:28px" onclick="coordinateHandoff(false)">Notify us both →</button>
