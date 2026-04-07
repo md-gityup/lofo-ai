@@ -1,5 +1,118 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: March 26, 2026 — Performance: background notifications, leaner vision prompt, smaller images, lost pets allowed.*
+*Last updated: April 6, 2026 — Twilio A2P 10DLC resubmission prep: interactive consent demos, privacy policy update.*
+
+## Session History — April 6, 2026 (Twilio A2P 10DLC Resubmission)
+
+**What was built:**
+- Twilio rejected A2P campaign because they couldn't verify opt-in was optional from static screenshots. Built interactive multi-step demos on `sms-consent.html` so the reviewer can walk through the real consent flow.
+- **Finder flow demo** (3 steps): phone input with optional checkboxes → OTP verification → "All set" confirmation. Full-screen style matching the real app.
+- **Owner flow demo** (2 steps): slide-up sheet with bell icon, "Get notified" title, US +1 country code selector, "Confirm Phone Number" button → confirmation. Matches the iOS app exactly.
+- Both demos show consent status on the final screen ("Neither checkbox was checked — flow completed without SMS consent").
+- All demo styling matches the real app: cream background, navy buttons, DM Serif Display headings, rust accents, iPhone frame with dynamic island.
+- Moved consent checkboxes **above** submit buttons on all three phone screens in `LOFO_MVP.html`.
+- Updated `privacy-policy.html` with required CTIA language: "We will never sell, share, or disclose your mobile opt-in data or phone number to any third party for marketing or promotional purposes."
+- Prepared updated campaign registration text with interactive demo link.
+
+**Files changed:**
+- `sms-consent.html` — rebuilt with two interactive demos (finder + owner flows), iPhone frame, app-matched styling
+- `LOFO_MVP.html` — consent checkboxes moved above buttons on finder, loser, and confirmed screens
+- `privacy-policy.html` — added mobile opt-in data sharing language (CTIA requirement)
+
+**What's next:**
+- Resubmit A2P 10DLC campaign with updated consent description + demo link + privacy/terms URLs
+- Fill in Privacy Policy URL (`https://www.lofoapp.com/privacy`) and Terms URL (`https://www.lofoapp.com/terms`) in Twilio campaign form
+- Add sample message #4 (lifecycle reminder) to campaign registration
+- After approval: test full SMS flow end-to-end
+- Future: revisit Haiku migration, Cohere rerank optimization
+
+---
+
+## Session History — March 27, 2026 (iOS UI Polish)
+
+**What was built:**
+- Added X button (xmark.circle.fill, muted style matching location pill) to the item summary pill on the loser WaitingView and the finder FinderDoneView ItemCardView. Tapping it deactivates the item on the server and slides back to the previous submission page so the user can start over.
+- Added back button (chevron, top-left) to loser WaitingView using the shared `.lofoBackButton()` modifier.
+- Redesigned the "Get notified" phone sheet header: now reads "Nothing yet. / We'll alert you as soon / as it's found." in the standard navy+rust serif two-tone heading style, with rust divider line and consistent `lineSpacing(2)`.
+- Added public `PATCH /items/{item_id}/deactivate` endpoint to backend for self-service item cancellation.
+- Added `deactivateItem(id:)` to iOS APIClient.
+- Bumped build to 1.0.0 (10).
+
+**Files changed:**
+- `main.py` — new public `/items/{item_id}/deactivate` endpoint
+- `Services/APIClient.swift` — new `deactivateItem(id:)` method
+- `Views/Loser/WaitingView.swift` — X button on item pill, back button, phone sheet header redesign
+- `Views/Finder/FinderDoneView.swift` — X button via ItemCardView `onDelete`, cancel submission logic
+- `Views/Shared/ItemCardView.swift` — added optional `onDelete` callback with X icon
+- `LOFO.xcodeproj/project.pbxproj` — build 9 → 10
+
+**What's next:**
+- Build in Xcode and test cancel flow in both finder and loser paths
+- Awaiting Twilio A2P 10DLC campaign approval
+- Future: revisit Haiku migration, Cohere rerank optimization
+
+---
+
+## Session History — March 27, 2026 (Performance Analysis + Quick Win)
+
+**What was built:**
+- Diagnosed why loser match search feels slow (~10s): 5s idle poll delay + Postgres vector query + Cohere rerank API call. Cohere rerank (3-6s) is the main bottleneck.
+- Removed the 5s initial poll delay in WaitingView — first poll now fires instantly when the waiting screen appears. Safe because embedding is stored before submission returns, and near-simultaneous finder submissions trigger SMS/push notification anyway.
+- Analyzed switching Claude Vision from Sonnet 4.6 → Haiku 4.5 (3-5x faster, 4x cheaper). Recommended tiered approach: Haiku for text extraction + ownership verify, validate vision quality before switching photo calls. **Tabled for now** — saved to memory for future session.
+
+**Files changed:**
+- `Views/Loser/WaitingView.swift` — instant first poll (removed 5s initial sleep)
+
+**What's next:**
+- Build in Xcode to pick up instant poll change
+- Awaiting Twilio A2P 10DLC campaign approval
+- Future: revisit Haiku migration, consider Cohere rerank optimization for further speed gains
+
+---
+
+## Session History — March 27, 2026 (Twilio A2P Campaign Resubmission)
+
+**What was built:**
+- Twilio A2P 10DLC campaign rejected a second time — reviewer still flagged implicit consent and missing message disclosure (likely reviewed old screenshots/page).
+- Updated `sms-consent.html` (the opt-in URL submitted to Twilio) to describe the new checkbox-based consent flow: two optional, un-checked checkboxes (SMS consent + ToS/Privacy), not required to submit, with exact checkbox wording included verbatim.
+- Moved "Confirm Phone Number" button below the consent checkboxes in the loser WaitingView sheet (iOS) so checkboxes are visible before the submit button.
+- User uploaded new screenshots to Supabase showing the checkboxes on both finder and loser screens.
+- Drafted updated Twilio campaign copy: campaign description, message flow/opt-in description, sample messages. User pasted into Twilio console and resubmitted.
+
+**Files changed:**
+- `sms-consent.html` — rewrote opt-in description, screenshot captions, message types section
+- `Views/Loser/WaitingView.swift` — moved LOFOButton below checkboxes, added bottom padding
+
+**What's next:**
+- Awaiting Twilio A2P 10DLC campaign approval
+- After approval: test resolve flow end-to-end, revisit in-app tip placement
+
+---
+
+## Session History — March 26, 2026 (Session 4 — Twilio Compliance + UX)
+
+**What was built:**
+- Twilio A2P 10DLC campaign rejected for implicit/forced consent and missing message disclosure. Fixed all phone collection points across web + iOS.
+- Added two optional, unchecked checkboxes at every phone input: (1) SMS consent with transactional/informational message type disclosure, (2) Terms of Service & Privacy Policy acceptance. Matches Twilio's compliance example exactly.
+- Web app (LOFO_MVP.html): updated 3 phone screens — finder phone, loser waiting notify, confirmed pickup. Added `.sms-consent-label` CSS class.
+- iOS app: updated 3 views — PhoneVerifyView, ConfirmedView, WaitingView. Checkboxes use `checkmark.square.fill`/`square` SF Symbols with rust/muted styling.
+- Moved loser waiting phone capture from inline (below fold, scroll issues) to a full-height bottom sheet (`.presentationDetents([.large])`). Main screen shows a "Get notified when found" LOFOButton that opens the sheet.
+- Standardized ellipsis edit icon across app — 22pt rust circle with white icon, consistent with location pin icon style. Updated in WaitingView + ItemCardView.
+- Bumped build to 1.0.0 (9).
+
+**Files changed:**
+- `LOFO_MVP.html` — consent checkboxes at 3 phone screens + CSS
+- `Views/Finder/PhoneVerifyView.swift` — consent checkboxes replacing inline text
+- `Views/Loser/ConfirmedView.swift` — added consent checkboxes (had none)
+- `Views/Loser/WaitingView.swift` — phone sheet, consent checkboxes, ellipsis icon, LOFOButton
+- `Views/Shared/ItemCardView.swift` — ellipsis icon updated
+- `LOFO.xcodeproj/project.pbxproj` — build 8 → 9
+
+**What's next:**
+- Resubmit Twilio A2P 10DLC campaign with screenshots showing consent checkboxes
+- Archive build 9 → TestFlight
+- After A2P approval: test resolve flow end-to-end
+
+---
 
 ## Session History — March 26, 2026 (Session 3 — Performance)
 
