@@ -219,7 +219,7 @@ def _notify_waiting_losers(finder_item_id: uuid.UUID, finder_item_type: str) -> 
             phone = row["phone"]
             sms_body = (
                 f"LOFO: Your {label} may have been found nearby! "
-                f"Open the app to claim it: {_APP_URL}\n"
+                f"Open the LOFO app to claim it.\n"
                 f"Reply STOP to opt out, HELP for help."
             )
             _sms(phone, sms_body)
@@ -246,8 +246,7 @@ def _notify_matched_finder(loser_item_id: uuid.UUID, loser_item_type: str) -> No
             phone = row["phone"]
             sms_body = (
                 f"LOFO: Someone is looking for a {label} you found! "
-                f"They'll go through the app to verify ownership. "
-                f"Check it out: {_APP_URL}\n"
+                f"They'll go through the app to verify ownership — open LOFO to follow along.\n"
                 f"Reply STOP to opt out, HELP for help."
             )
             _sms(phone, sms_body)
