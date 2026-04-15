@@ -1,5 +1,86 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: April 6, 2026 — Twilio A2P 10DLC resubmission prep: interactive consent demos, privacy policy update.*
+*Last updated: April 13, 2026 — iOS app flow validated on TestFlight; built in-app resolve flow via Universal Link with Stripe Apple Pay tip.*
+
+## Session History — April 13, 2026 (iOS Resolve Flow via Universal Link)
+
+**Context:** User ran the full reunion flow on iOS TestFlight (build 10) and reported the app flow "works pretty good." One issue: the handoff SMS's resolve link was opening `resolve.html` in a browser. User wanted the closing-the-loop experience (confirm item returned + tip) to happen **inside the app**, not the browser. Also wanted Stripe iOS SDK with Apple Pay for the tip.
+
+**What was built:**
+- **Universal Link setup** — added `/resolve/*` to the AASA file paths served at [main.py:356](main.py#L356). The AASA file, Vercel rewrite, iOS associated-domain entitlement, and `onOpenURL` handler pattern were all already in place from the earlier `/reject/*` work.
+- **SMS link swap** — handoff coordinate ([main.py:1785](main.py#L1785)) and week-2 lifecycle cron ([main.py:3725](main.py#L3725)) now build resolve links against `https://lofoapp.com/resolve/...` (new `_LOFO_WEB_URL` constant) instead of the Railway host. Universal Links require the apex domain.
+- **Vercel rewrite** — added `/resolve/:path*` → Railway in [vercel.json](../lofoapp-web/vercel.json) so web/Android users still land on `resolve.html` (the fallback when the app isn't installed).
+- **iOS navigation** — extended `handleUniversalLink` in [LOFOApp.swift:133](../LOFO/LOFO/LOFOApp.swift#L133) with a `switch` on `reject` / `resolve`. Added `.resolve(loserItemId: UUID)` to the `Screen` enum.
+- **APIClient** — added `getResolveData(loserItemId:)` and `resolveConfirm(loserItemId:tipAmountCents:)` methods + `ResolveData` model. Reuses existing `createPaymentIntent` for the Stripe flow.
+- **ResolveView.swift** (new) — single SwiftUI view with 5 stages: loading → question ("Did you get your [item] back?") → tip picker ($5/$10/$20 + custom + skip) → done (tipped or closed) → already-closed. Mirrors the states in `resolve.html` but uses the existing LOFO design system (serif/italic headings, rust divider, navy/cream palette).
+- **Stripe Apple Pay** — PaymentSheet with `merchant.ai.lofo` and `merchantCountryCode: "US"`. Stripe iOS SDK was already integrated and publishable key was already configured in `LOFOApp.init()`, so no SDK work was needed. Pattern copied directly from the existing in-app `TipView.swift`.
+- **Build number** — bumped `CURRENT_PROJECT_VERSION` from 10 → 11 in `project.pbxproj`.
+- **Docs** — updated `CLAUDE.md` Active Status (build 10 → 11, A2P approved, Universal Link resolve flow in place) and noted the feedback rule to always keep CLAUDE.md and the progress doc in sync.
+
+**Files changed:**
+- `main.py` — AASA paths, new `_LOFO_WEB_URL` constant, two resolve-link generations swapped
+- `../lofoapp-web/vercel.json` — added `/resolve/:path*` rewrite
+- `../LOFO/LOFO/LOFOApp.swift` — universal link switch, new `.resolve` destination
+- `../LOFO/LOFO/ViewModels/AppState.swift` — added `.resolve(loserItemId: UUID)` case
+- `../LOFO/LOFO/Services/APIClient.swift` — added resolve API methods
+- `../LOFO/LOFO/Models/Match.swift` — added `ResolveData` struct
+- `../LOFO/LOFO/Views/Loser/ResolveView.swift` — **new file**
+- `../LOFO/LOFO.xcodeproj/project.pbxproj` — build number 10 → 11
+- `CLAUDE.md` — updated Active Status to April 13
+
+**Verified:**
+- iOS app compiles cleanly (simulator build) — all new code type-checks, including the PaymentSheet integration.
+
+**What's next:**
+- **User needs to manually archive + upload build 11 to TestFlight** via Xcode: Product → Archive → Distribute App → App Store Connect → Upload. (Automated archive-and-upload via xcodebuild requires release provisioning + an API key that isn't configured, so doing it in Xcode is simpler.)
+- **User needs to link Apple Pay merchant ID to Stripe** in Stripe Dashboard → Settings → Payment methods → Apple Pay → Add merchant ID `merchant.ai.lofo`. Until this is done, Apple Pay won't actually charge. The rest of the flow (confirm + close report) will still work without it.
+- **Backend deploy:** push `main.py` to `main` branch so Railway picks up the new AASA paths + SMS link change.
+- **Vercel deploy:** push `vercel.json` to `main` in the `lofoapp-web` repo so the `/resolve/:path*` rewrite goes live.
+- After TestFlight build 11 is live: test the full iOS resolve flow end-to-end — finder → match → handoff SMS to loser → loser taps link → **app opens** → confirm → tip via Apple Pay → done. Also test Android/web fallback to confirm `resolve.html` still works.
+
+---
+
+## Session History — April 13, 2026 (Reunion Flow End-to-End Validation)
+
+**Context:** Twilio A2P 10DLC campaign (`CM50255157d8c0965b92369a1f90b3ab2b`) was verified. First session post-approval — full dry-run of the reunion flow on the web app (`LOFO_MVP.html`) to validate every link in the chain before moving to iOS testing.
+
+**Test setup:**
+- Finder phone: secondary real number (+14153448647)
+- Loser phone: primary real phone
+- Two browser sessions (regular + incognito) against production GitHub Pages build
+- Test item: basketball (low-value, skipped ownership verification path)
+
+**What we validated end-to-end:**
+- ✅ A2P SMS delivery to real carriers (~5 sec delivery time)
+- ✅ Finder submission + Twilio Verify OTP on real number
+- ✅ Loser submission + match hit via attribute embeddings + haversine filter
+- ✅ `POST /handoff/coordinate` fires SMS to both parties simultaneously (relay mode, `self_outreach=false`)
+- ✅ `/sms/inbound` webhook — **loser → finder relay** works (message arrives with `[Owner via LOFO]` prefix)
+- ✅ `/sms/inbound` webhook — **finder → loser relay** works (message arrives with `[Finder via LOFO]` prefix, ~3 sec)
+- ✅ `resolve.html` loads from SMS link, renders confirm-item state
+- ✅ Tip flow renders ($5/$10/$20 options + Stripe card field)
+- ✅ Skip path closes item cleanly ("Report closed. Good humans.")
+- ✅ Idempotency — re-opening resolve link after close shows "Already resolved" state
+
+**Twilio configuration fixes made during test:**
+1. **Sender Pool was empty on the approved A2P Messaging Service.** +15175136672 had never been added as a sender. First SMS test failed with error 30034 ("Message from an Unregistered Number"). Added the number to the Sole Proprietor A2P Messaging Service sender pool → fixed.
+2. **Inbound SMS webhook was silently broken.** 🚨 **This is the important one.** When a Twilio phone number becomes part of a Messaging Service, inbound SMS routing moves from the phone number's direct webhook config to the **Messaging Service's Integration settings**. LOFO's `/sms/inbound` endpoint was never configured on the Messaging Service → inbound replies were being silently dropped and Twilio was returning its default "SMS URL not configured" auto-response instead. **Caught it during the loser→finder relay test.** Fixed by going to Messaging Service → Integration → "Send a webhook" → `https://lofo-ai-production.up.railway.app/sms/inbound` → HTTP POST. This would have broken SMS relay for every real user the moment A2P traffic started flowing. **Critical pre-launch catch.**
+
+**What we did NOT test (deferred):**
+- High-value / ownership verification path (requires a Claude-flagged `high_value` item like a laptop or AirPods)
+- Reject flow (finder taps reject link, reunion cancels, SMS fires to loser, finder item reactivates)
+- Real Stripe tip charge (we Skipped on this run to avoid a real payment)
+- iOS app flow — this is the next session's priority
+- Edge cases: finder ghosts, duplicate matches, 30-day expiry, `/sms/inbound` with no active reunion
+
+**Files changed:** None (test session — all fixes were in Twilio Console config, not code)
+
+**What's next:**
+- **Next session priority: run the same end-to-end reunion flow on the iOS TestFlight build (1.0.0 build 6).** The user wants to validate the mobile screens in particular — they care a lot more about how those actually look in practice than about the web app. Same test plan, just in iOS: finder submission → loser submission → match → handoff SMS → relay in both directions → resolve page.
+- After iOS happy path: test high-value / ownership verification path (both web and iOS)
+- Then test the reject flow
+- Then a real Stripe tip end-to-end to validate payment + webhook
+
+---
 
 ## Session History — April 6, 2026 (Twilio A2P 10DLC Resubmission)
 

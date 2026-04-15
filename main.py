@@ -353,7 +353,7 @@ def apple_app_site_association():
                 "details": [
                     {
                         "appID": "45F4TH223D.ai.lofo.app",
-                        "paths": ["/reject/*"],
+                        "paths": ["/reject/*", "/resolve/*"],
                     }
                 ],
             }
@@ -1781,7 +1781,7 @@ def coordinate_handoff(body: CoordinateRequest):
                 reject_link = f"https://lofoapp.com/reject/{reject_tok}"
 
             # Notify both parties — no raw numbers shared, relay via LOFO's number
-            resolve_link = f"{_RAILWAY_URL}/resolve/{body.loser_item_id}"
+            resolve_link = f"{_LOFO_WEB_URL}/resolve/{body.loser_item_id}"
             if body.self_outreach:
                 _sms(
                     loser_phone,
@@ -2078,6 +2078,7 @@ def register_device(body: DeviceRegisterRequest):
 
 
 _RAILWAY_URL = "https://lofo-ai-production.up.railway.app"
+_LOFO_WEB_URL = "https://lofoapp.com"
 
 
 @app.post("/connect/onboard", status_code=200)
@@ -3471,6 +3472,22 @@ def admin_archive_item(item_id: uuid.UUID, admin=Depends(_verify_admin)):
     return {"ok": True}
 
 
+@app.patch("/items/{item_id}/deactivate", include_in_schema=False)
+def deactivate_item(item_id: uuid.UUID):
+    """Public self-service deactivation — used by iOS/web when a user cancels their submission."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE items SET status = 'inactive' WHERE id = %s RETURNING id",
+                (str(item_id),),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return {"ok": True}
+
+
 @app.patch("/admin/items/{item_id}/deactivate", include_in_schema=False)
 def admin_deactivate_item(item_id: uuid.UUID, admin=Depends(_verify_admin)):
     with get_connection() as conn:
@@ -3705,7 +3722,7 @@ def cron_lifecycle(key: str = Query("")):
         phones_messaged.add(phone)
 
         label = item["item_type"] or "item"
-        resolve_link = f"{_RAILWAY_URL}/resolve/{item['id']}"
+        resolve_link = f"{_LOFO_WEB_URL}/resolve/{item['id']}"
         _sms(
             phone,
             f"LOFO: One month in on your {label} — still no match, but we've extended "
