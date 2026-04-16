@@ -1,5 +1,55 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: April 13, 2026 — iOS app flow validated on TestFlight; built in-app resolve flow via Universal Link with Stripe Apple Pay tip.*
+*Last updated: April 16, 2026 — In-app resolve flow built + deployed. Universal Link blocked by missing Associated Domains capability in Apple Developer Portal — now enabled, build 12 ready to archive.*
+
+## Session History — April 15–16, 2026 (Universal Link Debugging + Deploy)
+
+**Context:** Continued from April 13 session. User tested iOS TestFlight build 10 — app flow "works pretty good" but the resolve link from the handoff SMS opened `resolve.html` in Safari instead of staying in the app. Goal: make closing the loop (confirm item returned + optional Apple Pay tip) happen **inside the app** via Universal Links.
+
+**What was built (April 13 session, documented separately below):**
+- `ResolveView.swift` — new in-app view: loading → "Did you get your item back?" → tip picker ($5/$10/$20 + custom) → Stripe PaymentSheet with Apple Pay → done/already-closed. Mirrors `resolve.html` states using the LOFO design system.
+- Backend: added `/resolve/*` to AASA paths, new `_LOFO_WEB_URL` constant, swapped SMS resolve links from Railway to `lofoapp.com`.
+- Vercel: added `/resolve/:path*` rewrite to Railway for web/Android fallback.
+- iOS: extended `handleUniversalLink` for `/resolve/{id}`, new `.resolve(loserItemId:)` screen route, `ResolveData` model, `getResolveData` + `resolveConfirm` APIClient methods.
+- Existing infrastructure reused: Stripe PaymentSheet + Apple Pay already wired from TipView, `createPaymentIntent` endpoint already existed, AASA file + Vercel rewrite + iOS entitlement already in place from `/reject/*` setup.
+
+**Deploy + fixes (April 15):**
+- Pushed backend to Railway: AASA now includes `/resolve/*`, SMS links use `lofoapp.com`.
+- Pushed Vercel rewrite: `/resolve/:path*` → Railway.
+- Verified both deploys live: AASA serves `/resolve/*` from `lofoapp.com` (200, `application/json`), Apple CDN (`app-site-association.cdn-apple.com`) has correct data.
+- Build 11 uploaded to TestFlight by user.
+
+**Debugging Universal Link failure (April 15–16):**
+- Resolve link opened Safari instead of the app on every attempt.
+- **Root cause 1 — Vercel apex redirect:** `lofoapp.com` was configured to 307 redirect to `www.lofoapp.com`. Apple's documentation: "The system doesn't follow redirects" when fetching AASA. Fixed via Vercel API: flipped `lofoapp.com` to serve directly, `www.lofoapp.com` now redirects to apex.
+- Verified AASA serves without redirect from `lofoapp.com` (200).
+- **Root cause 2 — Associated Domains not enabled in Apple Developer Portal:** The `applinks:lofoapp.com` entitlement was in the Xcode project, but the Associated Domains **capability** was never enabled for the `ai.lofo.app` App ID on developer.apple.com. iOS won't try to fetch the AASA without this. User enabled it April 16.
+- **Root cause 3 — Stale provisioning profile:** Builds 10–11 were archived before the portal capability was enabled. The provisioning profiles baked into those builds don't include Associated Domains. Need build 12 (fresh provisioning profile). Build number bumped to 12 in `project.pbxproj`.
+- Long-press diagnostic confirmed: "Open in LOFO" does NOT appear in link menu — iOS has not registered the app for the domain. Expected to resolve with build 12.
+
+**Also fixed:**
+- Removed `_APP_URL` (GitHub Pages web prototype link) from two match-notification SMS bodies. Finder "someone is looking" and loser "may have been found" texts no longer link to the web app. Push notifications handle iOS users.
+
+**Files changed:**
+- `main.py` — AASA `/resolve/*` path, `_LOFO_WEB_URL` constant, SMS link swap (×2), removed `_APP_URL` from SMS bodies (×2), public `/items/{id}/deactivate` endpoint (from March 27, previously uncommitted)
+- `CLAUDE.md` — first commit + updated Active Status through April 16
+- `LOFO_AI_Progress.md` — this entry
+- `../lofoapp-web/vercel.json` — `/resolve/:path*` rewrite
+- `../LOFO/LOFO/Views/Loser/ResolveView.swift` — **new file**
+- `../LOFO/LOFO/LOFOApp.swift` — `handleUniversalLink` switch on reject/resolve, new `.resolve` destination
+- `../LOFO/LOFO/ViewModels/AppState.swift` — `.resolve(loserItemId: UUID)` case
+- `../LOFO/LOFO/Services/APIClient.swift` — `getResolveData`, `resolveConfirm` methods
+- `../LOFO/LOFO/Models/Match.swift` — `ResolveData` struct
+- `../LOFO/LOFO.xcodeproj/project.pbxproj` — build 10 → 11 → 12
+- Vercel domain config (via API): `lofoapp.com` no longer redirects to www
+
+**What's next:**
+- **Immediate:** user archives + uploads build 12 to TestFlight. This is the first build with a provisioning profile that includes the (now-enabled) Associated Domains capability. After installing, delete app → reinstall → long-press resolve link → should show "Open in LOFO". Then test the full flow.
+- After Universal Link works: test the full resolve flow inside the app (confirm + tip via Apple Pay + close report)
+- Test reject universal link too (same fix — should work once Associated Domains provisioning is correct)
+- Test real Stripe tip charge end-to-end
+- Test high-value / ownership verification path
+
+---
 
 ## Session History — April 13, 2026 (iOS Resolve Flow via Universal Link)
 

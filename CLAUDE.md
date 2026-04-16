@@ -95,23 +95,25 @@ Requires `COHERE_API_KEY` in Railway env vars.
 
 ---
 
-## Active Status (as of April 13, 2026)
+## Active Status (as of April 16, 2026)
 - All 26 phases complete and deployed ✅
-- iOS app — build 1.0.0 (11) ready to archive; build 10 currently live on TestFlight
+- iOS app — build 1.0.0 (12) ready to archive; build 11 currently on TestFlight
 - Twilio A2P 10DLC campaign `CM50255157d8c0965b92369a1f90b3ab2b` approved ✅
 - Full reunion flow validated end-to-end on web app AND on iOS TestFlight build 10 ✅
-- In-app resolve flow via Universal Link built: loser taps SMS link → app opens → confirm → Apple Pay tip → close. Uses Stripe iOS SDK (`merchant.ai.lofo`) — SDK and publishable key already wired from TipView.
-- Next: manually archive + upload build 11 to TestFlight; link `merchant.ai.lofo` to Stripe Dashboard; test iOS resolve flow end-to-end.
+- In-app resolve flow via Universal Link built and deployed: loser taps SMS link → app opens → confirm → Apple Pay tip → close. Uses Stripe iOS SDK (`merchant.ai.lofo`). Backend live on Railway, Vercel rewrites live, AASA serving correctly from `lofoapp.com`.
+- **Universal Link not yet working on device** — Associated Domains was just enabled in Apple Developer Portal (was previously unchecked). Build 12 (with fresh provisioning profile) needs to be archived + uploaded to TestFlight. After installing build 12, delete app first → reinstall from TestFlight → long-press resolve link → should show "Open in LOFO".
 
 ---
 
 ## What's Pending / Known Issues
-- Build 11 not yet archived/uploaded to TestFlight (manual step in Xcode)
-- `merchant.ai.lofo` Apple Pay merchant ID not yet linked to Stripe Dashboard — required before Apple Pay will actually charge
+- **Build 12 needs to be archived + uploaded to TestFlight** (build number already bumped in pbxproj). This is the first build since enabling Associated Domains in Apple Developer Portal — the provisioning profile in builds 10–11 didn't include the capability.
+- After build 12: delete app → reinstall from TestFlight → test resolve universal link (long-press should show "Open in LOFO")
+- No Stripe Dashboard setup needed for Apple Pay — iOS native PaymentSheet handles it via the merchant ID in the entitlement
 - High-value / ownership verification path not yet tested end-to-end (web or iOS)
-- Reject flow not yet tested end-to-end
+- Reject flow not yet tested end-to-end (universal link — same fix as resolve, should work once Associated Domains provisioning is correct)
 - Real Stripe tip charge not yet tested end-to-end
 - Re-embed all items after any matching engine changes (use "Re-embed All →" in admin Debug tab)
+- Web app link (`_APP_URL`) removed from match notification SMS — push notifications handle iOS users; Stripe Connect redirects still use `_APP_URL` (lower priority)
 
 ---
 
