@@ -92,7 +92,7 @@ _PHOTO_BUCKET = "item-photos"
 _APP_URL = "https://md-gityup.github.io/lofo-ai/LOFO_MVP.html"
 
 _NOTIFY_LOSER_SQL = """
-    SELECT l.phone, l.item_type
+    SELECT l.id AS loser_id, l.phone, l.item_type
     FROM items l
     CROSS JOIN items f
     WHERE f.id = %s
@@ -217,9 +217,12 @@ def _notify_waiting_losers(finder_item_id: uuid.UUID, finder_item_type: str) -> 
         for row in rows:
             label = row["item_type"] or finder_item_type
             phone = row["phone"]
+            loser_id = row["loser_id"]
+            claim_link = f"{_LOFO_WEB_URL}/claim/{loser_id}"
             sms_body = (
                 f"LOFO: Your {label} may have been found nearby! "
-                f"Open the LOFO app to claim it.\n"
+                f"Tap to check if it's yours:\n"
+                f"{claim_link}\n"
                 f"Reply STOP to opt out, HELP for help."
             )
             _sms(phone, sms_body)
@@ -352,7 +355,7 @@ def apple_app_site_association():
                 "details": [
                     {
                         "appID": "45F4TH223D.ai.lofo.app",
-                        "paths": ["/reject/*", "/resolve/*"],
+                        "paths": ["/reject/*", "/resolve/*", "/claim/*"],
                     }
                 ],
             }
@@ -1423,6 +1426,17 @@ def verify_item(body: VerifyRequest):
     reason  = result.get("reason", "")
 
     return {"verified": matched, "reason": reason}
+
+
+# --------------------------------------------------------------------------- #
+# Claim — loser taps SMS link to view their match in the app                   #
+# --------------------------------------------------------------------------- #
+
+@app.get("/claim/{loser_id}")
+def claim_link(loser_id: str, request: Request):
+    """Universal-link entry point for losers. iOS intercepts this and opens the
+    app directly.  If opened in a browser, serve the app-link fallback page."""
+    return FileResponse(os.path.join(os.path.dirname(__file__), "app-link.html"))
 
 
 # --------------------------------------------------------------------------- #
