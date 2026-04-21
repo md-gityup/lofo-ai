@@ -1430,8 +1430,13 @@ def verify_item(body: VerifyRequest):
 # --------------------------------------------------------------------------- #
 
 @app.get("/reject/{token}")
-def get_reject_info(token: str):
+def get_reject_info(token: str, request: Request):
     """Return reunion details so the iOS app can display the claim for the finder to review."""
+    # Browser fallback — serve app-link page instead of raw JSON
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept and "application/json" not in accept:
+        return FileResponse(os.path.join(os.path.dirname(__file__), "app-link.html"))
+
     try:
         payload = decode_handoff_token(token)
     except jwt.ExpiredSignatureError:

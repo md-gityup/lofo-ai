@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>LOFO — Open in App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream: #FAF7F2;
+      --navy:  #1A1F3C;
+      --rust:  #C17F5E;
+      --muted: rgba(26,31,60,0.45);
+      --border: rgba(26,31,60,0.10);
+    }
+
+    body {
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      background: var(--cream);
+      color: var(--navy);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: max(env(safe-area-inset-top), 32px) 20px max(env(safe-area-inset-bottom), 32px);
+    }
+
+    .card {
+      width: 100%;
+      max-width: 400px;
+      background: #fff;
+      border-radius: 24px;
+      padding: 40px 28px 36px;
+      box-shadow:
+        0 1px 3px rgba(26,31,60,0.06),
+        0 8px 40px rgba(26,31,60,0.08);
+      text-align: center;
+    }
+
+    .logo {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--rust);
+      letter-spacing: 6px;
+      margin-bottom: 32px;
+    }
+
+    h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--navy);
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    h1 em {
+      font-family: 'DM Serif Display', serif;
+      color: var(--rust);
+      font-style: italic;
+    }
+
+    .divider {
+      width: 40px;
+      height: 1.5px;
+      background: rgba(193,127,94,0.35);
+      margin: 16px auto;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    .app-store-btn {
+      display: inline-block;
+      background: var(--navy);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+      padding: 16px 32px;
+      border-radius: 14px;
+      text-decoration: none;
+      width: 100%;
+      transition: opacity 0.15s;
+    }
+
+    .app-store-btn:hover {
+      opacity: 0.9;
+    }
+
+    .hint {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 16px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">L O F O</div>
+    <h1>Open this in<br>the <em>app.</em></h1>
+    <div class="divider"></div>
+    <p class="subtitle">This link needs to be opened on your iPhone with the LOFO app installed.</p>
+    <a class="app-store-btn" href="https://apps.apple.com/app/lofo/id6744253982">Download LOFO</a>
+    <p class="hint">Already have it? Open this link on your iPhone.</p>
+  </div>
+</body>
+</html>
