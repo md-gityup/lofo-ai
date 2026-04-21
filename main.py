@@ -1976,15 +1976,19 @@ async def stripe_webhook(request: Request):
         import json as _json
         event = _json.loads(payload)
 
-    if event["type"] == "payment_intent.succeeded":
+    event_type = event["type"]
+    if event_type in ("payment_intent.succeeded", "payment_intent.payment_failed"):
         pi_id = event["data"]["object"]["id"]
+        new_status = "completed" if event_type == "payment_intent.succeeded" else "failed"
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "UPDATE tips SET status = 'completed' WHERE stripe_payment_intent_id = %s",
-                    (pi_id,),
+                    "UPDATE tips SET status = %s WHERE stripe_payment_intent_id = %s",
+                    (new_status, pi_id),
                 )
             conn.commit()
+        if new_status == "failed":
+            print(f"[LOFO Stripe] Payment failed for intent {pi_id}")
 
     return {"received": True}
 
