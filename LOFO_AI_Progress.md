@@ -1,5 +1,63 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: April 16, 2026 — In-app resolve flow built + deployed. Universal Link blocked by missing Associated Domains capability in Apple Developer Portal — now enabled, build 12 ready to archive.*
+*Last updated: April 21, 2026 — All 3 end-to-end flows validated: reject, resolve + tip, real Stripe charge. Build 14 on TestFlight.*
+
+## Session History — April 20–21, 2026 (E2E Validation — Reject, Resolve, Stripe)
+
+**Context:** Testing the three flows that were built but never validated end-to-end: (1) in-app resolve flow (confirm + Apple Pay tip + close), (2) reject universal link, (3) real Stripe charge.
+
+**Critical fix — Stripe SDK was never linked:**
+- The Xcode project had `#if canImport(StripePaymentSheet)` guards throughout ResolveView, but `StripePaymentSheet` was never added as an SPM dependency. The `packageProductDependencies` array in `project.pbxproj` was empty. Every resolve flow silently hit the `#else` fallback, skipping the real charge.
+- Added `stripe-ios-spm` (v24.25.0) as SPM dependency in `project.pbxproj`.
+
+**Other fixes:**
+- `ResolveData` model in `Match.swift` — added `finderPayoutHandle` and `finderPayoutApp` fields (backend already returned them, iOS was ignoring them). Tip screen now shows "Tip goes to Venmo @handle" when available.
+- `ResolveView.swift` — displays payout info on the tip screen.
+- `main.py` — Stripe webhook now handles `payment_intent.payment_failed` (marks tip as `'failed'`), not just `succeeded`.
+- Build number bumped 13 → 14.
+
+**Testing:**
+- Created `test_e2e.sh` script — creates finder + loser items, coordinates reunion with ownership proof, sends SMS with all links. Usage: `./test_e2e.sh +1XXXXXXXXXX`
+- **Reject flow validated ✅** — tapped reject link from SMS → app opened → "Verify the claim" → "Doesn't Match" → "Match cancelled" → loser notified via SMS ("finder couldn't confirm your detail").
+- **Resolve flow validated ✅** — tapped resolve link from SMS → app opened → "Did you get your wallet back?" → Yes → tip $5 → Stripe PaymentSheet appeared → entered test card 4242 → "Thank you sent" → report closed.
+- **Real Stripe charge validated ✅** — $5.00 payment visible in Stripe Dashboard (test mode) → Transactions → Succeeded.
+
+**Files changed:**
+- `../LOFO/LOFO.xcodeproj/project.pbxproj` — added StripePaymentSheet SPM dependency, build 13 → 14
+- `../LOFO/LOFO/Models/Match.swift` — added finderPayoutHandle/finderPayoutApp to ResolveData
+- `../LOFO/LOFO/Views/Loser/ResolveView.swift` — display payout info on tip screen
+- `main.py` — webhook handles payment_intent.payment_failed
+- `test_e2e.sh` — new e2e test data setup script
+
+**What's next:**
+- High-value / ownership verification path end-to-end test
+- Switch Stripe keys from test to live before App Store submission
+- Configure STRIPE_WEBHOOK_SECRET in Railway for production signature verification
+
+---
+
+## Session History — April 17, 2026 (Universal Link Fix — Build 13)
+
+**Context:** Resolve link still opening in browser, not the app, even after Associated Domains was enabled in the developer portal.
+
+**Root cause found:** `CODE_SIGN_ENTITLEMENTS` was never set in `project.pbxproj`. The `LOFO.entitlements` file existed with the correct `applinks:lofoapp.com` config, but Xcode wasn't using it during code signing — the app was being built without any entitlements baked in.
+
+**What was fixed:**
+- Added `CODE_SIGN_ENTITLEMENTS = LOFO/LOFO.entitlements` to both Debug and Release build configurations in `project.pbxproj`
+- Regenerated "LOFO App Store" provisioning profile in Apple Developer Portal (was Invalid, now includes Associated Domains)
+- Bumped build to 13
+
+**Files changed:**
+- `../LOFO/LOFO.xcodeproj/project.pbxproj` — added `CODE_SIGN_ENTITLEMENTS` to Debug + Release, build 12 → 13
+
+**Result:** Build 13 archived, uploaded to TestFlight, installed (after deleting old app). Resolve universal link now opens in the app.
+
+**What's next:**
+- Test full resolve flow inside the app (confirm item returned + Apple Pay tip + close report)
+- Test reject universal link (should also work now)
+- Test real Stripe tip charge end-to-end
+- Test high-value / ownership verification path
+
+---
 
 ## Session History — April 15–16, 2026 (Universal Link Debugging + Deploy)
 
