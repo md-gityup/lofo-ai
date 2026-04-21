@@ -3683,8 +3683,8 @@ def cron_lifecycle(key: str = Query("")):
         label = item["item_type"] or "item"
         _sms(
             phone,
-            f"LOFO: Still on it. Your {label} report is active and we're watching. "
-            f"Good things take time — we'll reach out the moment something turns up.\n"
+            f"LOFO: Nothing has been found yet, but know we are still on it. "
+            f"Your {label} report is active. Good things take time — we'll reach out the moment something turns up.\n"
             f"Reply STOP to opt out, HELP for help."
         )
 
