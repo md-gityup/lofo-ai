@@ -1,5 +1,41 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: April 21, 2026 — All 3 end-to-end flows validated: reject, resolve + tip, real Stripe charge. Build 14 on TestFlight.*
+*Last updated: April 21, 2026 — SMS copy cleaned up, UI polished, app-link fallback page added. Build 15 ready for TestFlight.*
+
+## Session History — April 21, 2026 (SMS Copy + UI Polish — Build 15)
+
+**Context:** Cleaning up SMS text and UI after successful e2e validation of all three flows.
+
+**SMS copy rewritten:**
+- Loser handoff SMS (relay path): "Your {item} is confirmed!" → "Great news — your {item} has been found! Reply here to coordinate the return — we'll pass your message along securely." Removed resolve link from this message.
+- New reunion follow-up SMS (2–3 days after reunion, via lifecycle cron): "Did you get your {item} back? Close your report and, if it feels right, send a small thank-you tip to the person who found it: {resolve_link}" — resolve link now arrives when it's relevant.
+- Loser handoff SMS (self_outreach path): same "great news" rewrite (dead code path — selfOutreach is always false in iOS app).
+- Day-7 lifecycle SMS: "Still on it" → "Nothing has been found yet, but know we are still on it."
+- Finder notification SMS: dropped verification jargon → "Good news — someone is looking for the {item} you found! We're working to confirm it's theirs and will be in touch."
+
+**UI polish:**
+- ResolveView: replaced navy circle logo with clean spaced "L O F O" text in rust color.
+- RejectClaimView: centered layout with "L O F O" logo to match resolve screens.
+
+**App-link fallback page:**
+- Created `app-link.html` — branded landing page for app-only links opened in a browser (desktop, phone without app). Shows "Open this in the app" with App Store download link.
+- Reject endpoint now serves this page for browser requests (detects via Accept header), returns JSON for the iOS app as before.
+
+**DB migration:**
+- Added `notif_followup_at` column to `reunions` table (for reunion follow-up SMS dedup).
+
+**Files changed:**
+- `main.py` — SMS copy rewrites, reunion follow-up cron block, reject endpoint browser fallback
+- `app-link.html` — new branded fallback page
+- `../LOFO/LOFO.xcodeproj/project.pbxproj` — build 14 → 15
+- `../LOFO/LOFO/Views/Loser/ResolveView.swift` — logo update
+- `../LOFO/LOFO/Views/Finder/RejectClaimView.swift` — centered layout + logo
+
+**What's next:**
+- Archive build 15 and upload to TestFlight
+- High-value / ownership verification path end-to-end test
+- Switch Stripe keys from test to live before App Store submission
+
+---
 
 ## Session History — April 20–21, 2026 (E2E Validation — Reject, Resolve, Stripe)
 

@@ -97,14 +97,15 @@ Requires `COHERE_API_KEY` in Railway env vars.
 
 ## Active Status (as of April 21, 2026)
 - All 26 phases complete and deployed ✅
-- iOS app — build 1.0.0 (14) on TestFlight
+- iOS app — build 1.0.0 (15) ready for TestFlight
 - Twilio A2P 10DLC campaign `CM50255157d8c0965b92369a1f90b3ab2b` approved ✅
 - Full reunion flow validated end-to-end on web app AND on iOS TestFlight build 10 ✅
 - **Reject flow validated end-to-end** ✅ — universal link → app → verify claim → reject → SMS to loser
 - **Resolve flow validated end-to-end** ✅ — universal link → app → confirm → tip → Stripe PaymentSheet → close
 - **Real Stripe charge validated end-to-end** ✅ — $5 test charge succeeded, visible in Stripe Dashboard
 - Stripe iOS SDK (`StripePaymentSheet` via `stripe-ios-spm` v24.25.0) linked as SPM dependency. Uses `merchant.ai.lofo` for Apple Pay.
-- Universal Links working on device — Build 14 includes Stripe SDK + `CODE_SIGN_ENTITLEMENTS` + Associated Domains.
+- Universal Links working on device — Build 15 includes Stripe SDK + `CODE_SIGN_ENTITLEMENTS` + Associated Domains.
+- App-link fallback page (`app-link.html`) — browser requests to app-only links (e.g. reject) get a branded "open in app" page instead of raw JSON.
 
 ---
 
