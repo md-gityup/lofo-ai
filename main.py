@@ -1784,9 +1784,9 @@ def coordinate_handoff(body: CoordinateRequest):
             if body.self_outreach:
                 _sms(
                     loser_phone,
-                    f"LOFO: Your {label} is confirmed! "
-                    f"The finder has been notified and is expecting your message. "
-                    f"Once you've got it back, close the report (and tip if you'd like): {resolve_link}\n"
+                    f"LOFO: Great news — your {label} has been found! "
+                    f"The person who found it has been notified. "
+                    f"Once you've got it back, close your report here: {resolve_link}\n"
                     f"Reply STOP to opt out, HELP for help."
                 )
                 if proof and reject_link:
@@ -1808,9 +1808,8 @@ def coordinate_handoff(body: CoordinateRequest):
             else:
                 _sms(
                     loser_phone,
-                    f"LOFO: Your {label} is confirmed! "
-                    f"Reply here to message the finder — we'll relay it securely. "
-                    f"Once you've got it back, close the report (and tip if you'd like): {resolve_link}\n"
+                    f"LOFO: Great news — your {label} has been found! "
+                    f"Reply here to coordinate the return — we'll pass your message along securely.\n"
                     f"Reply STOP to opt out, HELP for help."
                 )
                 if proof and reject_link:
@@ -3748,8 +3747,51 @@ def cron_lifecycle(key: str = Query("")):
             conn.commit()
         sent_week2 += 1
 
-    print(f"[LOFO cron] lifecycle: sent_week1={sent_week1} sent_week2={sent_week2} skipped_multi={skipped}")
-    return {"ok": True, "sent_week1": sent_week1, "sent_week2": sent_week2, "skipped_multi_item": skipped}
+    # --- Reunion follow-up: active reunions created 2–5 days ago, not yet nudged ---
+    # Gives the loser a few days to coordinate the return, then sends the
+    # resolve/tip link so they can close the report.
+    sent_reunion = 0
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT r.loser_item_id, r.loser_phone, i.item_type
+                FROM reunions r
+                JOIN items i ON i.id = r.loser_item_id
+                WHERE r.status = 'active'
+                  AND r.loser_phone IS NOT NULL
+                  AND r.notif_followup_at IS NULL
+                  AND r.created_at BETWEEN NOW() - INTERVAL '5 days' AND NOW() - INTERVAL '2 days'
+                ORDER BY r.created_at ASC
+            """)
+            reunion_items = cur.fetchall()
+
+    for item in reunion_items:
+        phone = item["loser_phone"]
+        if phone in phones_messaged:
+            skipped += 1
+            continue
+        phones_messaged.add(phone)
+
+        label = item["item_type"] or "item"
+        resolve_link = f"{_LOFO_WEB_URL}/resolve/{item['loser_item_id']}"
+        _sms(
+            phone,
+            f"LOFO: Did you get your {label} back? "
+            f"Close your report and, if it feels right, send a small thank-you tip to the person who found it: {resolve_link}\n"
+            f"Reply STOP to opt out, HELP for help."
+        )
+
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE reunions SET notif_followup_at = NOW() WHERE loser_item_id = %s AND status = 'active'",
+                    (str(item["loser_item_id"]),),
+                )
+            conn.commit()
+        sent_reunion += 1
+
+    print(f"[LOFO cron] lifecycle: sent_week1={sent_week1} sent_week2={sent_week2} sent_reunion={sent_reunion} skipped_multi={skipped}")
+    return {"ok": True, "sent_week1": sent_week1, "sent_week2": sent_week2, "sent_reunion": sent_reunion, "skipped_multi_item": skipped}
 
 
 def _debug_pair_analysis(
