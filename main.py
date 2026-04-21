@@ -245,8 +245,8 @@ def _notify_matched_finder(loser_item_id: uuid.UUID, loser_item_type: str) -> No
             label = row["item_type"] or loser_item_type
             phone = row["phone"]
             sms_body = (
-                f"LOFO: Someone is looking for a {label} you found! "
-                f"They'll go through the app to verify ownership — open LOFO to follow along.\n"
+                f"LOFO: Good news — someone is looking for the {label} you found! "
+                f"We're working to confirm it's theirs and will be in touch.\n"
                 f"Reply STOP to opt out, HELP for help."
             )
             _sms(phone, sms_body)
