@@ -483,7 +483,6 @@ class CoordinateRequest(BaseModel):
     finder_item_id: uuid.UUID
     loser_item_id: uuid.UUID
     loser_phone: str
-    self_outreach: bool = False  # true = loser will reach out themselves; finder still notified
     ownership_proof: Optional[str] = None  # loser's ownership claim for high-value items
 
 
@@ -1806,54 +1805,28 @@ def coordinate_handoff(body: CoordinateRequest):
                 reject_link = f"https://lofoapp.com/reject/{reject_tok}"
 
             # Notify both parties — no raw numbers shared, relay via LOFO's number
-            resolve_link = f"{_LOFO_WEB_URL}/resolve/{body.loser_item_id}"
-            if body.self_outreach:
+            _sms(
+                loser_phone,
+                f"LOFO: Great news — your {label} has been found! "
+                f"Reply here to coordinate the return — we'll pass your message along securely.\n"
+                f"Reply STOP to opt out, HELP for help."
+            )
+            if proof and reject_link:
                 _sms(
-                    loser_phone,
-                    f"LOFO: Great news — your {label} has been found! "
-                    f"The person who found it has been notified. "
-                    f"Once you've got it back, close your report here: {resolve_link}\n"
-                    f"Reply STOP to opt out, HELP for help."
+                    finder_phone,
+                    f'LOFO: The owner of your {label} says: '
+                    f'"{proof}" '
+                    f'If wrong: {reject_link}\n'
+                    f'Reply here to coordinate return.\n'
+                    f'Reply STOP to opt out, HELP for help.'
                 )
-                if proof and reject_link:
-                    _sms(
-                        finder_phone,
-                        f'LOFO: The owner of your {label} says: '
-                        f'"{proof}" '
-                        f'If wrong: {reject_link}\n'
-                        f"They'll be reaching out directly to arrange pickup.\n"
-                        f"Reply STOP to opt out, HELP for help."
-                    )
-                else:
-                    _sms(
-                        finder_phone,
-                        f"LOFO: The owner of the {label} you found has been verified! "
-                        f"They'll be reaching out directly to arrange pickup.\n"
-                        f"Reply STOP to opt out, HELP for help."
-                    )
             else:
                 _sms(
-                    loser_phone,
-                    f"LOFO: Great news — your {label} has been found! "
-                    f"Reply here to coordinate the return — we'll pass your message along securely.\n"
+                    finder_phone,
+                    f"LOFO: Great news — the owner of the {label} you found has been verified and is ready to connect! "
+                    f"Reply to this number to message them — we'll relay it securely.\n"
                     f"Reply STOP to opt out, HELP for help."
                 )
-                if proof and reject_link:
-                    _sms(
-                        finder_phone,
-                        f'LOFO: The owner of your {label} says: '
-                        f'"{proof}" '
-                        f'If wrong: {reject_link}\n'
-                        f'Reply here to coordinate return.\n'
-                        f'Reply STOP to opt out, HELP for help.'
-                    )
-                else:
-                    _sms(
-                        finder_phone,
-                        f"LOFO: Great news — the owner of the {label} you found has been verified and is ready to connect! "
-                        f"Reply to this number to message them — we'll relay it securely.\n"
-                        f"Reply STOP to opt out, HELP for help."
-                    )
     else:
         # Finder has no phone on file — be honest with the loser
         _sms(
