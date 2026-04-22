@@ -184,6 +184,32 @@
     }
     .payout-pill strong { color: var(--navy); }
 
+    /* ── Direct pay button ── */
+    .direct-pay-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 17px 22px;
+      border-radius: 14px;
+      border: none;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      margin-bottom: 10px;
+      transition: transform 0.12s;
+    }
+    .direct-pay-btn:active { transform: scale(0.97); }
+    .direct-pay-btn.venmo { background: #008CFF; }
+    .direct-pay-btn.paypal { background: #003087; }
+    .direct-pay-btn.cashapp { background: #00D632; }
+    .direct-pay-handle { font-size: 12px; font-weight: 400; opacity: 0.75; display: block; margin-top: 2px; }
+
     /* ── Stripe card element ── */
     .card-element-wrap {
       background: var(--navy);
@@ -247,20 +273,27 @@
       <div class="state-title">A stranger did<br><em>something kind.</em></div>
       <div class="state-sub">Want to send a thank you tip?<br>100% goes to the finder.</div>
 
-      <div id="payout-pill" class="payout-pill" style="display:none"></div>
-
       <div class="tip-amounts">
         <button class="tip-btn" data-amt="5"  onclick="selectTip('5')">$5</button>
         <button class="tip-btn selected" data-amt="10" onclick="selectTip('10')">$10</button>
         <button class="tip-btn" data-amt="20" onclick="selectTip('20')">$20</button>
       </div>
 
-      <div class="card-element-wrap">
-        <div id="card-element"></div>
+      <!-- Direct pay button (shown when finder has payout info) -->
+      <div id="direct-pay-section" style="display:none">
+        <a id="direct-pay-btn" class="direct-pay-btn" target="_blank" rel="noopener">Send $10 via Venmo</a>
+        <span class="skip-link" onclick="showCardForm()">Pay with card instead</span>
       </div>
-      <div class="card-error" id="card-error"></div>
 
-      <button class="btn-primary" id="pay-btn" onclick="submitTip()">Pay $10 →</button>
+      <!-- Stripe card form (hidden when direct pay is available) -->
+      <div id="card-pay-section">
+        <div class="card-element-wrap">
+          <div id="card-element"></div>
+        </div>
+        <div class="card-error" id="card-error"></div>
+        <button class="btn-primary" id="pay-btn" onclick="submitTip()">Pay $10 →</button>
+      </div>
+
       <span class="skip-link" onclick="skipTip()">Skip — close without tipping</span>
     </div>
 
@@ -339,6 +372,7 @@
         b.classList.toggle('selected', b.dataset.amt === amt)
       );
       document.getElementById('pay-btn').textContent = `Pay $${amt} →`;
+      updateDirectPayBtn();
     }
 
     // ── Init Stripe card element ──
@@ -364,15 +398,23 @@
     // ── "Yes, got it back" ──
     async function handleYes() {
       if (itemData?.finder_item_id) {
-        // Show tip flow
-        if (itemData.finder_payout_handle && itemData.finder_payout_app) {
-          const pill = document.getElementById('payout-pill');
-          const appLabel = { venmo: 'Venmo', paypal: 'PayPal', cashapp: 'Cash App', zelle: 'Zelle' }[itemData.finder_payout_app] || itemData.finder_payout_app;
-          pill.innerHTML = `Tip goes to <strong>${esc(appLabel)} ${esc(itemData.finder_payout_handle)}</strong>`;
-          pill.style.display = 'block';
-        }
+        const app = itemData.finder_payout_app;
+        const handle = itemData.finder_payout_handle;
+        const hasDirectPay = app && handle && ['venmo', 'paypal', 'cashapp'].includes(app);
+
         showState('tip');
-        mountCard();
+
+        if (hasDirectPay) {
+          // Show direct pay button, hide card form
+          document.getElementById('direct-pay-section').style.display = 'block';
+          document.getElementById('card-pay-section').style.display = 'none';
+          updateDirectPayBtn();
+        } else {
+          // No payout info or unsupported app — show card form
+          document.getElementById('direct-pay-section').style.display = 'none';
+          document.getElementById('card-pay-section').style.display = 'block';
+          mountCard();
+        }
       } else {
         // No finder linked — just close
         const btn = document.querySelector('#state-question .btn-primary');
@@ -394,7 +436,68 @@
       showState('notyet');
     }
 
-    // ── Submit tip + close ──
+    // ── Direct pay deep link ──
+    function updateDirectPayBtn() {
+      const app = itemData?.finder_payout_app;
+      const handle = itemData?.finder_payout_handle;
+      if (!app || !handle) return;
+
+      const amt = selectedTipAmt;
+      const labels = { venmo: 'Venmo', paypal: 'PayPal', cashapp: 'Cash App' };
+      let clean = handle.replace(/^[@$]/, '');
+
+      let href;
+      const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+      if (app === 'venmo') {
+        if (isMobile) {
+          const note = encodeURIComponent('LOFO tip — thank you!');
+          href = `venmo://paycharge?txn=pay&recipients=${clean}&amount=${amt}.00&note=${note}`;
+        } else {
+          href = `https://venmo.com/u/${clean}`;
+        }
+      } else if (app === 'paypal') {
+        href = `https://paypal.me/${clean}/${amt}`;
+      } else if (app === 'cashapp') {
+        href = `https://cash.app/$${clean}/${amt}`;
+      }
+
+      const btn = document.getElementById('direct-pay-btn');
+      btn.href = href || '#';
+      btn.className = `direct-pay-btn ${app}`;
+      btn.innerHTML = `<span>Send $${amt} via ${esc(labels[app] || app)}<span class="direct-pay-handle">to ${esc(handle)}</span></span><span style="opacity:0.7">→</span>`;
+      btn.onclick = function() { recordDirectTip(amt); };
+    }
+
+    async function recordDirectTip(amt) {
+      // Record tip intent (fire-and-forget analytics)
+      try {
+        await fetch(`${API}/tip/record-direct`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            finder_item_id: itemData.finder_item_id,
+            loser_item_id: loserItemId,
+            amount_cents: parseInt(amt) * 100,
+            method: itemData.finder_payout_app,
+          }),
+        });
+      } catch (_) { /* analytics — don't block */ }
+
+      // Close the report after a brief delay (user is switching apps)
+      setTimeout(async () => {
+        document.getElementById('tip-display').textContent = `$${amt}`;
+        const ok = await doConfirm(parseInt(amt) * 100);
+        showState(ok ? 'tipped' : 'done');
+      }, 500);
+    }
+
+    function showCardForm() {
+      document.getElementById('direct-pay-section').style.display = 'none';
+      document.getElementById('card-pay-section').style.display = 'block';
+      mountCard();
+    }
+
+    // ── Submit tip + close (Stripe card) ──
     async function submitTip() {
       if (!cardEl) return;
       const amtCents = parseInt(selectedTipAmt) * 100;

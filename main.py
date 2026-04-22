@@ -493,6 +493,13 @@ class TipCreateRequest(BaseModel):
     amount_cents: int
 
 
+class TipRecordDirectRequest(BaseModel):
+    finder_item_id: uuid.UUID
+    loser_item_id: uuid.UUID
+    amount_cents: int
+    method: str  # venmo | paypal | cashapp
+
+
 class OtpSendRequest(BaseModel):
     phone: str
 
@@ -1970,14 +1977,49 @@ def create_tip_payment_intent(body: TipCreateRequest):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO tips (finder_item_id, loser_item_id, amount_cents, stripe_payment_intent_id)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO tips (finder_item_id, loser_item_id, amount_cents, stripe_payment_intent_id, method)
+                VALUES (%s, %s, %s, %s, 'stripe')
                 """,
                 (str(body.finder_item_id), str(body.loser_item_id), body.amount_cents, intent.id),
             )
         conn.commit()
 
     return {"client_secret": intent.client_secret, "payment_intent_id": intent.id}
+
+
+@app.get("/items/{item_id}/payout-info")
+def get_payout_info(item_id: uuid.UUID):
+    """Return finder's payout app and handle for deep-link tip flow."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT finder_payout_app, finder_payout_handle FROM items WHERE id = %s AND type = 'finder'",
+                (str(item_id),),
+            )
+            row = cur.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Finder item not found")
+    return {"payout_app": row["finder_payout_app"], "payout_handle": row["finder_payout_handle"]}
+
+
+@app.post("/tip/record-direct", status_code=201)
+def record_direct_tip(body: TipRecordDirectRequest):
+    """Record a direct peer-to-peer tip (Venmo/PayPal/Cash App deep link)."""
+    if body.method not in ("venmo", "paypal", "cashapp"):
+        raise HTTPException(status_code=422, detail="Invalid method")
+    if body.amount_cents < 50:
+        raise HTTPException(status_code=422, detail="Minimum tip amount is $0.50")
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO tips (finder_item_id, loser_item_id, amount_cents, method, status)
+                VALUES (%s, %s, %s, %s, 'direct')
+                """,
+                (str(body.finder_item_id), str(body.loser_item_id), body.amount_cents, body.method),
+            )
+        conn.commit()
+    return {"ok": True}
 
 
 @app.post("/stripe/webhook", status_code=200)
@@ -3388,7 +3430,7 @@ def admin_tips(period: str = "all", admin=Depends(_verify_admin)):
             cur.execute(f"""
                 SELECT
                     t.id, t.finder_item_id::text, t.loser_item_id::text,
-                    t.amount_cents, t.status, t.created_at::text,
+                    t.amount_cents, t.method, t.status, t.created_at::text,
                     fi.item_type AS finder_item_type,
                     li.item_type AS loser_item_type
                 FROM tips t

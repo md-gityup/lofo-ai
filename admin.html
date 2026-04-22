@@ -1207,19 +1207,21 @@ async function loadReunions() {
 function renderTipsHead() {
   document.getElementById('table-head').innerHTML = `<tr>
     ${th('Finder Item','finder_item_type')}${th('Loser Item','loser_item_type')}
-    ${th('Amount','amount_cents')}${th('Status','status')}${th('Date','created_at')}
+    ${th('Amount','amount_cents')}${th('Method','method')}${th('Status','status')}${th('Date','created_at')}
   </tr>`;
 }
 function renderTipsBody(data) {
   const tbody = document.getElementById('table-body');
   if (!data || data.length === 0) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">No tips found.</td></tr>`; return;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">No tips found.</td></tr>`; return;
   }
+  const methodLabel = m => ({ stripe: 'Card', venmo: 'Venmo', paypal: 'PayPal', cashapp: 'Cash App' }[m] || m || 'Card');
   tbody.innerHTML = data.map(t => `<tr>
     <td class="small">${esc(t.finder_item_type || t.finder_item_id?.substring(0,8) + '…' || '—')}</td>
     <td class="small">${esc(t.loser_item_type  || t.loser_item_id?.substring(0,8)  + '…' || '—')}</td>
     <td style="color:var(--green);font-weight:700">$${(t.amount_cents / 100).toFixed(2)}</td>
-    <td><span class="status-pill ${t.status === 'completed' ? 's-active' : 's-pending'}">${t.status}</span></td>
+    <td class="small">${esc(methodLabel(t.method))}</td>
+    <td><span class="status-pill ${t.status === 'completed' ? 's-active' : t.status === 'direct' ? 's-active' : 's-pending'}">${t.status}</span></td>
     <td class="muted">${timeAgo(t.created_at)}</td>
   </tr>`).join('');
 }
