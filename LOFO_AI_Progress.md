@@ -1,6 +1,71 @@
 # LOFO.AI — Build Progress & Context
 *Last updated: April 21, 2026 — Claim link added to match SMS, resolve screen polish. Build 16 on TestFlight.*
 
+## Session History — April 22, 2026 (Direct Tips + Camera Fix + Tip Flow Redesign — Build 19)
+
+**Context:** Tip payouts were stuck in LOFO's Stripe account with no automated way to get money to the finder. Also fixed a camera black screen bug, cleaned up dead code, and moved tipping to post-reunion only.
+
+**Direct tip payouts via payment app deep links:**
+- When the finder has a payout handle (Venmo/PayPal/Cash App), the tip screen now shows a branded deep link button ("Send $10 via Venmo") that opens the payment app with recipient + amount prefilled. Finder gets money instantly — LOFO never touches it.
+- Stripe card/Apple Pay remains as "Pay with card instead" fallback when finder has no payout info or loser doesn't have the app.
+- New `PaymentDeepLink.swift` helper — builds deep link URLs, provides brand colors (Venmo `#3D95CE`, PayPal `#0070BA`, Cash App `#00D632`), handles Venmo app-not-installed fallback to web URL.
+- New `GET /items/{id}/payout-info` endpoint — TipView fetches finder's payout app + handle on appear.
+- New `POST /tip/record-direct` endpoint — records direct peer-to-peer tips for analytics (status `'direct'`, no Stripe involvement).
+- Added `method` column to `tips` table (`stripe` | `venmo` | `paypal` | `cashapp`). Admin tips table shows the method.
+- Zelle removed from app picker (no deep link support). Only Venmo, PayPal, Cash App offered.
+- `resolve.html` updated with same deep link button pattern for web users.
+- `scenePhase` detection on iOS — when loser returns from payment app, shows "Thank you sent" confirmation.
+
+**Tip flow moved to post-reunion only:**
+- Removed TipView from the in-app confirmation flow. Flow now goes confirmed → OTP → reunion (no tip screen).
+- Tipping only happens through the resolve link sent in the follow-up SMS 2-3 days after reunion.
+- Reasoning: don't ask someone to pay before they have their item back. More honest UX, avoids double-tipping.
+- Removed resolve link from handoff SMS — it only comes in the follow-up SMS now.
+
+**Removed self_outreach dead code:**
+- `self_outreach` flag was always `false` in the iOS app — nobody could trigger it.
+- Removed from: `main.py` (request model + SMS branch), `Match.swift` (CoordinateRequest model), `ConfirmedOTPView.swift` (call site).
+- Handoff SMS is now always the relay path ("Reply here to coordinate the return").
+
+**Camera black screen fix:**
+- `FinderCameraView` was conditionally showing `CameraPreviewView` only when `cameraManager.permissionStatus == .granted`. But `CameraManager` is not `@Observable`, so SwiftUI never re-rendered when permission changed from `.unknown` to `.granted`.
+- Fix: always show `CameraPreviewView`. The preview layer is naturally black before the session starts, then shows the camera feed automatically once `startRunning()` completes.
+
+**OTP back navigation:**
+- All three OTP views (LoserOTPView, ConfirmedOTPView, OTPVerifyView) now show the phone number as a tappable rust-colored underlined link. Tap it to go back and fix a mistyped number.
+
+**TipView logo fix:**
+- Replaced navy circle LOFO logo with the rust-colored "L O F O" text mark used everywhere else.
+
+**School slug fix:**
+- `_get_school_public()` and `_get_school_with_hash()` were querying by `url_token` but all routes pass the slug. Fixed to query by `slug`. School portal now accessible at `lofoapp.com/school/sfws`.
+
+**Files changed:**
+- `main.py` — new endpoints (payout-info, record-direct), method column, self_outreach removal, school slug fix
+- `resolve.html` — direct pay button + brand colors
+- `admin.html` — method column in tips table
+- `../LOFO/LOFO/Helpers/PaymentDeepLink.swift` — new file
+- `../LOFO/LOFO/Services/APIClient.swift` — getPayoutInfo, recordDirectTip methods
+- `../LOFO/LOFO/Views/Shared/TipView.swift` — deep link CTA, logo fix, scenePhase return detection
+- `../LOFO/LOFO/Views/Loser/ResolveView.swift` — deep link CTA, scenePhase return detection
+- `../LOFO/LOFO/Views/Loser/ConfirmedOTPView.swift` — skip tip, remove self_outreach, phone link
+- `../LOFO/LOFO/Views/Loser/LoserOTPView.swift` — phone number back link
+- `../LOFO/LOFO/Views/Finder/OTPVerifyView.swift` — phone number back link
+- `../LOFO/LOFO/Views/Finder/FinderCameraView.swift` — camera black screen fix
+- `../LOFO/LOFO/Views/Finder/AllSetView.swift` — removed Zelle from picker
+- `../LOFO/LOFO/Models/Match.swift` — removed selfOutreach from CoordinateRequest
+- `../LOFO/LOFO.xcodeproj/project.pbxproj` — build 16 → 19
+
+**What's next:**
+- Archive build 19 to TestFlight
+- Test direct tip deep links on device (Venmo/PayPal/Cash App)
+- Test camera fix on device
+- Test resolve flow end-to-end (follow-up SMS → resolve link → tip via deep link)
+- High-value / ownership verification path end-to-end test
+- Switch Stripe keys from test to live before App Store submission
+
+---
+
 ## Session History — April 21, 2026 (Claim Link + Resolve UI — Build 16)
 
 **Context:** Loser match notification SMS had no tappable link — user had to manually open the app. Also polished resolve flow screens for consistency.

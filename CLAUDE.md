@@ -95,27 +95,31 @@ Requires `COHERE_API_KEY` in Railway env vars.
 
 ---
 
-## Active Status (as of April 21, 2026)
+## Active Status (as of April 22, 2026)
 - All 26 phases complete and deployed ✅
-- iOS app — build 1.0.0 (16) on TestFlight
+- iOS app — build 1.0.0 (19) on TestFlight
 - Twilio A2P 10DLC campaign `CM50255157d8c0965b92369a1f90b3ab2b` approved ✅
 - Full reunion flow validated end-to-end on web app AND on iOS TestFlight build 10 ✅
 - **Reject flow validated end-to-end** ✅ — universal link → app → verify claim → reject → SMS to loser
 - **Resolve flow validated end-to-end** ✅ — universal link → app → confirm → tip → Stripe PaymentSheet → close
 - **Real Stripe charge validated end-to-end** ✅ — $5 test charge succeeded, visible in Stripe Dashboard
+- **Direct tip payouts** — Venmo/PayPal/Cash App deep links on tip screen. Finder gets money instantly, LOFO never touches it. Stripe card/Apple Pay as fallback.
+- **Tip flow is post-reunion only** — no in-app tip at confirmation. Tipping happens via resolve link in follow-up SMS 2-3 days after reunion.
 - Stripe iOS SDK (`StripePaymentSheet` via `stripe-ios-spm` v24.25.0) linked as SPM dependency. Uses `merchant.ai.lofo` for Apple Pay.
-- Universal Links working on device — Build 16 includes Stripe SDK + `CODE_SIGN_ENTITLEMENTS` + Associated Domains.
+- Universal Links working on device — Build 16+ includes Stripe SDK + `CODE_SIGN_ENTITLEMENTS` + Associated Domains.
 - App-link fallback page (`app-link.html`) — browser requests to app-only links (e.g. reject, claim) get a branded "open in app" page instead of raw JSON.
 - Match notification SMS includes `https://lofoapp.com/claim/{id}` universal link — opens app to waiting/match screen.
+- School portal live at `lofoapp.com/school/{slug}` (e.g. `lofoapp.com/school/sfws`).
+- `self_outreach` code path removed — all handoffs use relay SMS.
 
 ---
 
 ## What's Pending / Known Issues
+- Test direct tip deep links on device (Venmo/PayPal/Cash App)
 - High-value / ownership verification path not yet tested end-to-end (web or iOS)
 - Switch Stripe keys from test (`pk_test_*`) to live before App Store submission
 - Configure `STRIPE_WEBHOOK_SECRET` in Railway for production webhook signature verification
 - Re-embed all items after any matching engine changes (use "Re-embed All →" in admin Debug tab)
-- Stripe Connect redirects still use `_APP_URL` (lower priority)
 
 ---
 
