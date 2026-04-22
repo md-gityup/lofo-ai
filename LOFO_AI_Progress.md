@@ -1,5 +1,34 @@
 # LOFO.AI — Build Progress & Context
-*Last updated: April 21, 2026 — SMS copy cleaned up, UI polished, app-link fallback page added. Build 15 ready for TestFlight.*
+*Last updated: April 21, 2026 — Claim link added to match SMS, resolve screen polish. Build 16 on TestFlight.*
+
+## Session History — April 21, 2026 (Claim Link + Resolve UI — Build 16)
+
+**Context:** Loser match notification SMS had no tappable link — user had to manually open the app. Also polished resolve flow screens for consistency.
+
+**Claim link in match SMS:**
+- Loser notification SQL now returns `l.id AS loser_id`
+- SMS body changed from "Open the LOFO app to claim it" → "Tap to check if it's yours: https://lofoapp.com/claim/{loser_id}"
+- Added `/claim/*` to AASA universal link paths
+- New `/claim/{loser_id}` GET endpoint — serves `app-link.html` fallback for browsers
+- iOS `handleUniversalLink` handles `/claim` → navigates to `.waiting` (match carousel screen)
+
+**Resolve screen polish:**
+- "Did you get your wallet back?" screen — doubled LOFO logo top padding (40→80), added 40pt bottom padding
+- "Say Thank You" tip screen — doubled logo top padding (20→40), added 20pt bottom padding
+- Added LOFO logo mark to 3 state screens that were missing it: "Already resolved", error, and "Report closed" — logo pinned at top, content centered below
+
+**Files changed:**
+- `main.py` — claim link SMS, AASA paths, `/claim/{id}` route
+- `../LOFO/LOFO/LOFOApp.swift` — handle `/claim` universal link
+- `../LOFO/LOFO/Views/Loser/ResolveView.swift` — logo padding + logo on state screens
+- `../LOFO/LOFO.xcodeproj/project.pbxproj` — build 15 → 16
+
+**What's next:**
+- Test claim link end-to-end (submit finder item, verify loser gets SMS with link, tap link opens app to match)
+- High-value / ownership verification path end-to-end test
+- Switch Stripe keys from test to live before App Store submission
+
+---
 
 ## Session History — April 21, 2026 (SMS Copy + UI Polish — Build 15)
 
